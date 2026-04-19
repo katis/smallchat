@@ -4,6 +4,8 @@ pharo/
 *.changes
 *.sources
 PharoDebug.log
+# Fuel dumps from SUnit runs on failing tests
+*.fuel
 
 # macOS
 .DS_Store
