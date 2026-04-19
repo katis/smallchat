@@ -22,12 +22,44 @@ SmallChatLMCompletionsClientTest >> stubRespondingWith: aString [
 ]
 
 { #category : 'tests' }
+SmallChatLMCompletionsClientTest >> testCompleteLeavesThinkingNilWhenNoTags [
+	| stub client result |
+	stub := self stubRespondingWith: '{"choices":[{"text":"plain answer<|im_end|>"}]}'.
+	client := self clientWithStub: stub.
+	result := client complete: (SmallChatLMConversation new addUser: 'hi'; yourself).
+	self assert: result thinking isNil.
+	self assert: result content equals: 'plain answer'
+]
+
+{ #category : 'tests' }
+SmallChatLMCompletionsClientTest >> testCompletePassesThroughMalformedThinking [
+	| stub client result |
+	stub := self stubRespondingWith: '{"choices":[{"text":"<think>oops<|im_end|>"}]}'.
+	client := self clientWithStub: stub.
+	result := client complete: (SmallChatLMConversation new addUser: 'hi'; yourself).
+	self assert: result thinking isNil.
+	self assert: result content equals: '<think>oops'
+]
+
+{ #category : 'tests' }
 SmallChatLMCompletionsClientTest >> testCompletePostsToCompletionsEndpoint [
 	| stub client |
 	stub := self stubRespondingWith: '{"choices":[{"text":"ok"}]}'.
 	client := self clientWithStub: stub.
 	client complete: (SmallChatLMConversation new addUser: 'hi'; yourself).
 	self assert: stub lastUrl equals: 'http://localhost:1234/v1/completions'
+]
+
+{ #category : 'tests' }
+SmallChatLMCompletionsClientTest >> testCompletePreservesMultiLineThinking [
+	| stub client result raw |
+	raw := String streamContents: [ :s |
+		s nextPutAll: '{"choices":[{"text":"<think>line one\nline two</think>answer<|im_end|>"}]}' ].
+	stub := self stubRespondingWith: raw.
+	client := self clientWithStub: stub.
+	result := client complete: (SmallChatLMConversation new addUser: 'hi'; yourself).
+	self assert: result thinking equals: (String streamContents: [ :s | s nextPutAll: 'line one'; nextPut: Character lf; nextPutAll: 'line two' ]).
+	self assert: result content equals: 'answer'
 ]
 
 { #category : 'tests' }
@@ -54,4 +86,15 @@ SmallChatLMCompletionsClientTest >> testCompleteReturnsAssistantMessageStripping
 	result := client complete: (SmallChatLMConversation new addUser: 'hi'; yourself).
 	self assert: result role equals: #assistant.
 	self assert: result content equals: 'hi there'
+]
+
+{ #category : 'tests' }
+SmallChatLMCompletionsClientTest >> testCompleteSeparatesThinkingFromContent [
+	| stub client result |
+	stub := self stubRespondingWith: '{"choices":[{"text":"<think>reasoning</think>answer<|im_end|>"}]}'.
+	client := self clientWithStub: stub.
+	result := client complete: (SmallChatLMConversation new addUser: 'hi'; yourself).
+	self assert: result role equals: #assistant.
+	self assert: result thinking equals: 'reasoning'.
+	self assert: result content equals: 'answer'
 ]

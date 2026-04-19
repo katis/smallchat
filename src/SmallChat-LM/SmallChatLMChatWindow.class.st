@@ -1,7 +1,9 @@
 "
-Minimal Spec2 chat window on top of SmallChatLMSession. A read-only
-transcript pane, a single-line input, and a Send button. All real
-behaviour lives in SmallChatLMSession; this class wires Spec2 to it.
+Spec2 chat window on top of SmallChatLMSession. Renders each turn as
+a SmallChatLMMessagePresenter stacked in a dynamic pane, plus a
+single-line input and a Send button. Per-message presenters are cached
+by message identity so the thinking-section fold state (closed by
+default) survives transcript refreshes.
 
 Usage (from an evaluate call or workspace):
     UIManager default defer: [ SmallChatLMChatWindow new open ]
@@ -14,10 +16,11 @@ Class {
 	#name : 'SmallChatLMChatWindow',
 	#superclass : 'SpPresenter',
 	#instVars : [
-		'transcript',
 		'input',
 		'sendButton',
-		'session'
+		'session',
+		'messagesPane',
+		'presentersByMessage'
 	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
@@ -38,7 +41,7 @@ SmallChatLMChatWindow class >> menuCommandOn: aBuilder [
 SmallChatLMChatWindow >> defaultLayout [
 	^ SpBoxLayout newTopToBottom
 		spacing: 4;
-		add: transcript;
+		add: messagesPane;
 		add: (SpBoxLayout newLeftToRight
 			spacing: 4;
 			add: input;
@@ -50,10 +53,10 @@ SmallChatLMChatWindow >> defaultLayout [
 
 { #category : 'initialization' }
 SmallChatLMChatWindow >> initializePresenters [
-	session := SmallChatLMSession new.
-	transcript := self newText
-		beNotEditable;
-		yourself.
+	session isNil ifTrue: [ session := SmallChatLMSession new ].
+	presentersByMessage := IdentityDictionary new.
+	messagesPane := self newPresenter.
+	messagesPane layout: SpBoxLayout newTopToBottom.
 	input := self newTextInput
 		placeholder: 'message';
 		yourself.
@@ -70,17 +73,48 @@ SmallChatLMChatWindow >> initializeWindow: aWindow [
 		initialExtent: 640 @ 480
 ]
 
+{ #category : 'accessing' }
+SmallChatLMChatWindow >> input [
+	^ input
+]
+
+{ #category : 'accessing' }
+SmallChatLMChatWindow >> messagePresenters [
+	^ session conversation messages collect: [ :m | self presenterFor: m ]
+]
+
+{ #category : 'private' }
+SmallChatLMChatWindow >> presenterFor: aMessage [
+	^ presentersByMessage
+		at: aMessage
+		ifAbsentPut: [ SmallChatLMMessagePresenter on: aMessage ]
+]
+
+{ #category : 'private' }
+SmallChatLMChatWindow >> refreshMessages [
+	| layout |
+	layout := SpBoxLayout newTopToBottom.
+	self messagePresenters do: [ :p | layout add: p expand: false ].
+	messagesPane layout: layout
+]
+
 { #category : 'private' }
 SmallChatLMChatWindow >> sendFromInput [
 	| text |
 	text := input text.
 	(text isNil or: [ text isEmpty ]) ifTrue: [ ^ self ].
 	session sendUserInput: text.
-	transcript text: session transcriptText.
+	self refreshMessages.
 	input text: ''
 ]
 
 { #category : 'accessing' }
 SmallChatLMChatWindow >> session [
 	^ session
+]
+
+{ #category : 'accessing' }
+SmallChatLMChatWindow >> session: aSession [
+	session := aSession.
+	presentersByMessage isNil ifFalse: [ self refreshMessages ]
 ]

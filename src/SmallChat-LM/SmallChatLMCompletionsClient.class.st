@@ -39,14 +39,17 @@ SmallChatLMCompletionsClient >> baseUrl: aString [
 
 { #category : 'chat' }
 SmallChatLMCompletionsClient >> complete: aConversation [
-	| requestBody responseBody parsed text |
+	| requestBody responseBody parsed text stripped split |
 	requestBody := STONJSON toString: (self requestBodyFor: aConversation).
 	responseBody := httpClient post: requestBody to: self completionsUrl.
 	parsed := STONJSON fromString: responseBody.
 	text := self extractCompletionText: parsed.
+	stripped := self stripTrailingStopToken: text.
+	split := self splitThinkingAndContent: stripped.
 	^ SmallChatLMMessage
 		role: #assistant
-		content: (self stripTrailingStopToken: text)
+		content: (split at: 2)
+		thinking: (split at: 1)
 ]
 
 { #category : 'private' }
@@ -110,6 +113,25 @@ SmallChatLMCompletionsClient >> requestBodyFor: aConversation [
 		at: 'temperature' put: temperature;
 		at: 'stream' put: false;
 		yourself
+]
+
+{ #category : 'private' }
+SmallChatLMCompletionsClient >> splitThinkingAndContent: aString [
+	"Answer { thinkingOrNil. content } parsed from aString. Handles the
+	 Qwen3 convention of a single <think>...</think> block prefixing the
+	 visible answer. If the string does not start with <think> (ignoring
+	 leading whitespace) or the closing tag is missing, answer
+	 { nil. aString } so malformed output passes through intact."
+	| trimmed openTag closeTag closeIndex thinking rest |
+	openTag := '<think>'.
+	closeTag := '</think>'.
+	trimmed := aString trimLeft.
+	(trimmed beginsWith: openTag) ifFalse: [ ^ { nil. aString } ].
+	closeIndex := trimmed indexOfSubCollection: closeTag startingAt: openTag size + 1.
+	closeIndex = 0 ifTrue: [ ^ { nil. aString } ].
+	thinking := (trimmed copyFrom: openTag size + 1 to: closeIndex - 1) trim.
+	rest := (trimmed copyFrom: closeIndex + closeTag size to: trimmed size) trimLeft.
+	^ { thinking. rest }
 ]
 
 { #category : 'private' }

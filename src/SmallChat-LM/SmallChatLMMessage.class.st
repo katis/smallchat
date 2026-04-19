@@ -9,7 +9,8 @@ Class {
 	#superclass : 'Object',
 	#instVars : [
 		'role',
-		'content'
+		'content',
+		'thinking'
 	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
@@ -20,11 +21,18 @@ SmallChatLMMessage class >> role: aSymbol content: aString [
 	^ self new role: aSymbol; content: aString; yourself
 ]
 
+{ #category : 'instance creation' }
+SmallChatLMMessage class >> role: aSymbol content: aString thinking: aThinkingOrNil [
+	^ self new role: aSymbol; content: aString; thinking: aThinkingOrNil; yourself
+]
+
 { #category : 'comparing' }
 SmallChatLMMessage >> = anObject [
 	self == anObject ifTrue: [ ^ true ].
 	self class = anObject class ifFalse: [ ^ false ].
-	^ role = anObject role and: [ content = anObject content ]
+	^ role = anObject role
+		and: [ content = anObject content
+		and: [ thinking = anObject thinking ] ]
 ]
 
 { #category : 'accessing' }
@@ -39,7 +47,7 @@ SmallChatLMMessage >> content: aString [
 
 { #category : 'comparing' }
 SmallChatLMMessage >> hash [
-	^ role hash bitXor: content hash
+	^ (role hash bitXor: content hash) bitXor: thinking hash
 ]
 
 { #category : 'printing' }
@@ -61,4 +69,14 @@ SmallChatLMMessage >> role [
 { #category : 'accessing' }
 SmallChatLMMessage >> role: aSymbol [
 	role := aSymbol
+]
+
+{ #category : 'accessing' }
+SmallChatLMMessage >> thinking [
+	^ thinking
+]
+
+{ #category : 'accessing' }
+SmallChatLMMessage >> thinking: aStringOrNil [
+	thinking := aStringOrNil
 ]
