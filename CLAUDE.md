@@ -11,6 +11,39 @@ can inspect and rewrite classes/methods in the same image it is running
 in. The UI, agent loop, and model client are all in-image; `src/` is just
 the on-disk source of truth.
 
+## Development methodology: Red-Green TDD
+
+All behaviour changes in this repo follow strict Red-Green-Refactor TDD.
+No production code is written without a failing test that demands it.
+
+1. **Red** — write exactly one failing test in the matching
+   `SmallChat-Tests` package that describes the next slice of behaviour.
+   Run `just test` and confirm it fails for the *right* reason (missing
+   method / wrong result, not a syntax error or missing class you forgot
+   to create). Do not write more of the test than is needed to fail.
+2. **Green** — write the smallest amount of production code in the
+   `SmallChat` package (or a sibling) that makes the failing test pass.
+   "Smallest" means smallest, even if it looks silly (return a constant,
+   hard-code the expected value). Run `just test` and confirm the suite
+   is green before touching anything else.
+3. **Refactor** — with the suite green, clean up duplication, rename,
+   extract, or restructure. Run `just test` after each refactor step.
+   Never mix refactor edits with behaviour changes; if a refactor
+   requires a new test, stop and go back to Red.
+
+Rules that follow from this:
+
+- One failing test at a time. Never leave the suite with more than one
+  red test.
+- Never commit on Red. Commits — and therefore any Iceberg
+  "Commit…" action — happen only when `just test` is green.
+- `just lint` must also be clean before committing; treat Critiques
+  findings like compile errors.
+- When a bug is reported, reproduce it as a failing test *first*, then
+  fix it. The regression test is the deliverable, not the patch.
+- If you are tempted to write production code "to see if it works",
+  that's a signal the next test hasn't been written yet. Write the test.
+
 ## Commands
 
 All common tasks go through `just` (see `justfile`):
