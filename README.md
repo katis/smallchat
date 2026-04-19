@@ -1,20 +1,35 @@
 # smallchat
 
 A Pharo-based agentic tool that runs against a local model. smallchat runs
-as a standalone Pharo image with its own UI, and the agent loop is driven
+as a standalone Pharo image with its own UI; the agent loop is driven
 from inside the image.
+
+The development environment is itself an in-image MCP server: Claude
+Code talks to a long-lived Pharo image, compiles code via `evaluate`,
+runs SUnit via `run_tests`, and commits via Iceberg's API. The on-disk
+Tonel tree under `src/` is the source of truth; Iceberg writes it back
+on every commit.
 
 ## Layout
 
 ```
 smallchat/
-├── bin/smallchat          GUI launcher for the materialised image
-├── install.sh             one-time bootstrap (downloads VM, builds image)
-├── lib/load-packages.st   headless loader: Iceberg-registers this clone + loads baseline
-├── pharo/                 VM + working image live here (gitignored)
-└── src/                   Tonel source tree (source of truth, managed by Iceberg)
+├── .mcp.json                project-scoped MCP registration for Claude Code
+├── bin/
+│   ├── smallchat            GUI launcher (verifier / read-only inspection)
+│   └── smallchat-mcp        MCP launcher (Claude Code -> long-lived dev image)
+├── install.sh               one-time bootstrap (downloads VM, materialises image)
+├── justfile                 task runner; see `just --list`
+├── lib/
+│   ├── load-packages.st     headless loader; honours SMALLCHAT_MCP_MODE
+│   ├── iceberg-setup.st     dev-image only: registers smallchat repo with Iceberg
+│   └── lint.st              headless ReCriticEngine runner used by `just lint`
+├── pharo/                   VM + working image live here (gitignored)
+└── src/                     Tonel source tree (source of truth)
     ├── BaselineOfSmallChat/
-    └── SmallChat/
+    ├── SmallChat/
+    ├── SmallChat-Tests/
+    └── SmallChat-MCP/       MCP server (loaded only in the dev image)
 ```
 
 ## First-time setup
@@ -22,36 +37,52 @@ smallchat/
 ```sh
 git clone git@github.com:katis/smallchat.git
 cd smallchat
-./install.sh
+./install.sh                    # verifier image (just test / just lint)
+./install.sh --mcp --rebuild    # dev image (Claude Code via MCP)
 ```
 
-`install.sh` downloads the Pharo 13 VM into `./pharo/vm/`, clones the seed
-image into `./pharo/Pharo.image`, and runs `lib/load-packages.st` headlessly
-to register the local clone as an Iceberg repository and load the
-`BaselineOfSmallChat` baseline.
+The verifier image is what `just test` and `just lint` rebuild on every
+run. It loads only `SmallChat` + `SmallChat-Tests`, no MCP, no Iceberg.
 
-## Running
+The dev image additionally loads `SmallChat-MCP` and registers the
+working tree with Iceberg. It's the long-lived image Claude Code talks
+to.
+
+## Daily use
 
 ```sh
-./bin/smallchat
+just mcp                 # launch the dev image; Claude Code attaches via .mcp.json
+just test                # CI-equivalent: rebuild verifier image, run SUnit headlessly
+just lint                # CI-equivalent: rebuild verifier image, run Critiques headlessly
+just rebuild-mcp         # wipe and re-materialise the dev image
+just rebuild             # wipe and re-materialise the verifier image
 ```
 
-Opens the Pharo GUI. Code in `SmallChat-*` packages is tracked by Iceberg
-against this repo — edit in-image, commit via the Iceberg tool, push as
-normal.
+Inside Claude Code, use the `smallchat` MCP server's tools — `evaluate`,
+`run_tests`, `lint`, `status`, `commit` — to compose changes against
+the live dev image. Every commit goes through Iceberg and writes Tonel
+files back to `src/` before creating the git commit. Run `just test`
+from a shell before committing to confirm the change also passes a
+fresh rebuild.
 
-## Rebuilding
+See `CLAUDE.md` for the development methodology (Red-Green TDD), the
+MCP tool surface, hard constraints inherited from akkuna, and Iceberg
+gotchas under Pharo 13.
 
-If the image gets into a bad state, blow it away and re-materialise:
+## Rebuilding from scratch
+
+If the image gets into a bad state, blow it away:
 
 ```sh
-rm -rf pharo/Pharo.image pharo/Pharo.changes
-./install.sh
+just clean
+./install.sh --mcp --rebuild   # or `./install.sh` for the verifier image
 ```
 
-The downloaded VM is preserved; only the image is rebuilt.
+If the VM itself is corrupted, delete `pharo/` entirely and re-run
+`./install.sh` — the download step repopulates it.
 
 ## Status
 
-No features yet — just the bootstrap skeleton. The plan is for the agent
-loop, local-model client, and chat UI to live in `src/SmallChat/`.
+Skeletal. `SmallChatApp` has a `version` and a `tagline` accessor so
+the baseline has something non-empty to load. The agent loop,
+local-model client, and chat UI will hang off it as they're built.
