@@ -67,7 +67,7 @@ Metacello new
 	load.
 
 "3. Strip the persistent Welcome window so GUI launches don't beachball
- on the first click (same quirk akkuna hits). Safe to do headlessly."
+ on the first click. Safe to do headlessly."
 SystemWindow allSubInstancesDo: [ :w |
 	w title = 'Welcome' ifTrue: [ w delete ] ].
 (Smalltalk globals includesKey: #StWelcomeBrowser) ifTrue: [

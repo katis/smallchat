@@ -1,9 +1,8 @@
 # smallchat
 
-A Pharo-based agentic tool that runs against a local model. Unlike
-[akkuna](https://github.com/katis/akkuna), smallchat is **not** an MCP server:
-it runs as a standalone Pharo image with its own UI, and the agent loop is
-driven from inside the image.
+A Pharo-based agentic tool that runs against a local model. smallchat runs
+as a standalone Pharo image with its own UI, and the agent loop is driven
+from inside the image.
 
 ## Layout
 
