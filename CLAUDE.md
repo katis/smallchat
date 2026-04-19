@@ -8,8 +8,29 @@ smallchat is a self-modifying agent that lives inside a Pharo 13 Smalltalk
 image. It connects to a local LM Studio server (target model:
 `qwen3.6-35b-a3b`) and exposes Smalltalk-native tool calling so the agent
 can inspect and rewrite classes/methods in the same image it is running
-in. The UI, agent loop, and model client are all in-image; `src/` is just
-the on-disk source of truth.
+in. The UI, agent loop, and model client are all in-image; `src/` is the
+on-disk source of truth.
+
+## Dev vs runtime image
+
+Two distinct contexts, which must not be conflated:
+
+- **Development image** (this workflow): a disposable Pharo image used
+  only for running tests and the linter. Rebuilt from `src/` via
+  Metacello on every `just test` / `just lint`. Claude edits Tonel files
+  directly on disk and commits via Git. **Iceberg is not configured in
+  the dev image.** Nothing you do inside the dev image survives the next
+  test run.
+- **Distributable image** (end-user artifact, not yet built): the
+  shipped Pharo image has Iceberg configured and ready, because
+  in-image browsing, diffing, and managing agent-generated code is a
+  product feature of smallchat. That setup lives in a build step that
+  does not exist yet — it will take the `just build` slot when it
+  arrives.
+
+Consequence for Claude: everything below about the development loop is
+about the dev image. Iceberg and the distributable image are out of
+scope unless a task explicitly asks for them.
 
 ## Development methodology: Red-Green TDD
 
@@ -35,8 +56,8 @@ Rules that follow from this:
 
 - One failing test at a time. Never leave the suite with more than one
   red test.
-- Never commit on Red. Commits — and therefore any Iceberg
-  "Commit…" action — happen only when `just test` is green.
+- Never commit on Red. `git commit` happens only when `just test` is
+  green.
 - `just lint` must also be clean before committing; treat Critiques
   findings like compile errors.
 - When a bug is reported, reproduce it as a failing test *first*, then
@@ -55,7 +76,7 @@ just run        # open the GUI
 just test       # headless SUnit over every SmallChat-* package
 just lint       # headless Critiques (ReCriticEngine) over every SmallChat-* package
 just clean      # drop the working image, keep VM + seed
-just build      # unimplemented on purpose — Pharo has no separate build step
+just build      # reserved for the future distributable-image recipe (not implemented)
 ```
 
 Test runner uses Pharo's built-in `test` CLI handler with
@@ -64,33 +85,35 @@ Lint runs `lib/lint.st`, which iterates every `SmallChat*` package
 through `ReCriticEngine critiquesOf:` and calls `Smalltalk exitFailure`
 (exit 1) if anything is flagged.
 
-Both recipes execute against the already-materialised image, so if you
-add a new package to the baseline you must `just rebuild` before `just
-test` / `just lint` will see it.
+Both `just test` and `just lint` depend on `rebuild`, so the image
+always reflects the current `src/` tree — there is no separate "remember
+to rebuild" step. The dev image is wiped and re-materialised from the
+seed before every test or lint run.
 
 ## How the repo maps to the image
 
-The source of truth is the **Tonel tree under `src/`**, not the image.
-`pharo/` is gitignored and per-clone.
+The source of truth is the **Tonel tree under `src/`**. The dev image
+under `pharo/` is a disposable build artifact and is gitignored.
 
-1. `install.sh` downloads the VM into `pharo/vm/`, copies the seed image
-   into `pharo/seed/`, materialises a working `pharo/Pharo.image`, then
-   runs `lib/load-packages.st` headlessly with `SMALLCHAT_REPO` set to
-   the repo root.
-2. `lib/load-packages.st` (a) registers the clone as an Iceberg
-   repository with `subdirectory: 'src'`, (b) Metacello-loads
-   `BaselineOfSmallChat` from `tonel://<repo>/src`, (c) closes the
-   Welcome window so the first GUI click doesn't beachball.
-3. Thereafter, you edit classes **in-image** via the Pharo tools. Iceberg
-   tracks the `SmallChat-*` packages against this repo; commits and
-   pushes happen through the Iceberg UI, which rewrites the Tonel files
-   under `src/`.
+1. Edit Tonel files directly under `src/`. This includes `.class.st`,
+   `.package.st`, and baseline files — hand-edits are the primary
+   workflow.
+2. Run `just test`. The recipe first runs `rebuild`, which invokes
+   `install.sh --rebuild`: wipe `pharo/Pharo.image`, copy the seed into
+   place, then run `lib/load-packages.st` headlessly. That loader
+   Metacello-loads `BaselineOfSmallChat` from `tonel://<repo>/src` and
+   closes the Welcome window. Once the load is saved, the SUnit runner
+   executes against the fresh image.
+3. Commit via plain `git add` / `git commit`. There is no Iceberg step
+   in the dev loop.
 
-Consequence: do not hand-edit `.class.st` / `.package.st` files under
-`src/` unless you know what you're doing. Make changes in the image and
-let Iceberg serialise them. If the image diverges badly, delete
-`pharo/Pharo.image` + `pharo/Pharo.changes` and re-run `./install.sh`;
-the VM and seed are preserved.
+Consequence: **never edit inside the dev image and expect it to
+persist.** Every `just test` replaces the image wholesale. If you need
+to inspect something interactively via `just run`, treat that session as
+read-only — any change that matters must go back into `src/`.
+
+If the VM or seed ever gets corrupted, delete `pharo/` entirely and
+re-run `./install.sh`; the download step repopulates both.
 
 ## Baseline layout
 
@@ -104,14 +127,12 @@ the VM and seed are preserved.
   packages against the regex `SmallChat.*`, so any new test package
   whose name starts with `SmallChat-` will be picked up automatically.
 
-## Pharo/Iceberg gotchas
+## Pharo gotchas
 
 - `install.sh` is idempotent. The VM and seed are only downloaded if
   missing; the working image is only rebuilt if absent or `--rebuild` is
-  passed.
-- The Iceberg registration in `load-packages.st` is wrapped in `on:do:`
-  because scripting selectors vary across Iceberg versions — a failure
-  there is non-fatal and the Metacello load still runs; register the
-  clone manually via "Import from existing clone" if it does fail.
+  passed. `just test` and `just lint` both trigger `--rebuild`.
 - Headless loads must use `--save` (as in `install.sh`); otherwise the
   loaded baseline is discarded when the VM exits.
+- The dev image is disposable. Nothing inside it survives the next
+  `just test` run — if a change must persist, it belongs in `src/`.

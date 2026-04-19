@@ -3,8 +3,8 @@
 #
 # One-time setup for a fresh clone. Downloads a Pharo 13 VM + seed image
 # into ./pharo/ (gitignored), then runs lib/load-packages.st headlessly
-# to register THIS clone as an Iceberg repository and load
-# BaselineOfSmallChat.
+# to Metacello-load BaselineOfSmallChat from the Tonel tree under src/
+# into a disposable development image.
 #
 # Safe to re-run: existing VM is reused; the image is rebuilt from the
 # seed if missing or if --rebuild is passed.

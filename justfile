@@ -24,15 +24,20 @@ run:
 clean:
     rm -f pharo/Pharo.image pharo/Pharo.changes
 
-# Unimplemented: Pharo has no separate build step (use `install` / `rebuild`).
+# Reserved for the future distributable-image build (load baseline into a
+# clean seed, configure Iceberg for end users, strip dev state, save as
+# a separate artifact). Not implemented yet — use `install` / `rebuild`
+# for the dev image.
 build:
-    @echo "unimplemented: build — use \`just install\` (first run) or \`just rebuild\` (from source)." >&2
+    @echo "unimplemented: build — reserved for the distributable-image recipe. Use \`just install\` or \`just rebuild\` for the dev image." >&2
     @exit 1
 
 # Run SUnit tests in every SmallChat-* package; exits non-zero on any failure or error.
-test *PATTERNS="SmallChat.*":
+# Depends on `rebuild` so the image always reflects the on-disk src/ tree.
+test *PATTERNS="SmallChat.*": rebuild
     {{pharo}} --headless {{image}} test --fail-on-failure --fail-on-error {{PATTERNS}}
 
 # Run the Critiques linter over every SmallChat-* package; exits non-zero on any critique.
-lint:
+# Depends on `rebuild` so the image always reflects the on-disk src/ tree.
+lint: rebuild
     {{pharo}} --headless {{image}} st --quit lib/lint.st
