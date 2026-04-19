@@ -3,12 +3,18 @@ Smoke test for the SmallChat baseline. Exists primarily so `just test`
 has something real to run; replace with genuine coverage as features land.
 "
 Class {
-	#name : #SmallChatAppTest,
-	#superclass : #TestCase,
-	#category : #'SmallChat-Tests'
+	#name : 'SmallChatAppTest',
+	#superclass : 'TestCase',
+	#category : 'SmallChat-Tests',
+	#package : 'SmallChat-Tests'
 }
 
-{ #category : #tests }
+{ #category : 'tests' }
+SmallChatAppTest >> testTaglineMatches [
+	self assert: SmallChatApp tagline equals: 'smallchat'
+]
+
+{ #category : 'tests' }
 SmallChatAppTest >> testVersionIsDeclared [
 	self
 		assert: SmallChatApp version isString;
