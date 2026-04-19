@@ -1,0 +1,27 @@
+#!/bin/bash
+# smallchat GUI launcher.
+#
+# Opens the materialised Pharo image for this clone. If the image is
+# missing, points you at install.sh. Uses `open -n` so LaunchServices
+# registers the window correctly on macOS (direct exec can beachball
+# the first click).
+set -euo pipefail
+
+REPO="$(cd "$(dirname "$0")/.." && pwd -P)"
+PHARO_DIR="$REPO/pharo"
+IMAGE="$PHARO_DIR/Pharo.image"
+APP="$PHARO_DIR/vm/Pharo.app"
+
+if [ ! -f "$IMAGE" ]; then
+    echo "No image at $IMAGE" >&2
+    echo "Run ./install.sh first." >&2
+    exit 1
+fi
+
+if [ ! -d "$APP" ]; then
+    echo "No VM at $APP" >&2
+    echo "Run ./install.sh first." >&2
+    exit 1
+fi
+
+exec open -n -a "$APP" --args "$IMAGE"

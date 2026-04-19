@@ -1,0 +1,12 @@
+# Pharo runtime artifacts -- the image is materialised locally per clone.
+pharo/
+*.image
+*.changes
+*.sources
+PharoDebug.log
+
+# macOS
+.DS_Store
+
+# Claude Code personal overrides
+.claude/settings.local.json
