@@ -4,7 +4,14 @@
 # One-time setup for a fresh clone. Downloads a Pharo 13 VM + seed image
 # into ./pharo/ (gitignored), then runs lib/load-packages.st headlessly
 # to Metacello-load BaselineOfSmallChat from the Tonel tree under src/
-# into a disposable development image.
+# into a development image.
+#
+# Two image flavours:
+#   default:        verifier image (used by `just test` and `just lint`).
+#                   No MCP, no Iceberg. Wiped and re-materialised every
+#                   test run.
+#   --mcp:          dev image (used by `just mcp` / Claude Code). Loads
+#                   SmallChat-MCP, registers Iceberg. Long-lived.
 #
 # Safe to re-run: existing VM is reused; the image is rebuilt from the
 # seed if missing or if --rebuild is passed.
@@ -19,11 +26,13 @@ CHANGES="$PHARO_DIR/Pharo.changes"
 LOAD_SCRIPT="$REPO/lib/load-packages.st"
 
 REBUILD=0
+MCP=0
 for arg in "$@"; do
     case "$arg" in
         --rebuild) REBUILD=1 ;;
+        --mcp)     MCP=1 ;;
         -h|--help)
-            sed -n '2,10p' "$0"; exit 0 ;;
+            sed -n '2,18p' "$0"; exit 0 ;;
         *) echo "Unknown arg: $arg" >&2; exit 1 ;;
     esac
 done
@@ -59,22 +68,47 @@ if [ "$REBUILD" -eq 1 ] || [ ! -f "$IMAGE" ]; then
         [ -f "$src" ] && cp "$src" "$PHARO_DIR/"
     done
 
-    echo "==> Loading SmallChat baseline (headless)"
-    (cd "$PHARO_DIR" && SMALLCHAT_REPO="$REPO" \
-        "$VM" --headless Pharo.image st --quit --save "$LOAD_SCRIPT")
+    if [ "$MCP" -eq 1 ]; then
+        echo "==> Loading SmallChat baseline (dev / MCP mode, headless)"
+        (cd "$PHARO_DIR" && env SMALLCHAT_REPO="$REPO" SMALLCHAT_MCP_MODE=1 \
+            "$VM" --headless Pharo.image st --quit --save "$LOAD_SCRIPT")
+    else
+        echo "==> Loading SmallChat baseline (verifier mode, headless)"
+        (cd "$PHARO_DIR" && env SMALLCHAT_REPO="$REPO" \
+            "$VM" --headless Pharo.image st --quit --save "$LOAD_SCRIPT")
+    fi
 else
     echo "==> Working image already present; pass --rebuild to recreate"
 fi
 
-cat <<EOF
+if [ "$MCP" -eq 1 ]; then
+    cat <<EOF
 
-==> Install complete.
+==> Install complete (dev / MCP mode).
+
+Launch the long-lived dev image (Claude Code talks to this):
+
+    just mcp        # or ./bin/smallchat-mcp directly
+
+Rebuild the dev image (drops ./pharo/Pharo.image):
+
+    just rebuild-mcp
+EOF
+else
+    cat <<EOF
+
+==> Install complete (verifier mode).
 
 Run the GUI:
 
     ./bin/smallchat
 
-To rebuild the image (keeps VM, drops ./pharo/Pharo.image):
+Rebuild the verifier image (keeps VM, drops ./pharo/Pharo.image):
 
     ./install.sh --rebuild
+
+Bring up the dev image with MCP + Iceberg loaded:
+
+    ./install.sh --mcp --rebuild
 EOF
+fi

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "smallchat": {
+      "command": "./bin/smallchat-mcp",
+      "args": [],
+      "env": {}
+    }
+  }
+}

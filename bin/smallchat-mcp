@@ -1,0 +1,43 @@
+#!/bin/bash
+# smallchat MCP launcher. Invoked by Claude Code via .mcp.json.
+#
+# GUI mode (default): launches Pharo.app via `open -n -a` so window
+# management is registered with macOS LaunchServices, then bridges
+# Claude Code's stdio to the long-lived image's TCP server (port number
+# written by SmallChatMCPTcpServer to pharo/mcp.port).
+#
+# Headless mode (SMALLCHAT_NO_GUI=1): bypasses TCP and runs the VM
+# headlessly with stdio attached. Used by smoke tests and CI.
+set -euo pipefail
+
+REPO="$(cd "$(dirname "$0")/.." && pwd -P)"
+PHARO_DIR="$REPO/pharo"
+VM_APP="$PHARO_DIR/vm/Pharo.app"
+VM="$VM_APP/Contents/MacOS/Pharo"
+IMAGE="$PHARO_DIR/Pharo.image"
+PORT_FILE="$PHARO_DIR/mcp.port"
+
+[ -x "$VM" ]    || { echo "[smallchat-mcp] VM missing; run ./install.sh --mcp" >&2; exit 1; }
+[ -f "$IMAGE" ] || { echo "[smallchat-mcp] image missing; run ./install.sh --mcp --rebuild" >&2; exit 1; }
+
+if [ "${SMALLCHAT_NO_GUI:-0}" = "1" ]; then
+    # Headless: stdio is the MCP transport. The `eval --no-quit '1'` keeps
+    # the VM alive while SmallChatMCPServer's reader pumps stdin.
+    exec "$VM" --headless "$IMAGE" eval --no-quit '1'
+fi
+
+if ! pgrep -f "$IMAGE" >/dev/null 2>&1; then
+    rm -f "$PORT_FILE"
+    open -n -a "$VM_APP" --args "$IMAGE"
+fi
+
+# Wait up to 20 s for the TCP server to write its port.
+for _ in $(seq 1 40); do
+    [ -s "$PORT_FILE" ] && break
+    sleep 0.5
+done
+[ -s "$PORT_FILE" ] || { echo "[smallchat-mcp] timed out waiting for $PORT_FILE" >&2; exit 1; }
+
+# BSD nc on macOS half-closes its send side on stdin EOF, which is what
+# Claude Code expects. Don't add `-N` -- macOS nc doesn't recognise it.
+exec nc 127.0.0.1 "$(cat "$PORT_FILE")"

@@ -9,16 +9,20 @@ Invoked by install.sh as:
     SMALLCHAT_REPO=/abs/path/to/clone \\
         pharo --headless Pharo.image st --quit --save lib/load-packages.st
 
-This script produces a *development* image used only for running tests
-and the linter. It is disposable: `just test` wipes it and re-runs this
-loader on every invocation, so anything in the image that didn't come
-from src/ is lost.
+Two modes, distinguished by SMALLCHAT_MCP_MODE:
 
-Iceberg is deliberately not touched here. In-image source control is a
-feature of the shipped (distributable) smallchat image, and is
-configured by a separate build step — not by this loader."
+- Unset (default): verifier image. Loads only the `default` group
+  (SmallChat + SmallChat-Tests). No MCP, no Iceberg. Used by
+  `just test` and `just lint`, both of which wipe and re-materialise
+  from the seed before running. The image is disposable.
 
-| repoPath repoDir tonelUrl |
+- '1': dev image. Loads the `dev` group (adds SmallChat-MCP), wires
+  the MCP server classes into SessionManager so they auto-start on
+  every image launch, and runs lib/iceberg-setup.st to register the
+  smallchat repo with Iceberg. Long-lived; talked to by Claude Code
+  via ./bin/smallchat-mcp."
+
+| repoPath repoDir tonelUrl mcpMode |
 
 repoPath := OSEnvironment current
 	at: 'SMALLCHAT_REPO'
@@ -33,17 +37,19 @@ repoDir exists ifFalse: [
 	Transcript show: 'No src/ under repo path: '; show: repoPath; cr.
 	^ self ].
 
-Transcript show: 'smallchat repo: '; show: repoDir fullName; cr.
+mcpMode := (OSEnvironment current at: 'SMALLCHAT_MCP_MODE' ifAbsent: [ '0' ]) = '1'.
 
-"1. Load BaselineOfSmallChat from the local tonel tree."
+Transcript show: 'smallchat repo: '; show: repoDir fullName; cr.
+Transcript show: 'mode: '; show: (mcpMode ifTrue: [ 'dev (MCP + Iceberg)' ] ifFalse: [ 'verifier (default)' ]); cr.
+
 tonelUrl := 'tonel://', (repoDir / 'src') fullName.
 Transcript show: 'Loading BaselineOfSmallChat from '; show: tonelUrl; cr.
 Metacello new
 	baseline: 'SmallChat';
 	repository: tonelUrl;
-	load.
+	load: (mcpMode ifTrue: [ 'dev' ] ifFalse: [ 'default' ]).
 
-"2. Strip the persistent Welcome window so GUI launches don't beachball
+"Strip the persistent Welcome window so GUI launches don't beachball
  on the first click. Safe to do headlessly."
 SystemWindow allSubInstancesDo: [ :w |
 	w title = 'Welcome' ifTrue: [ w delete ] ].
@@ -51,5 +57,11 @@ SystemWindow allSubInstancesDo: [ :w |
 	(Smalltalk globals at: #StWelcomeBrowser) allInstancesDo: [ :b |
 		[ b window ifNotNil: [ :win | win close ] ]
 			on: Error do: [ :_ | ] ] ].
+
+mcpMode ifTrue: [
+	Transcript show: 'Wiring SmallChat-MCP into SessionManager.'; cr.
+	SessionManager default
+		registerUserClassNamed: 'SmallChatMCPServer';
+		registerUserClassNamed: 'SmallChatMCPTcpServer' ].
 
 Transcript show: 'smallchat baseline loaded.'; cr.
