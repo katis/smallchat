@@ -23,6 +23,17 @@ Class {
 	#package : 'SmallChat-LM'
 }
 
+{ #category : 'world menu' }
+SmallChatLMChatWindow class >> menuCommandOn: aBuilder [
+	<worldMenu>
+	(aBuilder item: #smallchat)
+		parent: #Tools;
+		order: 100;
+		help: 'Open the smallchat agent chat window';
+		icon: (self iconNamed: #smallConfiguration);
+		action: [ UIManager default defer: [ self new open ] ]
+]
+
 { #category : 'layout' }
 SmallChatLMChatWindow >> defaultLayout [
 	^ SpBoxLayout newTopToBottom
