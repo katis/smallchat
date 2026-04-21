@@ -4,6 +4,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 
 pharo := "pharo/vm/Pharo.app/Contents/MacOS/Pharo"
 image := "pharo/Pharo.image"
+verifier_image := "pharo/Pharo.verifier.image"
 
 _default:
     @just --list
@@ -12,7 +13,7 @@ _default:
 install:
     ./install.sh
 
-# Wipe pharo/Pharo.image and re-materialise the verifier image (no MCP, no Iceberg).
+# Wipe pharo/Pharo.verifier.image and re-materialise the verifier image (no MCP, no Iceberg).
 rebuild:
     ./install.sh --rebuild
 
@@ -31,9 +32,9 @@ mcp:
 # Alias for `mcp`.
 dev: mcp
 
-# Remove the working image; keep the VM and seed so install is fast.
+# Remove both working images; keep the VM and seed so install is fast.
 clean:
-    rm -f pharo/Pharo.image pharo/Pharo.changes
+    rm -f pharo/Pharo.image pharo/Pharo.changes pharo/Pharo.verifier.image pharo/Pharo.verifier.changes
 
 # Reserved for the future distributable-image build (load baseline into a
 # clean seed, configure Iceberg for end users, strip dev state, save as
@@ -45,10 +46,12 @@ build:
 
 # Run SUnit tests in every SmallChat-* package; exits non-zero on any failure or error.
 # Always rebuilds the verifier image first so the run reflects on-disk src/.
+# Writes to pharo/Pharo.verifier.image only, so a live dev session on
+# pharo/Pharo.image is unaffected.
 test *PATTERNS="SmallChat.*": rebuild
-    {{pharo}} --headless {{image}} test --fail-on-failure --fail-on-error {{PATTERNS}}
+    {{pharo}} --headless {{verifier_image}} test --fail-on-failure --fail-on-error {{PATTERNS}}
 
 # Run the Critiques linter over every SmallChat-* package; exits non-zero on any critique.
-# Always rebuilds the verifier image first.
+# Always rebuilds the verifier image first. Same disjoint-path property as `just test`.
 lint: rebuild
-    {{pharo}} --headless {{image}} st --quit lib/lint.st
+    {{pharo}} --headless {{verifier_image}} st --quit lib/lint.st

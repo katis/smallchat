@@ -13,23 +13,24 @@ on-disk source of truth.
 
 ## Two image flavours
 
-Two distinct images, sharing the same on-disk path (`pharo/Pharo.image`)
-but never coexisting:
+Two distinct images at disjoint on-disk paths so they can coexist and
+the verifier can rebuild without disturbing a live dev session:
 
-- **Dev image** (the working environment): a long-lived Pharo image with
-  `SmallChat-MCP` loaded and Iceberg registered against the working
-  tree. Claude Code talks to it over MCP via `./bin/smallchat-mcp` (per
-  `.mcp.json`). The image survives across Claude sessions; in-image
-  changes (compiled methods, defined classes) persist until the image
-  is rebuilt or the session is replaced. Brought up by
-  `just rebuild-mcp` (which calls `./install.sh --mcp --rebuild`) and
-  launched by `just mcp`.
+- **Dev image** (the working environment, `pharo/Pharo.image`): a
+  long-lived Pharo image with `SmallChat-MCP` loaded and Iceberg
+  registered against the working tree. Claude Code talks to it over
+  MCP via `./bin/smallchat-mcp` (per `.mcp.json`). The image survives
+  across Claude sessions; in-image changes (compiled methods, defined
+  classes) persist until the image is rebuilt or the session is
+  replaced. Brought up by `just rebuild-mcp` (which calls
+  `./install.sh --mcp --rebuild`) and launched by `just mcp`.
 
-- **Verifier image**: a disposable, headless Pharo image used only for
-  CI-equivalent verification. No MCP, no Iceberg, just SmallChat +
-  SmallChat-Tests loaded fresh from the seed. `just test` and
-  `just lint` wipe `pharo/Pharo.image` and re-materialise from `src/`
-  every time. The verifier is what proves "the on-disk Tonel survives a
+- **Verifier image** (`pharo/Pharo.verifier.image`): a disposable,
+  headless Pharo image used only for CI-equivalent verification. No
+  MCP, no Iceberg, just SmallChat + SmallChat-Tests loaded fresh from
+  the seed. `just test` and `just lint` wipe
+  `pharo/Pharo.verifier.image` and re-materialise from `src/` every
+  time. The verifier is what proves "the on-disk Tonel survives a
   fresh rebuild." Never edit anything in this image — every run wipes
   it.
 
@@ -83,14 +84,14 @@ All common tasks go through `just` (see `justfile`):
 
 ```sh
 just install      # first-time bootstrap (./install.sh)
-just rebuild      # wipe pharo/Pharo.image and reload the verifier image
+just rebuild      # wipe pharo/Pharo.verifier.image and reload the verifier image
 just rebuild-mcp  # wipe pharo/Pharo.image and reload the dev image (MCP + Iceberg)
 just mcp          # launch the long-lived dev image (Claude Code talks to this)
 just dev          # alias for mcp
-just run          # open the GUI on whatever image is currently materialised
+just run          # open the GUI on the dev image (pharo/Pharo.image)
 just test         # headless SUnit over every SmallChat-* package — rebuilds verifier
 just lint         # headless Critiques over every SmallChat-* package — rebuilds verifier
-just clean        # drop the working image, keep VM + seed
+just clean        # drop both working images, keep VM + seed
 just build        # reserved for the future distributable-image recipe (not implemented)
 ```
 
@@ -100,10 +101,10 @@ flavour). They are CI-equivalent: they prove the on-disk `src/` tree
 plus the baseline produces a green image. They never touch the dev
 image's in-memory state.
 
-The dev image and the verifier image share `pharo/Pharo.image`. Running
-`just test` while a dev session is open kills the dev image (because
-`just rebuild` wipes the file). Either close the dev image first or
-copy the file out of the way.
+The dev image lives at `pharo/Pharo.image`; the verifier image at
+`pharo/Pharo.verifier.image`. Disjoint paths mean `just test` /
+`just lint` can run any time without killing a live dev session — the
+verifier only wipes its own file.
 
 ## How the repo maps to the image
 
@@ -200,8 +201,9 @@ that hasn't been written to Tonel. Two safeguards:
 - The verifier image is disposable. Nothing inside it survives the
   next `just test` run — anything that matters belongs in `src/`.
 - The dev image is long-lived. In-image changes survive between MCP
-  calls, but a `just rebuild-mcp` (or any `just test` / `just lint`)
-  wipes it.
+  calls, but `just rebuild-mcp` wipes it. `just test` and `just lint`
+  only touch the verifier image at `pharo/Pharo.verifier.image`, so
+  they are safe to run while a dev session is up.
 
 ## MCP server hard constraints (inherited from akkuna)
 

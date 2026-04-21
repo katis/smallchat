@@ -6,12 +6,13 @@
 # to Metacello-load BaselineOfSmallChat from the Tonel tree under src/
 # into a development image.
 #
-# Two image flavours:
-#   default:        verifier image (used by `just test` and `just lint`).
-#                   No MCP, no Iceberg. Wiped and re-materialised every
-#                   test run.
-#   --mcp:          dev image (used by `just mcp` / Claude Code). Loads
-#                   SmallChat-MCP, registers Iceberg. Long-lived.
+# Two image flavours at disjoint on-disk paths so they never collide:
+#   default:        verifier image at pharo/Pharo.verifier.image (used
+#                   by `just test` and `just lint`). No MCP, no Iceberg.
+#                   Wiped and re-materialised every test run.
+#   --mcp:          dev image at pharo/Pharo.image (used by `just mcp`
+#                   / Claude Code). Loads SmallChat-MCP, registers
+#                   Iceberg. Long-lived.
 #
 # Safe to re-run: existing VM is reused; the image is rebuilt from the
 # seed if missing or if --rebuild is passed.
@@ -21,8 +22,6 @@ REPO="$(cd "$(dirname "$0")" && pwd -P)"
 PHARO_DIR="$REPO/pharo"
 VM_DIR="$PHARO_DIR/vm"
 SEED_DIR="$PHARO_DIR/seed"
-IMAGE="$PHARO_DIR/Pharo.image"
-CHANGES="$PHARO_DIR/Pharo.changes"
 LOAD_SCRIPT="$REPO/lib/load-packages.st"
 
 REBUILD=0
@@ -36,6 +35,18 @@ for arg in "$@"; do
         *) echo "Unknown arg: $arg" >&2; exit 1 ;;
     esac
 done
+
+# Dev (--mcp) and verifier flavours live on disjoint image files so
+# running `just test` / `just lint` never clobbers a live dev session.
+if [ "$MCP" -eq 1 ]; then
+    IMAGE_NAME="Pharo.image"
+    CHANGES_NAME="Pharo.changes"
+else
+    IMAGE_NAME="Pharo.verifier.image"
+    CHANGES_NAME="Pharo.verifier.changes"
+fi
+IMAGE="$PHARO_DIR/$IMAGE_NAME"
+CHANGES="$PHARO_DIR/$CHANGES_NAME"
 
 mkdir -p "$PHARO_DIR" "$VM_DIR" "$SEED_DIR"
 
@@ -71,11 +82,11 @@ if [ "$REBUILD" -eq 1 ] || [ ! -f "$IMAGE" ]; then
     if [ "$MCP" -eq 1 ]; then
         echo "==> Loading SmallChat baseline (dev / MCP mode, headless)"
         (cd "$PHARO_DIR" && env SMALLCHAT_REPO="$REPO" SMALLCHAT_MCP_MODE=1 \
-            "$VM" --headless Pharo.image st --quit --save "$LOAD_SCRIPT")
+            "$VM" --headless "$IMAGE_NAME" st --quit --save "$LOAD_SCRIPT")
     else
         echo "==> Loading SmallChat baseline (verifier mode, headless)"
         (cd "$PHARO_DIR" && env SMALLCHAT_REPO="$REPO" \
-            "$VM" --headless Pharo.image st --quit --save "$LOAD_SCRIPT")
+            "$VM" --headless "$IMAGE_NAME" st --quit --save "$LOAD_SCRIPT")
     fi
 else
     echo "==> Working image already present; pass --rebuild to recreate"
@@ -85,6 +96,8 @@ if [ "$MCP" -eq 1 ]; then
     cat <<EOF
 
 ==> Install complete (dev / MCP mode).
+
+The dev image lives at ./pharo/Pharo.image.
 
 Launch the long-lived dev image (Claude Code talks to this):
 
@@ -99,11 +112,14 @@ else
 
 ==> Install complete (verifier mode).
 
-Run the GUI:
+The verifier image lives at ./pharo/Pharo.verifier.image and is used
+by \`just test\` and \`just lint\`. For an interactive session, bring
+up the dev image instead:
 
-    ./bin/smallchat
+    just rebuild-mcp    # materialise ./pharo/Pharo.image with MCP + Iceberg
+    just mcp            # launch it
 
-Rebuild the verifier image (keeps VM, drops ./pharo/Pharo.image):
+Rebuild the verifier image (keeps VM, drops ./pharo/Pharo.verifier.image):
 
     ./install.sh --rebuild
 
