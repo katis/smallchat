@@ -15,7 +15,8 @@ Class {
 	#superclass : 'Object',
 	#classVars : [
 		'BaseUrl',
-		'ModelName'
+		'ModelName',
+		'SystemPrompt'
 	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
@@ -29,6 +30,20 @@ SmallChatConfig class >> baseUrl [
 { #category : 'accessing' }
 SmallChatConfig class >> baseUrl: aString [
 	BaseUrl := aString
+]
+
+{ #category : 'accessing' }
+SmallChatConfig class >> defaultSystemPrompt [
+	"Hard-coded default so the compiled Tonel file stays free of tricky
+	 mixed-quote escapes. Built from pieces via streamContents:."
+	^ String streamContents: [ :s |
+		s nextPutAll: 'You are a Pharo 13 Smalltalk expert. You use best practices like Red-Green TDD, Intention-revealing selectors, Method protocols, Mandatory Class comments, '.
+		s nextPut: $".
+		s nextPutAll: 'Tell, don'.
+		s nextPut: $'.
+		s nextPutAll: 't ask'.
+		s nextPut: $".
+		s nextPutAll: ' and double dispatch. Use Live programming techniques, Code Critic for linting, and Iceberg for VCS operations.' ]
 ]
 
 { #category : 'private' }
@@ -54,7 +69,18 @@ SmallChatConfig class >> modelName: aString [
 { #category : 'class initialization' }
 SmallChatConfig class >> reset [
 	BaseUrl := nil.
-	ModelName := nil
+	ModelName := nil.
+	SystemPrompt := nil
+]
+
+{ #category : 'accessing' }
+SmallChatConfig class >> systemPrompt [
+	^ SystemPrompt ifNil: [ SystemPrompt := self envAt: 'SMALLCHAT_LM_SYSTEM_PROMPT' ifAbsent: self defaultSystemPrompt ]
+]
+
+{ #category : 'accessing' }
+SmallChatConfig class >> systemPrompt: aString [
+	SystemPrompt := aString
 ]
 
 { #category : 'accessing' }

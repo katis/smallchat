@@ -62,6 +62,18 @@ SmallChatLMChatWindowTest >> testSendFromInputAppendsPresenterForEachMessage [
 ]
 
 { #category : 'tests' }
+SmallChatLMChatWindowTest >> testSystemMessagesNotRendered [
+	| window session |
+	session := self stubSessionWithCannedReply: 'hello back<|im_end|>'.
+	window := SmallChatLMChatWindow new
+		session: session;
+		yourself.
+	self assert: (session conversation messages anySatisfy: [ :m | m role = #system ])
+		description: 'precondition: session has a seeded system turn'.
+	self deny: (window messagePresenters anySatisfy: [ :p | p message role = #system ])
+]
+
+{ #category : 'tests' }
 SmallChatLMChatWindowTest >> testWorldMenuItemOpensChatWindow [
 	| method builder item |
 	method := SmallChatLMChatWindow class >> #menuCommandOn:.

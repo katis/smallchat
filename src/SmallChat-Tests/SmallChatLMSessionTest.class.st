@@ -24,22 +24,34 @@ SmallChatLMSessionTest >> sessionWithCannedReply: aString [
 ]
 
 { #category : 'tests' }
+SmallChatLMSessionTest >> testConversationSeededWithConfigSystemPrompt [
+	| session first |
+	session := SmallChatLMSession new.
+	first := session conversation messages first.
+	self assert: first role equals: #system.
+	self assert: first content equals: SmallChatConfig systemPrompt
+]
+
+{ #category : 'tests' }
 SmallChatLMSessionTest >> testEmptyInputIsANoOp [
-	| session |
+	| session before |
 	session := self sessionWithCannedReply: 'ignored'.
+	before := session conversation messages size.
 	self assert: (session sendUserInput: '') isNil.
-	self assert: session conversation messages isEmpty
+	self assert: session conversation messages size equals: before.
+	self deny: (session conversation messages anySatisfy: [ :m | m role = #user or: [ m role = #assistant ] ])
 ]
 
 { #category : 'tests' }
 SmallChatLMSessionTest >> testSendUserInputAppendsUserAndAssistantTurns [
-	| session reply roles |
+	| session reply nonSystemRoles |
 	session := self sessionWithCannedReply: 'hello back<|im_end|>'.
 	reply := session sendUserInput: 'hi'.
 	self assert: reply role equals: #assistant.
 	self assert: reply content equals: 'hello back'.
-	roles := (session conversation messages collect: [ :m | m role ]) asArray.
-	self assert: roles equals: #(#user #assistant)
+	nonSystemRoles := (session conversation messages reject: [ :m | m role = #system ])
+		collect: [ :m | m role ].
+	self assert: nonSystemRoles asArray equals: #(#user #assistant)
 ]
 
 { #category : 'tests' }

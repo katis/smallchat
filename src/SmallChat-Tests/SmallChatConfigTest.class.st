@@ -49,3 +49,8 @@ SmallChatConfigTest >> testModelNameOverride [
 	SmallChatConfig modelName: 'custom-model'.
 	self assert: SmallChatConfig modelName equals: 'custom-model'
 ]
+
+{ #category : 'tests' }
+SmallChatConfigTest >> testSystemPromptMentionsPharoExpert [
+	self assert: (SmallChatConfig systemPrompt includesSubstring: 'Pharo 13 Smalltalk expert')
+]

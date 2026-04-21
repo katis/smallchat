@@ -80,7 +80,10 @@ SmallChatLMChatWindow >> input [
 
 { #category : 'accessing' }
 SmallChatLMChatWindow >> messagePresenters [
-	^ session conversation messages collect: [ :m | self presenterFor: m ]
+	"System turns are configuration, not transcript content; skip them so the
+	 seeded system prompt does not appear as a chat bubble."
+	^ (session conversation messages reject: [ :m | m role = #system ])
+		collect: [ :m | self presenterFor: m ]
 ]
 
 { #category : 'private' }
