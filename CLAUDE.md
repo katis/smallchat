@@ -117,9 +117,18 @@ Primary workflow (dev image is up):
    long-lived dev image. The image's compiler is the editor.
 2. Use the MCP `run_tests` tool to confirm the change is green.
 3. Use the MCP `status` tool to see what Iceberg considers dirty.
-4. Run `just test` from a shell to confirm the change also passes a
-   fresh rebuild from `src/`.
-5. Use the MCP `commit` tool to write Tonel back to `src/` and create
+4. Flush in-image state to `src/` on disk *without* committing, so
+   the next `just test` sees your changes:
+   ```smalltalk
+   | repo |
+   repo := IceRepository registry detect: [ :r | r name = 'smallchat' ].
+   repo workingCopy refreshDirtyPackages.
+   repo index updateDiskWorkingCopy: repo workingCopyDiff
+   ```
+5. Run `just test` (and `just lint`) from a shell to confirm the
+   change also passes a fresh rebuild from `src/`. Safe to run while
+   the dev image is up — the verifier lives at a disjoint image path.
+6. Use the MCP `commit` tool to write Tonel back to `src/` and create
    a git commit on the current branch.
 
 Hand-edits to `src/` are still appropriate for files Iceberg doesn't
@@ -204,6 +213,19 @@ that hasn't been written to Tonel. Two safeguards:
   calls, but `just rebuild-mcp` wipes it. `just test` and `just lint`
   only touch the verifier image at `pharo/Pharo.verifier.image`, so
   they are safe to run while a dev session is up.
+- **Never trigger Pharo's UI debugger from an `evaluate` call.** The
+  MCP reader runs on a forked process; when a raised exception opens
+  a modal debugger on that process, the MCP channel deadlocks until
+  the debugger is dismissed, and closing the debugger via the X
+  often kills the reader outright (server drops). Concrete rules:
+  - Use `TestCase>>run` (or `suite run`) for programmatic test runs.
+    They return a `TestResult` and never open the debugger. Avoid
+    `runCase`, which re-raises straight into the UI.
+  - Wrap risky one-shot expressions in
+    `[ ... ] on: Error, TestFailure do: [ :e | e messageText ]` so a
+    failure returns a string instead of opening a debugger.
+  - If a debugger does open: click **Return** (not the X) to unwind
+    the frame and free the reader.
 
 ## MCP server hard constraints (inherited from akkuna)
 
@@ -272,3 +294,16 @@ encoded in the vendored akkuna source and were hard-won:
   in-image compilation) are invisible to `workingCopyDiff` and won't
   appear in a `commit` tool call. See "How the repo maps to the
   image" above.
+- **Shell `git commit` desyncs the in-image working copy.** When you
+  hand-edit on disk and `git commit` from a shell while the dev image
+  is up, `workingCopy referenceCommit` still points at the *old*
+  HEAD. The next MCP `commit` raises `IceWorkingCopyDesyncronized`
+  because Iceberg's invariant is "reference == HEAD." Re-anchor:
+  ```smalltalk
+  | repo wc |
+  repo := IceRepository registry detect: [ :r | r name = 'smallchat' ].
+  wc := repo workingCopy.
+  wc referenceCommit: repo headCommit.
+  wc refreshDirtyPackages
+  ```
+  Then retry `commit`.
