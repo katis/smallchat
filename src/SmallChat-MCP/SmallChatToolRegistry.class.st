@@ -49,7 +49,8 @@ SmallChatToolRegistry >> run: toolNameString with: argsDictionary [
 	"Look up the tool by its MCP name and execute it. Returns a Dictionary
 	 shaped as an MCP tool result: {content: [<contentDict>], isError: bool}.
 	 The tool's #run: may return a String (treated as text) or a
-	 SmallChatToolResult (text or image)."
+	 SmallChatToolResult (text, image, or debugSession). A debugSession
+	 result is unwrapped via toMcpReplyDict into the richer reply shape."
 	| tool rawResult contentDict |
 	tool := self toolNamed: toolNameString.
 	tool ifNil: [ ^ self errorResult: 'Unknown tool: ', toolNameString ].
@@ -62,12 +63,11 @@ SmallChatToolRegistry >> run: toolNameString with: argsDictionary [
 				 stdout, which would corrupt MCP JSON-RPC framing." n resume ] ]
 		on: Error
 		do: [ :e | ^ self errorResult: (self safeErrorDescription: e) ].
-	contentDict := (rawResult isKindOf: SmallChatToolResult)
-		ifTrue: [ rawResult toMcpContentDict ]
-		ifFalse: [ Dictionary new
-			at: 'type' put: 'text';
-			at: 'text' put: (self safeAsString: rawResult);
-			yourself ].
+	(rawResult isKindOf: SmallChatToolResult) ifTrue: [ ^ rawResult toMcpReplyDict ].
+	contentDict := Dictionary new
+		at: 'type' put: 'text';
+		at: 'text' put: (self safeAsString: rawResult);
+		yourself.
 	^ Dictionary new
 		at: 'content' put: { contentDict };
 		yourself

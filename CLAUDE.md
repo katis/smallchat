@@ -151,20 +151,69 @@ next `commit` tool call will overwrite the hand-edit.
 
 ## MCP tool surface
 
-The dev image exposes five MCP tools (defined in `src/SmallChat-MCP/`):
+The dev image exposes the core MCP tools plus a debug-session family
+(all defined in `src/SmallChat-MCP/`):
+
+Core:
 
 | Tool | Purpose |
 | --- | --- |
-| `evaluate` | Run arbitrary Smalltalk; returns `printString` of the result. The workhorse — all compile/inspect/refactor goes through here. |
-| `run_tests` | SUnit over packages matching a regex (default `SmallChat.*`). Returns structured `{passed, failed, errored, failures[], errors[]}`. Reflects in-image state, not disk. |
+| `evaluate` | Run arbitrary Smalltalk; returns `printString` of the result. Uncaught exceptions land in a captured debug session (see below). The workhorse — all compile/inspect/refactor goes through here. |
+| `run_tests` | SUnit over packages matching a regex (default `SmallChat.*`). Returns `{passed, failed, errored, failures[], errors[]}`. Pass `debug_first_failure: true` to capture the first failing test as a debug session (response gains `debugSessionId`). Reflects in-image state, not disk. |
 | `lint` | ReCriticEngine over matching packages. Structured `{critiques[]}`. |
 | `status` | Iceberg working-copy status: branch, dirty flag, list of changes (`{changeType, target, definitionClass}`). |
 | `commit` | Refreshes Tonel from in-image state and runs `commitChanges:withMessage:`. Uses git config from `~/.gitconfig`. No automated green guard. |
+
+Debug-session tools (operate on sessions created by `evaluate` or by
+`run_tests debug_first_failure: true`):
+
+| Tool | Purpose |
+| --- | --- |
+| `debug_sessions` | List active sessions: `[{id, exceptionClass, messageText, topFrame, createdAtMs}]`. |
+| `debug_stack` | Stack summary for a session (args: `sessionId`, optional `limit`). |
+| `debug_frame` | Frame detail at index — receiver, selector, args, temps, source. |
+| `debug_evaluate` | Evaluate an expression in a frame's context — `self`/args/temps in scope. The sharpest tool for root-causing. |
+| `debug_return` | Resume the session, substituting `expression`'s value for the signalling expression. If user code then finishes, returns its final result; if it raises again, registers a new session. |
+| `debug_proceed` | Resume with `nil` (equivalent to `debug_return nil`). |
+| `debug_restart` | Restart a frame from its method entry (args: `sessionId`, optional `index` — defaults to 0, the signaller; typically pass `index: 1` to retry the user frame after a fix). |
+| `debug_terminate` | Drop a session and terminate its parked process. |
 
 `evaluate` documents the Smalltalk navigation/compile/snapshot
 selectors via the protocol's `instructions` string. Anything the
 dedicated tools don't cover (creating classes, removing methods,
 inspecting senders) is composed on top of `evaluate`.
+
+## Debugger-driven development
+
+Uncaught exceptions raised during `evaluate` (always) and `run_tests`
+(opt-in) are captured by a fork-and-intercept runner
+(`SmallChatDebugEvaluator`) and registered in
+`SmallChatDebugSessionRegistry`. The MCP response gains a
+`debugSession` payload with the exception class, messageText, top
+frame, and session id. The forked Process remains **suspended** with
+its stack intact until a follow-up tool
+(`debug_return`/`debug_proceed`/`debug_restart`/`debug_terminate`)
+resolves it. The MCP reader is never blocked by the captured
+exception — the reader handles further calls (including `debug_*`
+tools targeting the parked fork) while the fork sleeps.
+
+The registry enforces safety rails:
+
+- **Max 8 concurrent sessions.** Adding the 9th evicts the oldest
+  and terminates its parked Process.
+- **10-minute idle TTL.** Stale sessions are reaped on next registry
+  access; their Processes are terminated.
+- **Always terminate on `debug_terminate`.** Never leak a suspended
+  Process.
+
+Typical flow: agent evaluates, gets a debug session, inspects stack
+via `debug_stack` / `debug_frame`, probes state with `debug_evaluate`,
+identifies a fix, compiles it via `evaluate`, then either
+`debug_restart` (retry the fixed frame in-place) or `debug_terminate`
+(drop and re-evaluate from scratch). The `debug_*` tools operate on
+live `SindarinDebugger` / `DebugSession` objects wrapping the parked
+fork, so stack/frame/eval operate against the true pre-exception
+state.
 
 ## Snapshot hygiene
 
@@ -185,8 +234,12 @@ that hasn't been written to Tonel. Two safeguards:
 ## Baseline layout
 
 - `BaselineOfSmallChat` — declares the packages and groups:
-  - `default` (verifier): `SmallChat`, `SmallChat-Tests`
-  - `dev` (MCP image): adds `SmallChat-MCP`
+  - `default` (verifier): `SmallChat`, `SmallChat-LM`, `SmallChat-MCP`,
+    `SmallChat-Tests` — verifier loads MCP too so MCP-dependent tests
+    (the debug-session family) can run in `just test`.
+  - `dev` (MCP image): adds Iceberg + session-manager wiring on top
+    of the same package set; the baseline package group is the same
+    as `default`.
   - Plus narrower groups (`core`, `tests`, `mcp`) for ad-hoc loads.
   Add new packages here, not in `lib/load-packages.st`.
 - `SmallChat` package — application code. `SmallChatApp` is the entry
@@ -194,9 +247,10 @@ that hasn't been written to Tonel. Two safeguards:
 - `SmallChat-Tests` package — SUnit test cases. `just test` matches
   packages against `SmallChat.*`, so any new test package whose name
   starts with `SmallChat-` is picked up automatically.
-- `SmallChat-MCP` package — MCP server, vendored from akkuna. Loaded
-  only in the dev image (via the `dev` group). Lint and tests run
-  against it just like any other package when the dev image is up.
+- `SmallChat-MCP` package — MCP server, vendored from akkuna, plus
+  the in-image debugger-driven runner (`SmallChatDebugEvaluator`,
+  `SmallChatDebugSessionRegistry`, `SmallChatDebug*Tool`). Lint and
+  tests run against it just like any other package.
 
 ## Pharo gotchas (general)
 
@@ -213,11 +267,15 @@ that hasn't been written to Tonel. Two safeguards:
   calls, but `just rebuild-mcp` wipes it. `just test` and `just lint`
   only touch the verifier image at `pharo/Pharo.verifier.image`, so
   they are safe to run while a dev session is up.
-- **Never trigger Pharo's UI debugger from an `evaluate` call.** The
-  MCP reader runs on a forked process; when a raised exception opens
-  a modal debugger on that process, the MCP channel deadlocks until
-  the debugger is dismissed, and closing the debugger via the X
-  often kills the reader outright (server drops). Concrete rules:
+- **Never trigger Pharo's UI debugger from code that isn't routed
+  through `SmallChatDebugEvaluator`.** The MCP reader runs on a
+  forked process; a modal UI debugger on the reader's stack deadlocks
+  MCP, and dismissing via the X often kills the reader (server
+  drops). `evaluate` and opt-in `run_tests debug_first_failure: true`
+  now capture unhandled exceptions into suspended, introspectable
+  debug sessions instead of UI debuggers — use those paths for
+  anything that might raise. For other code paths (chat agent loop,
+  Morphic handlers, test-runner machinery):
   - Use `TestCase>>run` (or `suite run`) for programmatic test runs.
     They return a `TestResult` and never open the debugger. Avoid
     `runCase`, which re-raises straight into the UI.

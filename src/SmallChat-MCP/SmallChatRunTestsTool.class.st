@@ -37,6 +37,10 @@ SmallChatRunTestsTool class >> inputSchema [
 				at: 'type' put: 'string';
 				at: 'description' put: 'Optional regex over Class>>selector. Restricts which tests run.';
 				yourself);
+			at: 'debug_first_failure' put: (Dictionary new
+				at: 'type' put: 'boolean';
+				at: 'description' put: 'Opt-in: re-execute the first failing test via the debugger-driven evaluator so its exception lands in a captured debug session. Response gains a debugSessionId field.';
+				yourself);
 			yourself);
 		at: 'required' put: #();
 		yourself
@@ -44,6 +48,22 @@ SmallChatRunTestsTool class >> inputSchema [
 
 { #category : #'accessing - metadata' }
 SmallChatRunTestsTool class >> toolName [ ^ 'run_tests' ]
+
+{ #category : #execution }
+SmallChatRunTestsTool >> captureFirstFailure: aTestResult [
+	"When debug_first_failure is on and a test failed/errored, re-execute the
+	 first failing test through SmallChatDebugEvaluator so the exception
+	 lands in our capture-and-suspend handler instead of SUnit's TestResult.
+	 Returns the session id, or nil if nothing failed or the re-run happened
+	 to succeed this time."
+	| failing first outcome |
+	failing := aTestResult failures asOrderedCollection , aTestResult errors asOrderedCollection.
+	failing ifEmpty: [ ^ nil ].
+	first := failing first.
+	outcome := SmallChatDebugEvaluator evaluate:
+		'(' , first class name , ' selector: ' , first selector asString printString , ') performTest'.
+	^ outcome key = #debugSession ifTrue: [ outcome value id ] ifFalse: [ nil ]
+]
 
 { #category : #execution }
 SmallChatRunTestsTool >> describeError: aTestCase from: aResult [
@@ -80,9 +100,10 @@ SmallChatRunTestsTool >> matchingTestClasses: packagePattern [
 
 { #category : #execution }
 SmallChatRunTestsTool >> run: args [
-	| packagePattern testPattern testClasses suite result startMs duration json testMatcher |
+	| packagePattern testPattern testClasses suite result startMs duration json testMatcher debugFirst debugSid |
 	packagePattern := args at: 'packagePattern' ifAbsent: [ 'SmallChat.*' ].
 	testPattern := args at: 'testPattern' ifAbsent: [ nil ].
+	debugFirst := args at: 'debug_first_failure' ifAbsent: [ false ].
 
 	testClasses := self matchingTestClasses: packagePattern.
 	suite := TestSuite new.
@@ -97,6 +118,8 @@ SmallChatRunTestsTool >> run: args [
 	suite tests do: [ :test | test run: result ].
 	duration := Time millisecondClockValue - startMs.
 
+	debugSid := debugFirst ifTrue: [ self captureFirstFailure: result ] ifFalse: [ nil ].
+
 	json := Dictionary new
 		at: 'passed' put: result passedCount;
 		at: 'failed' put: result failures size;
@@ -108,6 +131,7 @@ SmallChatRunTestsTool >> run: args [
 		at: 'errors' put: (result errors asArray collect: [ :t | self describeError: t from: result ]);
 		yourself.
 	testPattern ifNotNil: [ json at: 'testPattern' put: testPattern ].
+	debugSid ifNotNil: [ json at: 'debugSessionId' put: debugSid ].
 
 	^ STONJSON toString: json
 ]
