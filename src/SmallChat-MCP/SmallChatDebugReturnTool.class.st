@@ -41,13 +41,15 @@ SmallChatDebugReturnTool class >> toolName [
 
 { #category : 'execution' }
 SmallChatDebugReturnTool >> run: args [
-	| sid expr session value outcome |
-	sid := args at: 'sessionId'.
-	expr := args at: 'expression'.
-	session := SmallChatDebugSessionRegistry default at: sid.
-	value := OpalCompiler new source: expr; evaluate.
-	outcome := SmallChatDebugEvaluator resume: session with: value.
-	outcome key = #result ifTrue: [ ^ outcome value ].
-	outcome key = #debugSession ifTrue: [ ^ SmallChatToolResult debugSession: outcome value ].
-	^ self error: 'Unexpected resume outcome: ' , outcome printString
+    | sid expr session value outcome |
+    sid := args at: 'sessionId'.
+    expr := args at: 'expression'.
+    session := SmallChatDebugSessionRegistry default at: sid.
+    session stepped ifTrue: [
+        ^ self error: 'debug_return is not valid on a stepped session (no live signalling expression to substitute). Use debug_proceed to continue, or debug_terminate to drop.' ].
+    value := OpalCompiler new source: expr; evaluate.
+    outcome := SmallChatDebugEvaluator resume: session with: value.
+    outcome key = #result ifTrue: [ ^ outcome value ].
+    outcome key = #debugSession ifTrue: [ ^ SmallChatToolResult debugSession: outcome value ].
+    ^ self error: 'Unexpected resume outcome: ' , outcome printString
 ]

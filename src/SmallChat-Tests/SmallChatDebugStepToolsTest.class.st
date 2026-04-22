@@ -12,6 +12,24 @@ SmallChatDebugStepToolsTest >> tearDown [
 ]
 
 { #category : 'tests' }
+SmallChatDebugStepToolsTest >> testReturnRejectsSteppedSession [
+    | evalResult sid returnResult content text |
+    SmallChatDebugSessionRegistry reset.
+    evalResult := SmallChatToolRegistry default run: 'evaluate' with: (Dictionary new at: 'code' put: '1/0. 42'; yourself).
+    sid := (evalResult at: 'debugSession') at: 'id'.
+    SmallChatToolRegistry default run: 'debug_step_over' with: (Dictionary new at: 'sessionId' put: sid; yourself).
+    returnResult := SmallChatToolRegistry default run: 'debug_return' with: (Dictionary new
+        at: 'sessionId' put: sid;
+        at: 'expression' put: '99';
+        yourself).
+    self assert: (returnResult at: 'isError' ifAbsent: [ false ]) description: 'debug_return on a stepped session must report an error'.
+    content := returnResult at: 'content'.
+    text := content first at: 'text'.
+    self assert: (text asLowercase includesSubstring: 'stepped') description: 'error message must mention stepped'.
+    self assert: (text includesSubstring: 'debug_proceed') description: 'error message should suggest debug_proceed'
+]
+
+{ #category : 'tests' }
 SmallChatDebugStepToolsTest >> testSecondStepOverSkipsRepopAndAdvancesFurther [
     | evalResult sid session afterFirstIctx afterSecondIctx |
     SmallChatDebugSessionRegistry reset.
