@@ -32,6 +32,34 @@ SmallChatLMChatWindowTest >> stubSessionWithCannedReply: aString [
 ]
 
 { #category : 'tests' }
+SmallChatLMChatWindowTest >> testErrorFromClientShowsErrorInStatusLabel [
+    | stub client session window assistantTurns |
+    stub := SmallChatLMHttpStub new
+        raiseOnPost: 'boom';
+        yourself.
+    client := SmallChatLMChatClient new
+        baseUrl: 'http://localhost:1234';
+        httpClient: stub;
+        yourself.
+    session := SmallChatLMSession new
+        client: client;
+        yourself.
+    window := SmallChatLMChatWindow new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    window input text: 'hi'.
+    window sendFromInput.
+    window waitForPending.
+    self assert: (window statusLabel label asLowercase includesSubstring: 'error').
+    self assert: (window statusLabel label includesSubstring: 'boom').
+    self assert: window pendingRequest isNil.
+    self assert: window sendButton isEnabled.
+    assistantTurns := session conversation messages select: [ :m | m role = #assistant ].
+    self assert: assistantTurns isEmpty
+]
+
+{ #category : 'tests' }
 SmallChatLMChatWindowTest >> testPresenterCachePreservesFoldStateAcrossSends [
     | window session firstAssistantPresenter |
     session := self stubSessionWithCannedReply: '<think>reasoning</think>hello'.

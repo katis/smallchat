@@ -11,7 +11,8 @@ Class {
 		'lastUrl',
 		'lastBody',
 		'lastHeaders',
-		'gate'
+		'gate',
+		'errorToRaise'
 	],
 	#category : 'SmallChat-Tests',
 	#package : 'SmallChat-Tests'
@@ -48,7 +49,13 @@ SmallChatLMHttpStub >> post: aBody to: aUrl withHeaders: aHeadersDict [
     lastUrl := aUrl.
     lastHeaders := aHeadersDict.
     gate ifNotNil: [ gate wait ].
+    errorToRaise ifNotNil: [ Error signal: errorToRaise ].
     ^ response
+]
+
+{ #category : 'gating' }
+SmallChatLMHttpStub >> raiseOnPost: aMessage [
+    errorToRaise := aMessage
 ]
 
 { #category : 'gating' }

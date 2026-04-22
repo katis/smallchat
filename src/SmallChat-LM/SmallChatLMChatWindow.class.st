@@ -68,9 +68,14 @@ SmallChatLMChatWindow >> dispatchSendOf: aString [
     | snapshot block |
     snapshot := session conversation.
     block := [
-        | reply |
-        reply := session client complete: snapshot.
-        uiDeferrer value: [ self finishPendingWith: reply ] ].
+        | reply failure |
+        failure := nil.
+        [ reply := session client complete: snapshot ]
+            on: Error
+            do: [ :e | failure := e ].
+        failure
+            ifNil: [ uiDeferrer value: [ self finishPendingWith: reply ] ]
+            ifNotNil: [ uiDeferrer value: [ self finishPendingWithError: failure ] ] ].
     pendingRequest := block newProcess.
     pendingRequest resume
 ]
@@ -79,6 +84,16 @@ SmallChatLMChatWindow >> dispatchSendOf: aString [
 SmallChatLMChatWindow >> finishPendingWith: aMessage [
     session conversation addMessage: aMessage.
     statusLabel label: ''.
+    sendButton enable.
+    pendingRequest := nil.
+    self refreshMessages
+]
+
+{ #category : 'private' }
+SmallChatLMChatWindow >> finishPendingWithError: anException [
+    | text |
+    text := anException messageText ifNil: [ anException class name ].
+    statusLabel label: '[error: ' , text , ']'.
     sendButton enable.
     pendingRequest := nil.
     self refreshMessages
