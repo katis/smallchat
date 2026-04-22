@@ -10,8 +10,8 @@ The port is chosen by the OS (bind to 0) and written to
 127.0.0.1 — other machines can't reach it.
 "
 Class {
-	#name : #SmallChatMCPTcpServer,
-	#superclass : #Object,
+	#name : 'SmallChatMCPTcpServer',
+	#superclass : 'Object',
 	#instVars : [
 		'listener',
 		'acceptProcess',
@@ -22,28 +22,29 @@ Class {
 	#classVars : [
 		'Default'
 	],
-	#category : #'SmallChat-MCP'
+	#category : 'SmallChat-MCP',
+	#package : 'SmallChat-MCP'
 }
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 SmallChatMCPTcpServer class >> default [
 	^ Default ifNil: [ Default := self new ]
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 SmallChatMCPTcpServer class >> reset [
 	Default ifNotNil: [ Default stop ].
 	Default := nil
 ]
 
-{ #category : #'system startup' }
+{ #category : 'system startup' }
 SmallChatMCPTcpServer class >> shutDown: isImageQuitting [
 	"Stop on save-and-continue and quit alike. Without this the #running
 	 flag survives into the snapshot and the next launch skips #start."
 	Default ifNotNil: [ Default stop ]
 ]
 
-{ #category : #'system startup' }
+{ #category : 'system startup' }
 SmallChatMCPTcpServer class >> startUp: isImageStarting [
 	"Start on every image launch. Errors go to smallchat-mcp.log because
 	 stderr in GUI mode is detached by `open -n -a`."
@@ -53,7 +54,7 @@ SmallChatMCPTcpServer class >> startUp: isImageStarting [
 			SmallChatMCPServer logToFile: 'tcp startUp error: ', e class name, ' - ', e messageText ]
 ]
 
-{ #category : #listening }
+{ #category : 'listening' }
 SmallChatMCPTcpServer >> acceptLoop [
 	"Accept client connections one at a time. Each client gets its own
 	 forked process running the MCP protocol loop, so concurrent Claude Code
@@ -71,7 +72,7 @@ SmallChatMCPTcpServer >> acceptLoop [
 				named: 'SmallChat MCP TCP Client' ] ]
 ]
 
-{ #category : #listening }
+{ #category : 'listening' }
 SmallChatMCPTcpServer >> handleConnection: clientSocket [
 	"Run newline-delimited JSON-RPC on the given socket until the client
 	 disconnects. Each line is one MCP message; response is written back
@@ -88,19 +89,19 @@ SmallChatMCPTcpServer >> handleConnection: clientSocket [
 	SmallChatMCPServer logToFile: 'tcp: client closed'
 ]
 
-{ #category : #initialization }
+{ #category : 'initialization' }
 SmallChatMCPTcpServer >> initialize [
 	super initialize.
 	protocol := SmallChatMCPProtocol default.
 	running := false
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 SmallChatMCPTcpServer >> port [
 	^ port
 ]
 
-{ #category : #private }
+{ #category : 'private' }
 SmallChatMCPTcpServer >> readLineFrom: stream [
 	"Read up to the next LF. Returns nil on EOF, the line contents otherwise
 	 (without the trailing newline). SocketStream's #upTo: stops at LF but
@@ -111,7 +112,7 @@ SmallChatMCPTcpServer >> readLineFrom: stream [
 	^ bytes asString trimRight
 ]
 
-{ #category : #private }
+{ #category : 'private' }
 SmallChatMCPTcpServer >> removePortFile [
 	[ | file |
 	  file := Smalltalk vm imageFile parent / 'mcp.port'.
@@ -119,7 +120,7 @@ SmallChatMCPTcpServer >> removePortFile [
 		on: Error do: [ :e | ]
 ]
 
-{ #category : #listening }
+{ #category : 'listening' }
 SmallChatMCPTcpServer >> serveOneMessage: stream [
 	| line message response |
 	line := self readLineFrom: stream.
@@ -146,7 +147,7 @@ SmallChatMCPTcpServer >> serveOneMessage: stream [
 			flush ]
 ]
 
-{ #category : #lifecycle }
+{ #category : 'lifecycle' }
 SmallChatMCPTcpServer >> start [
 	"Bind 127.0.0.1:0 (OS picks a free port), write the port to disk for the
 	 smallchat-mcp shell to read, and fork the accept loop. Idempotent: bails
@@ -166,7 +167,7 @@ SmallChatMCPTcpServer >> start [
 		named: 'SmallChat MCP TCP Listener'
 ]
 
-{ #category : #lifecycle }
+{ #category : 'lifecycle' }
 SmallChatMCPTcpServer >> stop [
 	running := false.
 	acceptProcess ifNotNil: [ :p |
@@ -178,7 +179,7 @@ SmallChatMCPTcpServer >> stop [
 	self removePortFile
 ]
 
-{ #category : #private }
+{ #category : 'private' }
 SmallChatMCPTcpServer >> writePortFile [
 	| file |
 	file := Smalltalk vm imageFile parent / 'mcp.port'.

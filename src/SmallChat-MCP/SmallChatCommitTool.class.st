@@ -15,17 +15,18 @@ Returns JSON with {commitId, message, branch, changesWritten} on
 success, or {error, message} on failure (e.g. nothing to commit).
 "
 Class {
-	#name : #SmallChatCommitTool,
-	#superclass : #SmallChatTool,
-	#category : #'SmallChat-MCP'
+	#name : 'SmallChatCommitTool',
+	#superclass : 'SmallChatTool',
+	#category : 'SmallChat-MCP',
+	#package : 'SmallChat-MCP'
 }
 
-{ #category : #'accessing - metadata' }
+{ #category : 'accessing - metadata' }
 SmallChatCommitTool class >> description [
 	^ 'Commit the smallchat working copy via Iceberg. Refreshes Tonel from in-image state, then commits. Uses git config from ~/.gitconfig for author/email. NO green-guard -- caller is responsible for verifying tests pass (in-image AND from `just test`) before calling.'
 ]
 
-{ #category : #'accessing - metadata' }
+{ #category : 'accessing - metadata' }
 SmallChatCommitTool class >> inputSchema [
 	^ Dictionary new
 		at: 'type' put: 'object';
@@ -39,10 +40,11 @@ SmallChatCommitTool class >> inputSchema [
 		yourself
 ]
 
-{ #category : #'accessing - metadata' }
-SmallChatCommitTool class >> toolName [ ^ 'commit' ]
+{ #category : 'accessing - metadata' }
+SmallChatCommitTool class >> toolName [ ^ 'commit'
+]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatCommitTool >> changeCount: aRepo [
 	"Count real (non-placeholder) leaf changes in the working-copy diff."
 	| count walker skip |
@@ -58,7 +60,7 @@ SmallChatCommitTool >> changeCount: aRepo [
 	^ count
 ]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatCommitTool >> commit: aRepo with: aMessage [
 	"Iceberg commits via workingCopy. The diff to commit is everything
 	 currently dirty; we don't allow partial staging."
@@ -69,14 +71,14 @@ SmallChatCommitTool >> commit: aRepo with: aMessage [
 		withMessage: aMessage
 ]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatCommitTool >> errorResult: aString [
 	^ STONJSON toString: (Dictionary new
 		at: 'error' put: aString;
 		yourself)
 ]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatCommitTool >> repository [
 	| iceRepo |
 	iceRepo := Smalltalk globals at: #IceRepository ifAbsent: [ ^ nil ].
@@ -85,7 +87,7 @@ SmallChatCommitTool >> repository [
 		ifNone: [ nil ]
 ]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatCommitTool >> run: args [
 	| repo message commit changeCount |
 	message := args at: 'message' ifAbsent: [ ^ self errorResult: 'message is required' ].

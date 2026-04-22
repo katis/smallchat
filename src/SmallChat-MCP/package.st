@@ -1,1 +1,1 @@
-Package { #name : #'SmallChat-MCP' }
+Package { #name : 'SmallChat-MCP' }

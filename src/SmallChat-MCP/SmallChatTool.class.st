@@ -8,50 +8,51 @@ result) or a SmallChatToolResult instance (text or image). No other
 return types are supported; anything else goes through #asString.
 "
 Class {
-	#name : #SmallChatTool,
-	#superclass : #Object,
-	#category : #'SmallChat-MCP'
+	#name : 'SmallChatTool',
+	#superclass : 'Object',
+	#category : 'SmallChat-MCP',
+	#package : 'SmallChat-MCP'
 }
 
-{ #category : #'accessing - metadata' }
+{ #category : 'accessing - metadata' }
 SmallChatTool class >> description [
 	^ self subclassResponsibility
 ]
 
-{ #category : #'accessing - metadata' }
+{ #category : 'accessing - metadata' }
 SmallChatTool class >> inputSchema [
 	"A Dictionary that will be written as JSON Schema in tools/list."
 	^ self subclassResponsibility
 ]
 
-{ #category : #testing }
+{ #category : 'testing' }
 SmallChatTool class >> isAbstract [
 	^ self == SmallChatTool
 ]
 
-{ #category : #'accessing - metadata' }
+{ #category : 'accessing - metadata' }
 SmallChatTool class >> toolName [
 	^ self subclassResponsibility
 ]
 
-{ #category : #'accessing - metadata' }
+{ #category : 'accessing - metadata' }
 SmallChatTool >> description [
 	^ self class description
 ]
 
-{ #category : #'accessing - metadata' }
+{ #category : 'accessing - metadata' }
 SmallChatTool >> inputSchema [
 	^ self class inputSchema
 ]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatTool >> run: aDictionary [
 	"Execute the tool with the given arguments. Subclasses must implement.
 	 Return a String (treated as text) or a SmallChatToolResult."
 	^ self subclassResponsibility
 ]
 
-{ #category : #'accessing - metadata' }
+{ #category : 'accessing - metadata' }
 SmallChatTool >> specDictionary [
 	^ Dictionary new
 		at: 'name' put: self toolName;
@@ -60,7 +61,7 @@ SmallChatTool >> specDictionary [
 		yourself
 ]
 
-{ #category : #'accessing - metadata' }
+{ #category : 'accessing - metadata' }
 SmallChatTool >> toolName [
 	^ self class toolName
 ]

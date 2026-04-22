@@ -9,8 +9,8 @@ A tool's #run: may return either a String (treated as text) or a
 SmallChatToolResult (text, image, or debugSession).
 "
 Class {
-	#name : #SmallChatToolResult,
-	#superclass : #Object,
+	#name : 'SmallChatToolResult',
+	#superclass : 'Object',
 	#instVars : [
 		'kind',
 		'mimeType',
@@ -18,17 +18,18 @@ Class {
 		'text',
 		'debugSession'
 	],
-	#category : #'SmallChat-MCP'
+	#category : 'SmallChat-MCP',
+	#package : 'SmallChat-MCP'
 }
 
-{ #category : #'instance creation' }
+{ #category : 'instance creation' }
 SmallChatToolResult class >> debugSession: aSmallChatDebugSession [
 	^ self new
 		debugSession: aSmallChatDebugSession;
 		yourself
 ]
 
-{ #category : #'instance creation' }
+{ #category : 'instance creation' }
 SmallChatToolResult class >> image: aByteArray mimeType: aMimeType [
 	^ self new
 		kind: #image;
@@ -37,17 +38,17 @@ SmallChatToolResult class >> image: aByteArray mimeType: aMimeType [
 		yourself
 ]
 
-{ #category : #'instance creation' }
+{ #category : 'instance creation' }
 SmallChatToolResult class >> png: aByteArray [
 	^ self image: aByteArray mimeType: 'image/png'
 ]
 
-{ #category : #'instance creation' }
+{ #category : 'instance creation' }
 SmallChatToolResult class >> svg: aStringOrBytes [
 	^ self image: aStringOrBytes asByteArray mimeType: 'image/svg+xml'
 ]
 
-{ #category : #'instance creation' }
+{ #category : 'instance creation' }
 SmallChatToolResult class >> text: aString [
 	^ self new
 		kind: #text;
@@ -55,65 +56,65 @@ SmallChatToolResult class >> text: aString [
 		yourself
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 SmallChatToolResult >> bytes [
 	^ bytes
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 SmallChatToolResult >> bytes: aByteArray [
 	bytes := aByteArray
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 SmallChatToolResult >> debugSession [
 	^ debugSession
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 SmallChatToolResult >> debugSession: aSmallChatDebugSession [
 	debugSession := aSmallChatDebugSession.
 	kind := #debugSession
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 SmallChatToolResult >> kind [
 	^ kind
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 SmallChatToolResult >> kind: aSymbol [
 	kind := aSymbol
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 SmallChatToolResult >> mimeType [
 	^ mimeType
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 SmallChatToolResult >> mimeType: aString [
 	mimeType := aString
 ]
 
-{ #category : #private }
+{ #category : 'private' }
 SmallChatToolResult >> stackSummaryFromSession [
 	^ [ debugSession debugSession stack first: (10 min: debugSession debugSession stack size) ]
 		on: Error
 		do: [ :_ | #() ]
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 SmallChatToolResult >> text [
 	^ text
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 SmallChatToolResult >> text: aString [
 	text := aString
 ]
 
-{ #category : #conversion }
+{ #category : 'conversion' }
 SmallChatToolResult >> toMcpContentDict [
 	"Return the single-item MCP content dictionary for this result."
 	kind = #text ifTrue: [
@@ -135,7 +136,7 @@ SmallChatToolResult >> toMcpContentDict [
 	^ self error: 'Unknown SmallChatToolResult kind: ', kind printString
 ]
 
-{ #category : #conversion }
+{ #category : 'conversion' }
 SmallChatToolResult >> toMcpReplyDict [
 	"Return the full MCP reply Dictionary for this result. For the text/image
 	 kinds this is a plain {content: [<contentDict>]}. For the debugSession

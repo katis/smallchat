@@ -3,20 +3,21 @@ Dispatches MCP JSON-RPC messages to handlers and produces response
 Dictionaries. Transport-agnostic: knows nothing about stdin/stdout.
 "
 Class {
-	#name : #SmallChatMCPProtocol,
-	#superclass : #Object,
+	#name : 'SmallChatMCPProtocol',
+	#superclass : 'Object',
 	#instVars : [
 		'serverInfo'
 	],
-	#category : #'SmallChat-MCP'
+	#category : 'SmallChat-MCP',
+	#package : 'SmallChat-MCP'
 }
 
-{ #category : #'instance creation' }
+{ #category : 'instance creation' }
 SmallChatMCPProtocol class >> default [
 	^ self new
 ]
 
-{ #category : #dispatch }
+{ #category : 'dispatch' }
 SmallChatMCPProtocol >> dispatchMessage: aDictionary [
 	"Raw dispatch. Errors here escape to #handleMessage:'s guard."
 	| method id params |
@@ -37,7 +38,7 @@ SmallChatMCPProtocol >> dispatchMessage: aDictionary [
 	^ self errorReplyTo: id code: -32601 message: 'Method not found: ', method
 ]
 
-{ #category : #private }
+{ #category : 'private' }
 SmallChatMCPProtocol >> errorReplyTo: id code: code message: message [
 	^ Dictionary new
 		at: 'jsonrpc' put: '2.0';
@@ -49,7 +50,7 @@ SmallChatMCPProtocol >> errorReplyTo: id code: code message: message [
 		yourself
 ]
 
-{ #category : #handlers }
+{ #category : 'handlers' }
 SmallChatMCPProtocol >> handleInitialize: params [
 	| clientVersion |
 	clientVersion := params at: 'protocolVersion' ifAbsent: [ '2024-11-05' ].
@@ -63,7 +64,7 @@ SmallChatMCPProtocol >> handleInitialize: params [
 		yourself
 ]
 
-{ #category : #dispatch }
+{ #category : 'dispatch' }
 SmallChatMCPProtocol >> handleMessage: aDictionary [
 	"Dispatch one JSON-RPC message. Returns a response Dictionary, or nil
 	 if the message was a notification (no reply).
@@ -83,7 +84,7 @@ SmallChatMCPProtocol >> handleMessage: aDictionary [
 			  ifNotNil: [ self errorReplyTo: id code: -32603 message: 'Internal error: ', e class name ] ]
 ]
 
-{ #category : #handlers }
+{ #category : 'handlers' }
 SmallChatMCPProtocol >> handleToolsCall: params [
 	| name args |
 	name := params at: 'name' ifAbsent: [
@@ -98,14 +99,14 @@ SmallChatMCPProtocol >> handleToolsCall: params [
 	^ SmallChatToolRegistry default run: name with: args
 ]
 
-{ #category : #handlers }
+{ #category : 'handlers' }
 SmallChatMCPProtocol >> handleToolsList: params [
 	^ Dictionary new
 		at: 'tools' put: SmallChatToolRegistry default toolSpecs asArray;
 		yourself
 ]
 
-{ #category : #initialization }
+{ #category : 'initialization' }
 SmallChatMCPProtocol >> initialize [
 	super initialize.
 	serverInfo := Dictionary new
@@ -114,7 +115,7 @@ SmallChatMCPProtocol >> initialize [
 		yourself
 ]
 
-{ #category : #handlers }
+{ #category : 'handlers' }
 SmallChatMCPProtocol >> instructions [
 	"Free-form guidance returned in the initialize response. Clients (e.g.
 	 Claude Code) surface this to the model as system-level context, so it's
@@ -188,7 +189,7 @@ and list its selectors whose name contains ''version'':
         s << c name; << '': ''; print: hits asArray; cr ] ] ]'
 ]
 
-{ #category : #private }
+{ #category : 'private' }
 SmallChatMCPProtocol >> replyTo: id with: result [
 	^ Dictionary new
 		at: 'jsonrpc' put: '2.0';

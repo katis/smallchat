@@ -5,17 +5,18 @@ ReCriticEngine call that lib/lint.st uses for `just lint`, but
 returns JSON instead of printing + exit-code.
 "
 Class {
-	#name : #SmallChatLintTool,
-	#superclass : #SmallChatTool,
-	#category : #'SmallChat-MCP'
+	#name : 'SmallChatLintTool',
+	#superclass : 'SmallChatTool',
+	#category : 'SmallChat-MCP',
+	#package : 'SmallChat-MCP'
 }
 
-{ #category : #'accessing - metadata' }
+{ #category : 'accessing - metadata' }
 SmallChatLintTool class >> description [
 	^ 'Run ReCriticEngine over packages matching the pattern (default ''SmallChat.*'') and return structured critiques. Mirrors `just lint`, in-image.'
 ]
 
-{ #category : #'accessing - metadata' }
+{ #category : 'accessing - metadata' }
 SmallChatLintTool class >> inputSchema [
 	^ Dictionary new
 		at: 'type' put: 'object';
@@ -29,10 +30,11 @@ SmallChatLintTool class >> inputSchema [
 		yourself
 ]
 
-{ #category : #'accessing - metadata' }
-SmallChatLintTool class >> toolName [ ^ 'lint' ]
+{ #category : 'accessing - metadata' }
+SmallChatLintTool class >> toolName [ ^ 'lint'
+]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatLintTool >> describeCritique: aCritique inPackage: aPackage [
 	^ Dictionary new
 		at: 'package' put: aPackage name;
@@ -46,7 +48,7 @@ SmallChatLintTool >> describeCritique: aCritique inPackage: aPackage [
 		yourself
 ]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatLintTool >> run: args [
 	| packagePattern matcher pkgs out json |
 	packagePattern := args at: 'packagePattern' ifAbsent: [ 'SmallChat.*' ].

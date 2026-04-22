@@ -21,7 +21,8 @@ Class {
 		'process',
 		'createdAtMs',
 		'state',
-		'resumeValue'
+		'resumeValue',
+		'stepped'
 	],
 	#category : 'SmallChat-MCP',
 	#package : 'SmallChat-MCP'
@@ -105,4 +106,14 @@ SmallChatDebugSession >> state [
 { #category : 'accessing' }
 SmallChatDebugSession >> state: aState [
 	state := aState
+]
+
+{ #category : 'accessing' }
+SmallChatDebugSession >> stepped [
+	^ stepped == true
+]
+
+{ #category : 'accessing' }
+SmallChatDebugSession >> stepped: aBoolean [
+    stepped := aBoolean
 ]

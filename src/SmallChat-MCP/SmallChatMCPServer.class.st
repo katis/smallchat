@@ -10,8 +10,8 @@ Stdout is reserved exclusively for MCP JSON-RPC. Any logging MUST go to
 stderr or Transcript -- never System.out -- or framing will break.
 "
 Class {
-	#name : #SmallChatMCPServer,
-	#superclass : #Object,
+	#name : 'SmallChatMCPServer',
+	#superclass : 'Object',
 	#instVars : [
 		'readerProcess',
 		'writeMutex',
@@ -24,15 +24,16 @@ Class {
 	#classVars : [
 		'Default'
 	],
-	#category : #'SmallChat-MCP'
+	#category : 'SmallChat-MCP',
+	#package : 'SmallChat-MCP'
 }
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 SmallChatMCPServer class >> default [
 	^ Default ifNil: [ Default := self new ]
 ]
 
-{ #category : #'system startup' }
+{ #category : 'system startup' }
 SmallChatMCPServer class >> logToFile: aString [
 	"Append a line to <imageDir>/smallchat-mcp.log. Best-effort; swallows errors."
 	[ | file |
@@ -41,13 +42,13 @@ SmallChatMCPServer class >> logToFile: aString [
 		on: Error do: [ :e | ]
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 SmallChatMCPServer class >> reset [
 	Default ifNotNil: [ Default stop ].
 	Default := nil
 ]
 
-{ #category : #'system startup' }
+{ #category : 'system startup' }
 SmallChatMCPServer class >> shutDown: isImageQuitting [
 	"Stop on every shutdown event, not just quit. Save-then-continue also fires
 	 shutDown: and we must clear the #running flag, otherwise the flag is
@@ -56,7 +57,7 @@ SmallChatMCPServer class >> shutDown: isImageQuitting [
 	Default ifNotNil: [ Default stop ]
 ]
 
-{ #category : #'system startup' }
+{ #category : 'system startup' }
 SmallChatMCPServer class >> startUp: isImageStarting [
 	"Called by SessionManager on every image launch. The isImageStarting flag is
 	 unreliable across launch modes -- under GUI `open -n -a` the VM fires startUp:
@@ -71,7 +72,7 @@ SmallChatMCPServer class >> startUp: isImageStarting [
 			self logToFile: 'startUp error: ', e class name, ' - ', e messageText ]
 ]
 
-{ #category : #dispatch }
+{ #category : 'dispatch' }
 SmallChatMCPServer >> handleLine: jsonLine [
 	| message response |
 	[
@@ -84,7 +85,7 @@ SmallChatMCPServer >> handleLine: jsonLine [
 	response ifNotNil: [ self writeMessage: response ]
 ]
 
-{ #category : #initialization }
+{ #category : 'initialization' }
 SmallChatMCPServer >> initialize [
 	super initialize.
 	writeMutex := Mutex new.
@@ -92,22 +93,22 @@ SmallChatMCPServer >> initialize [
 	running := false
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 SmallChatMCPServer >> isRunning [
 	^ running == true
 ]
 
-{ #category : #logging }
+{ #category : 'logging' }
 SmallChatMCPServer >> logError: aString [
 	self logToStderr: 'ERROR ', aString
 ]
 
-{ #category : #logging }
+{ #category : 'logging' }
 SmallChatMCPServer >> logInfo: aString [
 	self logToStderr: 'INFO ', aString
 ]
 
-{ #category : #logging }
+{ #category : 'logging' }
 SmallChatMCPServer >> logToStderr: aString [
 	"Never write to stdout -- it is reserved for MCP framing. Stderr is fine."
 	stderr ifNil: [ ^ self ].
@@ -121,7 +122,7 @@ SmallChatMCPServer >> logToStderr: aString [
 	] on: Error do: [ :e | "stderr may be unavailable; swallow" ]
 ]
 
-{ #category : #'reading - stdio' }
+{ #category : 'reading - stdio' }
 SmallChatMCPServer >> mcpFifoNamed: baseName [
 	"Return the FileReference to <imageDir>/<baseName> if it exists, else nil.
 	 Pharo's VM exposes the image path via #imageFile (a FileReference), not
@@ -131,7 +132,7 @@ SmallChatMCPServer >> mcpFifoNamed: baseName [
 	^ ref exists ifTrue: [ ref ] ifFalse: [ nil ]
 ]
 
-{ #category : #'reading - stdio' }
+{ #category : 'reading - stdio' }
 SmallChatMCPServer >> muteTranscriptToStdout [
 	"Pharo's headless Transcript mirrors to stdout, which corrupts our JSON-RPC
 	 framing. Redirect Transcript to stderr (or null) so only our MCP responses
@@ -146,7 +147,7 @@ SmallChatMCPServer >> muteTranscriptToStdout [
 		Smalltalk globals at: #Transcript put: redirected ]
 ]
 
-{ #category : #'reading - stdio' }
+{ #category : 'reading - stdio' }
 SmallChatMCPServer >> readLine [
 	"Read one line (LF-terminated) from stdin, returning its contents without the
 	 trailing newline. Returns nil on EOF. Handles both byte- and character-oriented
@@ -168,7 +169,7 @@ SmallChatMCPServer >> readLine [
 	] repeat
 ]
 
-{ #category : #'reading - stdio' }
+{ #category : 'reading - stdio' }
 SmallChatMCPServer >> readLoop [
 	| line |
 	self class logToFile: 'readLoop: entered (reader process alive)'.
@@ -180,14 +181,14 @@ SmallChatMCPServer >> readLoop [
 		line isEmpty ifFalse: [ self handleLine: line ] ]
 ]
 
-{ #category : #'reading - stdio' }
+{ #category : 'reading - stdio' }
 SmallChatMCPServer >> resolveStderr [
 	(Smalltalk globals includesKey: #Stdio) ifTrue: [
 		^ (Smalltalk globals at: #Stdio) stderr ].
 	^ FileStream stderr
 ]
 
-{ #category : #'reading - stdio' }
+{ #category : 'reading - stdio' }
 SmallChatMCPServer >> resolveStdin [
 	"When the wrapper has placed a named pipe at <imageDir>/mcp.in, use that
 	 instead of Stdio. Falls back to Stdio for the direct-exec headless path."
@@ -204,7 +205,7 @@ SmallChatMCPServer >> resolveStdin [
 	^ FileStream stdin
 ]
 
-{ #category : #'reading - stdio' }
+{ #category : 'reading - stdio' }
 SmallChatMCPServer >> resolveStdout [
 	| fifo |
 	fifo := self mcpFifoNamed: 'mcp.out'.
@@ -219,7 +220,7 @@ SmallChatMCPServer >> resolveStdout [
 	^ FileStream stdout
 ]
 
-{ #category : #lifecycle }
+{ #category : 'lifecycle' }
 SmallChatMCPServer >> start [
 	"Kill any stale reader from a saved snapshot before starting fresh -- the
 	 #running flag and #readerProcess reference survive image save, but the
@@ -245,13 +246,13 @@ SmallChatMCPServer >> start [
 		named: 'SmallChat MCP Reader'
 ]
 
-{ #category : #lifecycle }
+{ #category : 'lifecycle' }
 SmallChatMCPServer >> stop [
 	running := false.
 	readerProcess ifNotNil: [ :p | p terminate. readerProcess := nil ]
 ]
 
-{ #category : #'reading - stdio' }
+{ #category : 'reading - stdio' }
 SmallChatMCPServer >> waitForStdinData [
 	"Yield the VM to other processes until stdin has data or EOFs. Registers a
 	 fresh Semaphore on each call so we don't depend on the shared one cached in
@@ -271,7 +272,7 @@ SmallChatMCPServer >> waitForStdinData [
 	] ensure: [ Smalltalk unregisterExternalObject: sema ]
 ]
 
-{ #category : #writing }
+{ #category : 'writing' }
 SmallChatMCPServer >> writeMessage: responseDictionary [
 	"Serialize to JSON (no embedded newlines per MCP stdio spec) and write a
 	 single line to stdout. Byte-oriented streams need us to encode the string

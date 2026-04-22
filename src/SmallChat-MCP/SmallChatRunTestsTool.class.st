@@ -14,17 +14,18 @@ will also pass; in-image state can drift from the on-disk Tonel.
 Always `just test` before committing.
 "
 Class {
-	#name : #SmallChatRunTestsTool,
-	#superclass : #SmallChatTool,
-	#category : #'SmallChat-MCP'
+	#name : 'SmallChatRunTestsTool',
+	#superclass : 'SmallChatTool',
+	#category : 'SmallChat-MCP',
+	#package : 'SmallChat-MCP'
 }
 
-{ #category : #'accessing - metadata' }
+{ #category : 'accessing - metadata' }
 SmallChatRunTestsTool class >> description [
 	^ 'Run SUnit tests in the live image. Discovers test classes by package-name regex (default ''SmallChat.*''); optional selector regex narrows further. Returns structured {passed, failed, errored, durationMs, failures, errors}. Reflects in-image state -- run `just test` from a shell before commit to verify a fresh rebuild also passes.'
 ]
 
-{ #category : #'accessing - metadata' }
+{ #category : 'accessing - metadata' }
 SmallChatRunTestsTool class >> inputSchema [
 	^ Dictionary new
 		at: 'type' put: 'object';
@@ -46,10 +47,11 @@ SmallChatRunTestsTool class >> inputSchema [
 		yourself
 ]
 
-{ #category : #'accessing - metadata' }
-SmallChatRunTestsTool class >> toolName [ ^ 'run_tests' ]
+{ #category : 'accessing - metadata' }
+SmallChatRunTestsTool class >> toolName [ ^ 'run_tests'
+]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatRunTestsTool >> captureFirstFailure: aTestResult [
 	"When debug_first_failure is on and a test failed/errored, re-execute the
 	 first failing test through SmallChatDebugEvaluator so the exception
@@ -65,7 +67,7 @@ SmallChatRunTestsTool >> captureFirstFailure: aTestResult [
 	^ outcome key = #debugSession ifTrue: [ outcome value id ] ifFalse: [ nil ]
 ]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatRunTestsTool >> describeError: aTestCase from: aResult [
 	"Build a {test, class, message, stack} dictionary for a failure/error.
 	 aTestCase is the actual test instance that failed; aResult tracks
@@ -83,7 +85,7 @@ SmallChatRunTestsTool >> describeError: aTestCase from: aResult [
 		yourself
 ]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatRunTestsTool >> matchingTestClasses: packagePattern [
 	"Return TestCase subclasses whose package name matches packagePattern."
 	| matcher pkgs testClasses |
@@ -98,7 +100,7 @@ SmallChatRunTestsTool >> matchingTestClasses: packagePattern [
 	^ testClasses
 ]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatRunTestsTool >> run: args [
 	| packagePattern testPattern testClasses suite result startMs duration json testMatcher debugFirst debugSid |
 	packagePattern := args at: 'packagePattern' ifAbsent: [ 'SmallChat.*' ].
@@ -136,7 +138,7 @@ SmallChatRunTestsTool >> run: args [
 	^ STONJSON toString: json
 ]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatRunTestsTool >> stackOf: anException [
 	"Trimmed top-of-stack for an exception. Skip Kernel/SUnit frames so
 	 the user-relevant context shows up first; cap at 20 frames."

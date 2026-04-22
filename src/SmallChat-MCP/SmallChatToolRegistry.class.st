@@ -4,35 +4,36 @@ reflectively, so a new SmallChatTool subclass compiled at runtime via
 `evaluate` appears on the next tools/list call automatically.
 "
 Class {
-	#name : #SmallChatToolRegistry,
-	#superclass : #Object,
+	#name : 'SmallChatToolRegistry',
+	#superclass : 'Object',
 	#instVars : [
 		'cachedTools'
 	],
 	#classVars : [
 		'Default'
 	],
-	#category : #'SmallChat-MCP'
+	#category : 'SmallChat-MCP',
+	#package : 'SmallChat-MCP'
 }
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 SmallChatToolRegistry class >> default [
 	^ Default ifNil: [ Default := self new ]
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 SmallChatToolRegistry class >> reset [
 	Default := nil
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 SmallChatToolRegistry >> allTools [
 	"Reflectively collect a fresh instance of every concrete SmallChatTool subclass."
 	^ (SmallChatTool allSubclasses reject: [ :c | c isAbstract ])
 		collect: [ :c | c new ]
 ]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatToolRegistry >> errorResult: aString [
 	^ Dictionary new
 		at: 'isError' put: true;
@@ -44,7 +45,7 @@ SmallChatToolRegistry >> errorResult: aString [
 		yourself
 ]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatToolRegistry >> run: toolNameString with: argsDictionary [
 	"Look up the tool by its MCP name and execute it. Returns a Dictionary
 	 shaped as an MCP tool result: {content: [<contentDict>], isError: bool}.
@@ -73,7 +74,7 @@ SmallChatToolRegistry >> run: toolNameString with: argsDictionary [
 		yourself
 ]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatToolRegistry >> safeAsString: anObject [
 	"Like #asString but guaranteed to return a String. Tools usually return
 	 simple strings, but a misbehaving #asString / #printOn: can throw, and
@@ -83,7 +84,7 @@ SmallChatToolRegistry >> safeAsString: anObject [
 		do: [ :e | '<asString failed: ', e class name, ' ', (e messageText ifNil: [ '' ]), '>' ]
 ]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatToolRegistry >> safeErrorDescription: anException [
 	"Format an exception as text for an MCP error response. Guarded because
 	 `signalerContext printString` can traverse a deep context graph and
@@ -101,12 +102,12 @@ SmallChatToolRegistry >> safeErrorDescription: anException [
 		do: [ :e | header, ' (context printString failed: ', e class name, ')' ]
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 SmallChatToolRegistry >> toolNamed: aString [
 	^ self allTools detect: [ :t | t toolName = aString ] ifNone: [ nil ]
 ]
 
-{ #category : #accessing }
+{ #category : 'accessing' }
 SmallChatToolRegistry >> toolSpecs [
 	"Return an Array of Dictionaries describing each tool for tools/list."
 	^ self allTools collect: [ :t | t specDictionary ]

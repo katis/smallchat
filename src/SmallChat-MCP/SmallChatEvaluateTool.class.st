@@ -11,17 +11,18 @@ Returns either:
     unwraps into the debug-session MCP reply shape.
 "
 Class {
-	#name : #SmallChatEvaluateTool,
-	#superclass : #SmallChatTool,
-	#category : #'SmallChat-MCP'
+	#name : 'SmallChatEvaluateTool',
+	#superclass : 'SmallChatTool',
+	#category : 'SmallChat-MCP',
+	#package : 'SmallChat-MCP'
 }
 
-{ #category : #'accessing - metadata' }
+{ #category : 'accessing - metadata' }
 SmallChatEvaluateTool class >> description [
 	^ 'Evaluate a Smalltalk expression in the running Pharo image and return its printString. Uncaught exceptions land in a captured debug session (see debug_* tools). Use for reading state, invoking methods, or running one-shot scripts.'
 ]
 
-{ #category : #'accessing - metadata' }
+{ #category : 'accessing - metadata' }
 SmallChatEvaluateTool class >> inputSchema [
 	^ Dictionary new
 		at: 'type' put: 'object';
@@ -35,10 +36,11 @@ SmallChatEvaluateTool class >> inputSchema [
 		yourself
 ]
 
-{ #category : #'accessing - metadata' }
-SmallChatEvaluateTool class >> toolName [ ^ 'evaluate' ]
+{ #category : 'accessing - metadata' }
+SmallChatEvaluateTool class >> toolName [ ^ 'evaluate'
+]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatEvaluateTool >> run: args [
 	| code outcome |
 	code := args at: 'code'.

@@ -4,17 +4,18 @@ Returns a structured Dictionary mirroring the in-image state
 that Iceberg would commit if `commit` were called now.
 "
 Class {
-	#name : #SmallChatStatusTool,
-	#superclass : #SmallChatTool,
-	#category : #'SmallChat-MCP'
+	#name : 'SmallChatStatusTool',
+	#superclass : 'SmallChatTool',
+	#category : 'SmallChat-MCP',
+	#package : 'SmallChat-MCP'
 }
 
-{ #category : #'accessing - metadata' }
+{ #category : 'accessing - metadata' }
 SmallChatStatusTool class >> description [
 	^ 'Working-copy + git status for the smallchat Iceberg repo. Reports the current branch, ahead/behind, whether the working copy diverges from HEAD, and a per-change summary (package, file kind, change type). Read-only.'
 ]
 
-{ #category : #'accessing - metadata' }
+{ #category : 'accessing - metadata' }
 SmallChatStatusTool class >> inputSchema [
 	^ Dictionary new
 		at: 'type' put: 'object';
@@ -23,10 +24,11 @@ SmallChatStatusTool class >> inputSchema [
 		yourself
 ]
 
-{ #category : #'accessing - metadata' }
-SmallChatStatusTool class >> toolName [ ^ 'status' ]
+{ #category : 'accessing - metadata' }
+SmallChatStatusTool class >> toolName [ ^ 'status'
+]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatStatusTool >> changesFor: aRepo [
 	"Walk the workingCopyDiff tree and collect a flat array of
 	{target, changeType, definitionClass} dictionaries. Skip placeholder
@@ -64,7 +66,7 @@ SmallChatStatusTool >> changesFor: aRepo [
 	^ out asArray
 ]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatStatusTool >> describeDefinition: aDef [
 	"Best-effort human-readable identifier for an IceXxxDefinition."
 	aDef ifNil: [ ^ '<no-def>' ].
@@ -82,7 +84,7 @@ SmallChatStatusTool >> describeDefinition: aDef [
 		do: [ :_ | '<unidentified>' ]
 ]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatStatusTool >> repository [
 	| iceRepo |
 	iceRepo := Smalltalk globals
@@ -93,7 +95,7 @@ SmallChatStatusTool >> repository [
 		ifNone: [ nil ]
 ]
 
-{ #category : #execution }
+{ #category : 'execution' }
 SmallChatStatusTool >> run: args [
 	| repo result |
 	repo := self repository.
