@@ -129,6 +129,48 @@ SmallChatLMChatWindowTest >> testSecondSendBlockedWhileFirstPending [
 ]
 
 { #category : 'tests' }
+SmallChatLMChatWindowTest >> testSendAfterErrorIsAccepted [
+    | stub client session window userTurns |
+    stub := SmallChatLMHttpStub new
+        raiseOnPost: 'first failure';
+        yourself.
+    client := SmallChatLMChatClient new
+        baseUrl: 'http://localhost:1234';
+        httpClient: stub;
+        yourself.
+    session := SmallChatLMSession new
+        client: client;
+        yourself.
+    window := SmallChatLMChatWindow new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    window input text: 'one'.
+    window sendFromInput.
+    window waitForPending.
+    self assert: window pendingRequest isNil.
+    self assert: window sendButton isEnabled.
+    "Swap stub back to a canned reply for the follow-up send."
+    stub
+        raiseOnPost: nil;
+        response: (STONJSON toString: (Dictionary new
+            at: 'choices' put: { Dictionary new
+                at: 'message' put: (Dictionary new
+                    at: 'role' put: 'assistant';
+                    at: 'content' put: 'ok';
+                    yourself);
+                yourself };
+            yourself)).
+    window input text: 'two'.
+    window sendFromInput.
+    window waitForPending.
+    userTurns := session conversation messages select: [ :m | m role = #user ].
+    self assert: userTurns size equals: 2.
+    self assert: (session conversation messages anySatisfy: [ :m |
+        m role = #assistant and: [ m content = 'ok' ] ])
+]
+
+{ #category : 'tests' }
 SmallChatLMChatWindowTest >> testSendFromInputAppendsPresenterForEachMessage [
     | window session |
     session := self stubSessionWithCannedReply: 'hello back'.
