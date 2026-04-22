@@ -12,6 +12,21 @@ SmallChatDebugStepToolsTest >> tearDown [
 ]
 
 { #category : 'tests' }
+SmallChatDebugStepToolsTest >> testProceedOnSteppedSessionRecapturesNextRaise [
+    | evalResult sid proceedResult payload newSid |
+    SmallChatDebugSessionRegistry reset.
+    evalResult := SmallChatToolRegistry default run: 'evaluate' with: (Dictionary new at: 'code' put: '1/0. 2/0. 42'; yourself).
+    sid := (evalResult at: 'debugSession') at: 'id'.
+    SmallChatToolRegistry default run: 'debug_step_over' with: (Dictionary new at: 'sessionId' put: sid; yourself).
+    proceedResult := SmallChatToolRegistry default run: 'debug_proceed' with: (Dictionary new at: 'sessionId' put: sid; yourself).
+    payload := proceedResult at: 'debugSession' ifAbsent: [ nil ].
+    self assert: payload notNil description: 'debug_proceed after a step must recapture on the next raise'.
+    self assert: (payload at: 'exceptionClass') equals: 'ZeroDivide'.
+    newSid := payload at: 'id'.
+    self deny: newSid = sid description: 'recaptured session should have a fresh id'
+]
+
+{ #category : 'tests' }
 SmallChatDebugStepToolsTest >> testReturnRejectsSteppedSession [
     | evalResult sid returnResult content text |
     SmallChatDebugSessionRegistry reset.
