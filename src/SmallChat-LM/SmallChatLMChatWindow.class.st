@@ -43,7 +43,7 @@ SmallChatLMChatWindow class >> menuCommandOn: aBuilder [
 { #category : 'private' }
 SmallChatLMChatWindow >> beginPendingSendOf: aString [
     session conversation addUser: aString.
-    statusLabel label: 'waitingâ¦'.
+    statusLabel label: 'waiting...'.
     sendButton disable.
     self refreshMessages
 ]
