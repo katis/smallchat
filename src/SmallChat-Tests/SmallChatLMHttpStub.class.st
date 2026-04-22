@@ -10,11 +10,22 @@ Class {
 		'response',
 		'lastUrl',
 		'lastBody',
-		'lastHeaders'
+		'lastHeaders',
+		'gate'
 	],
 	#category : 'SmallChat-Tests',
 	#package : 'SmallChat-Tests'
 }
+
+{ #category : 'accessing' }
+SmallChatLMHttpStub >> gate [
+    ^ gate
+]
+
+{ #category : 'gating' }
+SmallChatLMHttpStub >> gateOn [
+    gate := Semaphore new
+]
 
 { #category : 'accessing' }
 SmallChatLMHttpStub >> lastBody [
@@ -33,10 +44,16 @@ SmallChatLMHttpStub >> lastUrl [
 
 { #category : 'api' }
 SmallChatLMHttpStub >> post: aBody to: aUrl withHeaders: aHeadersDict [
-	lastBody := aBody.
-	lastUrl := aUrl.
-	lastHeaders := aHeadersDict.
-	^ response
+    lastBody := aBody.
+    lastUrl := aUrl.
+    lastHeaders := aHeadersDict.
+    gate ifNotNil: [ gate wait ].
+    ^ response
+]
+
+{ #category : 'gating' }
+SmallChatLMHttpStub >> releaseGate [
+    gate ifNotNil: [ gate signal ]
 ]
 
 { #category : 'accessing' }

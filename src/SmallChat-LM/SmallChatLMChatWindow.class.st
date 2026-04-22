@@ -20,7 +20,10 @@ Class {
 		'sendButton',
 		'session',
 		'messagesPane',
-		'presentersByMessage'
+		'presentersByMessage',
+		'pendingRequest',
+		'statusLabel',
+		'uiDeferrer'
 	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
@@ -37,33 +40,65 @@ SmallChatLMChatWindow class >> menuCommandOn: aBuilder [
 		action: [ UIManager default defer: [ self new open ] ]
 ]
 
+{ #category : 'private' }
+SmallChatLMChatWindow >> beginPendingSendOf: aString [
+    session conversation addUser: aString.
+    statusLabel label: 'waitingâ¦'.
+    sendButton disable.
+    self refreshMessages
+]
+
 { #category : 'layout' }
 SmallChatLMChatWindow >> defaultLayout [
-	^ SpBoxLayout newTopToBottom
-		spacing: 4;
-		add: messagesPane;
-		add: (SpBoxLayout newLeftToRight
-			spacing: 4;
-			add: input;
-			add: sendButton expand: false;
-			yourself)
-			expand: false;
-		yourself
+    ^ SpBoxLayout newTopToBottom
+        spacing: 4;
+        add: messagesPane;
+        add: statusLabel expand: false;
+        add: (SpBoxLayout newLeftToRight
+            spacing: 4;
+            add: input;
+            add: sendButton expand: false;
+            yourself)
+            expand: false;
+        yourself
+]
+
+{ #category : 'private' }
+SmallChatLMChatWindow >> dispatchSendOf: aString [
+    | snapshot block |
+    snapshot := session conversation.
+    block := [
+        | reply |
+        reply := session client complete: snapshot.
+        uiDeferrer value: [ self finishPendingWith: reply ] ].
+    pendingRequest := block newProcess.
+    pendingRequest resume
+]
+
+{ #category : 'private' }
+SmallChatLMChatWindow >> finishPendingWith: aMessage [
+    session conversation addMessage: aMessage.
+    statusLabel label: ''.
+    sendButton enable.
+    pendingRequest := nil.
+    self refreshMessages
 ]
 
 { #category : 'initialization' }
 SmallChatLMChatWindow >> initializePresenters [
-	session isNil ifTrue: [ session := SmallChatLMSession new ].
-	presentersByMessage := IdentityDictionary new.
-	messagesPane := self newPresenter.
-	messagesPane layout: SpBoxLayout newTopToBottom.
-	input := self newTextInput
-		placeholder: 'message';
-		yourself.
-	sendButton := self newButton
-		label: 'Send';
-		action: [ self sendFromInput ];
-		yourself
+    session isNil ifTrue: [ session := SmallChatLMSession new ].
+    presentersByMessage := IdentityDictionary new.
+    uiDeferrer := [ :aBlock | UIManager default defer: aBlock ].
+    messagesPane := self newPresenter.
+    messagesPane layout: SpBoxLayout newTopToBottom.
+    statusLabel := self newLabel.
+    input := self newTextInput
+        placeholder: 'message';
+        yourself.
+    sendButton := self newButton
+        label: 'Send';
+        action: [ self sendFromInput ];
+        yourself
 ]
 
 { #category : 'initialization' }
@@ -86,6 +121,11 @@ SmallChatLMChatWindow >> messagePresenters [
 		collect: [ :m | self presenterFor: m ]
 ]
 
+{ #category : 'accessing' }
+SmallChatLMChatWindow >> pendingRequest [
+    ^ pendingRequest
+]
+
 { #category : 'private' }
 SmallChatLMChatWindow >> presenterFor: aMessage [
 	^ presentersByMessage
@@ -101,14 +141,20 @@ SmallChatLMChatWindow >> refreshMessages [
 	messagesPane layout: layout
 ]
 
+{ #category : 'accessing' }
+SmallChatLMChatWindow >> sendButton [
+    ^ sendButton
+]
+
 { #category : 'private' }
 SmallChatLMChatWindow >> sendFromInput [
-	| text |
-	text := input text.
-	(text isNil or: [ text isEmpty ]) ifTrue: [ ^ self ].
-	session sendUserInput: text.
-	self refreshMessages.
-	input text: ''
+    | text |
+    pendingRequest isNil ifFalse: [ ^ self ].
+    text := input text.
+    (text isNil or: [ text isEmpty ]) ifTrue: [ ^ self ].
+    self beginPendingSendOf: text.
+    input text: ''.
+    self dispatchSendOf: text
 ]
 
 { #category : 'accessing' }
@@ -120,4 +166,22 @@ SmallChatLMChatWindow >> session [
 SmallChatLMChatWindow >> session: aSession [
 	session := aSession.
 	presentersByMessage isNil ifFalse: [ self refreshMessages ]
+]
+
+{ #category : 'accessing' }
+SmallChatLMChatWindow >> statusLabel [
+    ^ statusLabel
+]
+
+{ #category : 'accessing' }
+SmallChatLMChatWindow >> uiDeferrer: aBlock [
+    uiDeferrer := aBlock
+]
+
+{ #category : 'synchronising' }
+SmallChatLMChatWindow >> waitForPending [
+    | p |
+    p := pendingRequest.
+    p ifNil: [ ^ self ].
+    [ p isTerminated ] whileFalse: [ Processor yield ]
 ]
