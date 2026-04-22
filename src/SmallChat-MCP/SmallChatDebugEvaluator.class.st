@@ -120,3 +120,19 @@ SmallChatDebugEvaluator class >> resume: aSmallChatDebugSession with: aValue [
 	state sem wait.
 	^ state outcome
 ]
+
+{ #category : 'evaluating' }
+SmallChatDebugEvaluator class >> stepOver: aSmallChatDebugSession [
+    "Advance the session one message-send past the current ictx, pausing at the new
+     location. On the first step of a session, pop our handler+suspend frames via
+     returnValue:from: so the fork's suspendedContext is a user frame rather than
+     our suspend. Subsequent steps skip the pop (stepped flag is already set)."
+    | ds ex |
+    ds := aSmallChatDebugSession debugSession.
+    aSmallChatDebugSession stepped ifFalse: [
+        ex := aSmallChatDebugSession exception.
+        ds returnValue: nil from: ex signalerContext ].
+    ds stepOver.
+    aSmallChatDebugSession stepped: true.
+    ^ #debugSession -> aSmallChatDebugSession
+]
