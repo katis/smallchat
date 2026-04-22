@@ -122,6 +122,21 @@ SmallChatDebugEvaluator class >> resume: aSmallChatDebugSession with: aValue [
 ]
 
 { #category : 'evaluating' }
+SmallChatDebugEvaluator class >> stepInto: aSmallChatDebugSession [
+    "Advance the session one interesting bytecode, entering the next method-send
+     when the ictx is at a send site. First step on a session pops the
+     handler+suspend frames just like stepOver:; subsequent steps skip the pop."
+    | ds ex |
+    ds := aSmallChatDebugSession debugSession.
+    aSmallChatDebugSession stepped ifFalse: [
+        ex := aSmallChatDebugSession exception.
+        ds returnValue: nil from: ex signalerContext ].
+    ds stepInto.
+    aSmallChatDebugSession stepped: true.
+    ^ #debugSession -> aSmallChatDebugSession
+]
+
+{ #category : 'evaluating' }
 SmallChatDebugEvaluator class >> stepOver: aSmallChatDebugSession [
     "Advance the session one message-send past the current ictx, pausing at the new
      location. On the first step of a session, pop our handler+suspend frames via

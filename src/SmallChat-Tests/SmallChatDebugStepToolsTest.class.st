@@ -41,6 +41,22 @@ SmallChatDebugStepToolsTest >> testSessionSteppedDefaultsToFalseAndRoundTrips [
 ]
 
 { #category : 'tests' }
+SmallChatDebugStepToolsTest >> testStepIntoEntersNextMethodCall [
+    | evalResult sid session ictx |
+    SmallChatDebugSessionRegistry reset.
+    evalResult := SmallChatToolRegistry default run: 'evaluate' with: (Dictionary new at: 'code' put: '1/0. 5 factorial. 42'; yourself).
+    sid := (evalResult at: 'debugSession') at: 'id'.
+    "Two step_intos: first reaches the next send-site, second enters the method."
+    SmallChatToolRegistry default run: 'debug_step_into' with: (Dictionary new at: 'sessionId' put: sid; yourself).
+    SmallChatToolRegistry default run: 'debug_step_into' with: (Dictionary new at: 'sessionId' put: sid; yourself).
+    session := SmallChatDebugSessionRegistry default at: sid.
+    self assert: session stepped.
+    ictx := session debugSession interruptedContext.
+    self assert: ictx receiver equals: 5.
+    self assert: ictx selector equals: #factorial
+]
+
+{ #category : 'tests' }
 SmallChatDebugStepToolsTest >> testStepOverAdvancesIctxPastSignalAndMarksStepped [
     | evalResult sid session preIctx postIctx |
     SmallChatDebugSessionRegistry reset.
