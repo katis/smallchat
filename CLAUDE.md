@@ -4,436 +4,323 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project goal
 
-smallchat is a self-modifying agent that lives inside a Pharo 13 Smalltalk
-image. It connects to a local LM Studio server (target model:
-`Qwen3.6-35B-A3B-nvfp4`) and exposes Smalltalk-native tool calling so the agent
-can inspect and rewrite classes/methods in the same image it is running
-in. The UI, agent loop, and model client are all in-image; `src/` is the
-on-disk source of truth.
+smallchat is a self-modifying agent that lives inside a Pharo 13
+Smalltalk image. It connects to a local LM Studio server (target
+model: `Qwen3.6-35B-A3B-nvfp4`) and exposes Smalltalk-native tool
+calling so the agent can inspect and rewrite classes/methods in the
+same image it is running in. The UI, agent loop, and model client
+are all in-image; the Tonel tree under `src/` is the on-disk source
+of truth.
 
 ## Two image flavours
 
-Two distinct images at disjoint on-disk paths so they can coexist and
-the verifier can rebuild without disturbing a live dev session:
+Disjoint on-disk paths so the verifier can rebuild without disturbing
+a live dev session:
 
-- **Dev image** (the working environment, `pharo/Pharo.image`): a
-  long-lived Pharo image with `SmallChat-MCP` loaded and Iceberg
-  registered against the working tree. Claude Code talks to it over
-  MCP via `./bin/smallchat-mcp` (per `.mcp.json`). The image survives
-  across Claude sessions; in-image changes (compiled methods, defined
-  classes) persist until the image is rebuilt or the session is
-  replaced. Brought up by `just rebuild-mcp` (which calls
-  `./install.sh --mcp --rebuild`) and launched by `just mcp`.
-
-- **Verifier image** (`pharo/Pharo.verifier.image`): a disposable,
-  headless Pharo image used only for CI-equivalent verification. No
-  MCP, no Iceberg, just SmallChat + SmallChat-Tests loaded fresh from
-  the seed. `just test` and `just lint` wipe
-  `pharo/Pharo.verifier.image` and re-materialise from `src/` every
-  time. The verifier is what proves "the on-disk Tonel survives a
-  fresh rebuild." Never edit anything in this image — every run wipes
-  it.
-
-- **Distributable image** (end-user artifact, not yet built): the
-  shipped image will have its own Iceberg setup (different from the dev
-  image's, since end users won't be cloning smallchat itself). That
-  build step lives in the unimplemented `just build` slot.
-
-## Development methodology: Red-Green TDD
-
-All behaviour changes in this repo follow strict Red-Green-Refactor TDD.
-No production code is written without a failing test that demands it.
-
-1. **Red** — write exactly one failing test in the matching
-   `SmallChat-Tests` package that describes the next slice of behaviour.
-   Run `run_tests` (in-image, via MCP) and confirm it fails for the
-   *right* reason (missing method / wrong result, not a syntax error or
-   missing class you forgot to create). Do not write more of the test
-   than is needed to fail.
-2. **Green** — write the smallest amount of production code in the
-   `SmallChat` package (or a sibling) that makes the failing test pass.
-   "Smallest" means smallest, even if it looks silly (return a constant,
-   hard-code the expected value). Run `run_tests` and confirm the suite
-   is green before touching anything else.
-3. **Refactor** — with the suite green, clean up duplication, rename,
-   extract, or restructure. Run `run_tests` after each refactor step.
-   Never mix refactor edits with behaviour changes; if a refactor
-   requires a new test, stop and go back to Red.
-4. **Micro-commit** — as soon as a Green (or a Green+Refactor) is
-   stable, call the MCP `commit` tool to flush Tonel to disk and land
-   a small commit. Every Green becomes a crash-safe checkpoint: if the
-   dev image freezes, the VM is killed, or `updateDiskWorkingCopy:`
-   gets stuck mid-flush (this has happened repeatedly), git holds
-   everything up to the last micro-commit and nothing in-image is
-   load-bearing. Don't batch many Greens into one commit — a long burst
-   of unflushed in-image work is exactly the window an Iceberg CPU-spin
-   can swallow. Messages are tiny and prefixed with the larger feature
-   you're building, e.g.:
-
-       chat-client: post to /v1/chat/completions
-       chat-client: parse choices[0].message.content
-       chat-client: split thinking from content
-       chat-client: wire session to chat client
-
-Rules that follow from this:
-
-- One failing test at a time. Never leave the suite with more than one
-  red test.
-- **Never commit on Red.** Each Green commit is a checkpoint, but the
-  feature isn't considered done until `just test` (and `just lint`)
-  from a shell also pass from a fresh rebuild — run both at the end of
-  a session as the final gate, and fix forward with new commits if
-  they uncover divergence the in-image `run_tests` / `lint` missed.
-  The MCP `commit` tool has no automated green guard — the discipline
-  lives here. In-image green does NOT guarantee a fresh rebuild will
-  also pass; Metacello load order, dropped-but-still-in-image classes,
-  or uncommitted Tonel divergence can mask real failures.
-- `lint` (in-image) and `just lint` (fresh rebuild) must both be clean
-  before committing; treat Critiques findings like compile errors.
-- When a bug is reported, reproduce it as a failing test *first*, then
-  fix it. The regression test is the deliverable, not the patch.
-- If you are tempted to write production code "to see if it works",
-  that's a signal the next test hasn't been written yet. Write the
-  test.
-
-## Preferred entry point: program via DNU
-
-**When adding a new method, prefer to let a `doesNotUnderstand:`
-capture drive the work.** The Red-Green-Refactor-Micro-commit
-discipline above still applies in full — DNU-driven programming is
-not a replacement for it. What DNU adds is the *entry point*: the
-caller that needs the method already tells you the receiver class,
-selector, and arg shapes, and the captured debug session survives
-across tests, lint, and commit, so you can complete a full TDD
-cycle for each missing method and then resume the original caller
-in place.
-
-The loop for each missing method:
-
-1. **Hit the DNU.** `evaluate` (or `run_tests`) the higher-level
-   code that needs the method. The uncaught `MessageNotUnderstood`
-   is captured as a debug session. Inspect via `debug_frame 0` plus
-   `debug_evaluate 0 'aMessage selector'` / `'aMessage arguments'`
-   / `'self class name'` — that's the signature you need to build.
-2. **Red.** Write one SUnit test in the matching `SmallChat-*Tests`
-   package that exercises the behaviour the DNU implies. Run
-   `run_tests` narrowed by selector regex — confirm it fails for
-   the *right* reason (missing method, or wrong result once
-   compiled). The DNU itself is **not** a red test — it is
-   suspended state on a fork, invisible to `run_tests`. You still
-   need a durable SUnit test before Green.
-3. **Green.** Compile the method via
-   `evaluate 'ClassName compile: ''...'' classified: ''...'''`.
-   Run `run_tests` — confirm green.
-4. **Refactor.** With the suite green, clean up. Run `run_tests`
-   after each refactor step. Same rule as usual: no mixing refactor
-   with behaviour.
-5. **Micro-commit.** Call the `commit` tool. The parked debug
-   session lives in an in-image registry and is unaffected — the
-   commit path only walks Iceberg package state on the MCP reader
-   process and never touches the fork. Verify with `debug_stack
-   <sessionId>` afterwards if paranoid.
-6. **Continue the debugger.** `debug_restart <sessionId>` on the
-   **caller frame** — the one above `doesNotUnderstand:` in the
-   stack (typically index 1 when debugging a one-liner from
-   `evaluate`, higher when driven through test or app code).
-   Restarting the caller re-dispatches `self <selector>` through
-   normal method lookup and picks up the fresh method. If execution
-   hits the *next* missing piece, a new debug session is captured
-   — loop back to step 1 with its id.
-
-**Never restart the `doesNotUnderstand:` frame itself (or the
-just-compiled method's frame).** Captured contexts hold direct
-`CompiledMethod` pointers, so restart-in-place replays the old
-bytecodes and re-raises the same DNU. Always restart higher, where
-the next *send* triggers a fresh lookup.
-
-Why this is the preferred entry point:
-
-- The DNU frame fixes the signature. No guessing at method names
-  or arities — the caller has already committed to a concrete shape
-  before the test is written.
-- Each cycle unblocks one more layer of the original caller *and*
-  produces a durable test + landed commit. Progress is always
-  measurable end-to-end against the real use case, not against a
-  made-up fixture.
-- The captured session turns the caller into a persistent harness:
-  as long as you `debug_restart` the caller rather than terminating,
-  you only pay the setup cost once, no matter how many methods the
-  chain ends up needing.
-
-When *not* to use this path (fall back to straight Red-Green-
-Refactor against a SUnit test):
-
-- **Pure refactoring** — no new selector, so no DNU. Work from an
-  existing failing test.
-- **New classes with no caller yet.** There is no runtime DNU
-  because class lookup fails at parse time
-  (`OCUndeclaredVariableNotice`). Create the class via `evaluate`
-  first, then let a caller DNU drive the methods.
-- **Fixing a bug in an existing method.** The method already
-  exists; a reproducing test is the right entry point, not a DNU.
-- **Caller setup is expensive or non-idempotent** (live network,
-  stateful external system). Use a unit test against a fixture.
-
-Caveats that apply here:
-
-- **10-minute session TTL.** A single method's
-  Red-Green-Refactor-Commit cycle rarely exceeds this, but if a
-  chain of slow lint runs or long test suites pushes you past it,
-  the session is evicted and the fork terminated. Bump
-  `SmallChatDebugSessionRegistry default ttlMilliseconds:`
-  up-front when you know a cycle will be long.
-- **Max 8 concurrent sessions.** DNU-chained work normally consumes
-  one session per restart (the old id is released when you
-  `debug_restart` its caller), so this rarely bites. If it does,
-  evictions are LRU and terminate the parked process.
-- **`commit` still has no green guard.** The SUnit test from step 2
-  must already be green before step 5 — this is on discipline, not
-  enforced. `just test` + `just lint` from a shell at the end of
-  the session remains the final gate per the rule above.
+- **Dev image** (`pharo/Pharo.image`): long-lived, with `SmallChat-MCP`
+  loaded and Iceberg registered against the working tree. Claude Code
+  talks to it over MCP via `./bin/smallchat-mcp` (see `.mcp.json`).
+  In-image changes (compiled methods, defined classes) persist across
+  Claude sessions until the image is rebuilt. Brought up by
+  `just rebuild-mcp`; launched by `just mcp`.
+- **Verifier image** (`pharo/Pharo.verifier.image`): disposable and
+  headless. `just test` and `just lint` wipe it and re-materialise
+  from `src/` every run — this is what proves the on-disk Tonel
+  survives a fresh rebuild. Never edit inside this image.
 
 ## Commands
 
-All common tasks go through `just` (see `justfile`):
-
 ```sh
 just install      # first-time bootstrap (./install.sh)
-just rebuild      # wipe pharo/Pharo.verifier.image and reload the verifier image
-just rebuild-mcp  # wipe pharo/Pharo.image and reload the dev image (MCP + Iceberg)
-just mcp          # launch the long-lived dev image (Claude Code talks to this)
+just rebuild      # rebuild verifier image from src/
+just rebuild-mcp  # rebuild dev image (MCP + Iceberg)
+just mcp          # launch the dev image (Claude Code talks to this)
 just dev          # alias for mcp
-just run          # open the GUI on the dev image (pharo/Pharo.image)
-just test         # headless SUnit over every SmallChat-* package — rebuilds verifier
-just lint         # headless Critiques over every SmallChat-* package — rebuilds verifier
+just run          # open the GUI on the dev image
+just test         # headless SUnit over SmallChat-* — rebuilds verifier
+just lint         # headless Critiques over SmallChat-* — rebuilds verifier
 just clean        # drop both working images, keep VM + seed
-just build        # reserved for the future distributable-image recipe (not implemented)
 ```
 
-`test` and `lint` always rebuild the verifier image first (they depend
-on `rebuild`, which materialises the verifier flavour, NOT the dev
-flavour). They are CI-equivalent: they prove the on-disk `src/` tree
-plus the baseline produces a green image. They never touch the dev
-image's in-memory state.
-
-The dev image lives at `pharo/Pharo.image`; the verifier image at
-`pharo/Pharo.verifier.image`. Disjoint paths mean `just test` /
-`just lint` can run any time without killing a live dev session — the
-verifier only wipes its own file.
+`just test` / `just lint` rebuild the verifier flavour only, so they
+are safe to run while a dev session is live — disjoint image paths.
+They are the CI-equivalent gate: fresh image, reloaded from `src/`.
 
 ## How the repo maps to the image
 
-The source of truth is the **Tonel tree under `src/`**. The image at
-`pharo/Pharo.image` is a build artifact and is gitignored.
+`src/` (Tonel) is the source of truth. `pharo/Pharo.image` is a
+gitignored build artifact.
 
 Primary workflow (dev image is up):
 
-1. Use the MCP `evaluate` tool to compile classes/methods into the
-   long-lived dev image. The image's compiler is the editor.
-2. Use the MCP `run_tests` tool to confirm the change is green.
-3. Use the MCP `status` tool to see what Iceberg considers dirty.
-4. Flush in-image state to `src/` on disk *without* committing, so
-   the next `just test` sees your changes:
+1. `evaluate` to compile classes/methods into the dev image — the
+   image's compiler is the editor.
+2. `run_tests` to confirm the change is green.
+3. `status` to see what Iceberg considers dirty.
+4. To flush in-image state to disk *without* committing (so the next
+   `just test` sees it):
    ```smalltalk
    | repo |
    repo := IceRepository registry detect: [ :r | r name = 'smallchat' ].
    repo workingCopy refreshDirtyPackages.
    repo index updateDiskWorkingCopy: repo workingCopyDiff
    ```
-5. Run `just test` (and `just lint`) from a shell to confirm the
-   change also passes a fresh rebuild from `src/`. Safe to run while
-   the dev image is up — the verifier lives at a disjoint image path.
-6. Use the MCP `commit` tool to write Tonel back to `src/` and create
-   a git commit on the current branch.
+5. `just test` (and `just lint`) from a shell to confirm a fresh
+   rebuild from `src/` still passes.
+6. `commit` writes Tonel back to `src/` and creates the git commit.
 
-Hand-edits to `src/` are still appropriate for files Iceberg doesn't
-manage (`justfile`, `install.sh`, `lib/*.st`, `bin/*`, `CLAUDE.md`,
-`.mcp.json`, baseline files). For those, edit on disk and `git commit`
-directly.
+Hand-edits to `src/` are appropriate only for files Iceberg doesn't
+manage: `justfile`, `install.sh`, `lib/*.st`, `bin/*`, `CLAUDE.md`,
+`.mcp.json`, baseline files. Edit on disk and `git commit` directly.
 
-**Critical caveat: code written via the Write/Edit tools is invisible
-to Iceberg's commit path.** Iceberg only sees changes made in-image
-during the live session. Files written to `src/` from outside the dev
-image will never appear in a `commit` tool result, even if they're on
-disk and even if the dev image loaded them via Metacello on startup.
-Code changes go through `evaluate`; non-code changes go through Write
-+ shell `git commit`.
-
-If a hand-edit to `src/` is needed (rare), it must be followed by
-`just rebuild-mcp` to bring the dev image back in sync — otherwise
-the dev image's in-memory state diverges silently from disk and the
-next `commit` tool call will overwrite the hand-edit.
+**Code written via Write/Edit is invisible to Iceberg's commit
+path.** Iceberg only sees in-image changes. Files written to `src/`
+from outside the dev image never appear in a `commit` result, even
+if loaded via Metacello on startup. Code goes through `evaluate`;
+non-code goes through Write + shell `git commit`. If a hand-edit to
+an Iceberg-managed file is unavoidable, `just rebuild-mcp` afterwards
+to resync — otherwise the next `commit` will overwrite it.
 
 ## MCP tool surface
-
-The dev image exposes the core MCP tools plus a debug-session family
-(all defined in `src/SmallChat-MCP/`):
 
 Core:
 
 | Tool | Purpose |
 | --- | --- |
-| `evaluate` | Run arbitrary Smalltalk; returns `printString` of the result. Uncaught exceptions land in a captured debug session (see below). The workhorse — all compile/inspect/refactor goes through here. |
-| `run_tests` | SUnit over packages matching a regex (default `SmallChat.*`). Returns `{passed, failed, errored, failures[], errors[]}`. Pass `debug_first_failure: true` to capture the first failing test as a debug session (response gains `debugSessionId`). Reflects in-image state, not disk. |
-| `lint` | ReCriticEngine over matching packages. Structured `{critiques[]}`. |
-| `status` | Iceberg working-copy status: branch, dirty flag, list of changes (`{changeType, target, definitionClass}`). |
-| `commit` | Refreshes Tonel from in-image state and runs `commitChanges:withMessage:`. Uses git config from `~/.gitconfig`. No automated green guard. |
+| `evaluate` | Run arbitrary Smalltalk; returns `printString` of the result. Uncaught exceptions land in a captured debug session. The workhorse — all compile/inspect/refactor goes through here. |
+| `run_tests` | SUnit over packages matching a regex (default `SmallChat.*`). Returns `{passed, failed, errored, failures[], errors[]}`. Pass `debug_first_failure: true` to capture the first failing test as a debug session. Reflects in-image state, not disk. |
+| `lint` | ReCriticEngine over matching packages. Returns `{critiques[]}`. |
+| `status` | Iceberg working-copy status: branch, dirty flag, `{changeType, target, definitionClass}` changes. |
+| `commit` | Refreshes Tonel from in-image state and runs `commitChanges:withMessage:`. Uses `~/.gitconfig`. **No automated green guard.** |
 
-Debug-session tools (operate on sessions created by `evaluate` or by
-`run_tests debug_first_failure: true`):
+Debug-session tools (operate on sessions captured by `evaluate`
+always or `run_tests debug_first_failure: true` opt-in):
 
 | Tool | Purpose |
 | --- | --- |
 | `debug_sessions` | List active sessions: `[{id, exceptionClass, messageText, topFrame, createdAtMs}]`. |
-| `debug_stack` | Stack summary for a session (args: `sessionId`, optional `limit`). |
+| `debug_stack` | Stack summary (args: `sessionId`, optional `limit`). |
 | `debug_frame` | Frame detail at index — receiver, selector, args, temps, source. |
-| `debug_evaluate` | Evaluate an expression in a frame's context — `self`/args/temps in scope. The sharpest tool for root-causing. |
-| `debug_return` | Resume the session, substituting `expression`'s value for the signalling expression. If user code then finishes, returns its final result; if it raises again, registers a new session. |
-| `debug_proceed` | Resume with `nil` (equivalent to `debug_return nil`). |
-| `debug_restart` | Restart a frame from its method entry (args: `sessionId`, optional `index` — defaults to 0, the signaller; typically pass `index: 1` to retry the user frame after a fix). |
-| `debug_terminate` | Drop a session and terminate its parked process. |
+| `debug_evaluate` | Evaluate an expression in a frame's context (`self`/args/temps in scope). Sharpest tool for root-causing. |
+| `debug_return` | Resume, substituting `expression`'s value for the signalling expression. If user code finishes, returns its final result; re-raise captures a new session. Rejected on stepped sessions. |
+| `debug_proceed` | Resume with `nil`. |
+| `debug_restart` | Restart a frame from its method entry (args: `sessionId`, optional `index`, default 0). Typically `index: 1` to retry the user frame after compiling a fix. |
+| `debug_step_over` | Advance one message-send past the current context, pausing at the new location. First call pops the handler+suspend frames (nil-substituting the signalling expression); subsequent calls advance further. Session keeps its id and is marked stepped. |
+| `debug_step_into` | Like `debug_step_over` but enters the called method. Two calls are typically needed from a post-capture DoIt: first reaches the next send-site, second enters the callee. |
+| `debug_terminate` | Drop the session and terminate its parked process. |
 
-`evaluate` documents the Smalltalk navigation/compile/snapshot
-selectors via the protocol's `instructions` string. Anything the
-dedicated tools don't cover (creating classes, removing methods,
-inspecting senders) is composed on top of `evaluate`.
+`evaluate`'s protocol `instructions` string documents the Smalltalk
+navigation/compile/snapshot selectors. Anything the dedicated tools
+don't cover (creating classes, removing methods, inspecting senders)
+composes on top of `evaluate`.
 
-## Debugger-driven development
+### Debug-session mechanics
 
-Uncaught exceptions raised during `evaluate` (always) and `run_tests`
-(opt-in) are captured by a fork-and-intercept runner
-(`SmallChatDebugEvaluator`) and registered in
-`SmallChatDebugSessionRegistry`. The MCP response gains a
-`debugSession` payload with the exception class, messageText, top
-frame, and session id. The forked Process remains **suspended** with
-its stack intact until a follow-up tool
-(`debug_return`/`debug_proceed`/`debug_restart`/`debug_terminate`)
-resolves it. The MCP reader is never blocked by the captured
-exception — the reader handles further calls (including `debug_*`
-tools targeting the parked fork) while the fork sleeps.
+Uncaught exceptions from `evaluate` (always) and `run_tests` (opt-in)
+are captured by `SmallChatDebugEvaluator`: user code runs on a fork,
+an `on: Exception do:` handler builds a `DebugSession` wrapped in a
+`SindarinDebugger`, registers it in `SmallChatDebugSessionRegistry`,
+and parks the fork in `suspend` with its stack intact. The MCP
+reader never blocks — it handles further calls (including `debug_*`
+tools against the parked fork) while the fork sleeps.
 
-The registry enforces safety rails:
+Registry safety rails:
 
-- **Max 8 concurrent sessions.** Adding the 9th evicts the oldest
-  and terminates its parked Process.
+- **Max 8 concurrent sessions.** The 9th evicts the oldest (LRU) and
+  terminates that fork.
 - **10-minute idle TTL.** Stale sessions are reaped on next registry
-  access; their Processes are terminated.
-- **Always terminate on `debug_terminate`.** Never leak a suspended
-  Process.
+  access. Bump `SmallChatDebugSessionRegistry default ttlMilliseconds:`
+  up-front for long cycles.
+- `debug_terminate` always kills the parked process — never leak.
 
-Typical flow: agent evaluates, gets a debug session, inspects stack
-via `debug_stack` / `debug_frame`, probes state with `debug_evaluate`,
-identifies a fix, compiles it via `evaluate`, then either
-`debug_restart` (retry the fixed frame in-place) or `debug_terminate`
-(drop and re-evaluate from scratch). The `debug_*` tools operate on
-live `SindarinDebugger` / `DebugSession` objects wrapping the parked
-fork, so stack/frame/eval operate against the true pre-exception
-state.
+## Development methodology: Red-Green TDD
+
+All behaviour changes follow strict Red-Green-Refactor TDD. No
+production code is written without a failing test demanding it.
+
+1. **Red** — one failing test in the matching `SmallChat-*Tests`
+   package describing the next slice. `run_tests` must fail for the
+   *right* reason (missing method / wrong result — not syntax or a
+   missing class). Don't write more of the test than is needed.
+2. **Green** — smallest production code that passes. Smallest means
+   smallest, even if silly (return a constant, hard-code the
+   expected value).
+3. **Refactor** — with the suite green, clean up. Never mix refactor
+   edits with behaviour changes; if a refactor needs a new test, go
+   back to Red.
+4. **Micro-commit** — as soon as Green (or Green+Refactor) is stable,
+   call `commit` to flush Tonel and land a small commit. Every Green
+   becomes a crash-safe checkpoint: if the dev image freezes, the VM
+   is killed, or `updateDiskWorkingCopy:` gets stuck mid-flush (this
+   has happened repeatedly), git holds everything up to the last
+   micro-commit. Don't batch Greens — a long burst of unflushed
+   in-image work is exactly the window an Iceberg CPU-spin can
+   swallow. Tiny messages, prefixed by the larger feature:
+
+       chat-client: post to /v1/chat/completions
+       chat-client: parse choices[0].message.content
+       chat-client: split thinking from content
+
+Rules:
+
+- One failing test at a time. Never leave the suite with more than
+  one red test.
+- **Never commit on Red.** The feature isn't done until `just test`
+  and `just lint` pass from a fresh rebuild — run both at the end of
+  a session as the final gate, and fix forward with new commits if
+  they uncover divergence. `commit` has no automated green guard; the
+  discipline lives here. In-image green does NOT guarantee a fresh
+  rebuild will also pass — Metacello load order, dropped-but-still-
+  in-image classes, or uncommitted Tonel divergence can mask failures.
+- `lint` must be clean (in-image and fresh rebuild) before committing.
+  Treat Critiques findings like compile errors.
+- Bug reports get a reproducing failing test *first*, then the fix.
+  The regression test is the deliverable.
+- Tempted to write production code "to see if it works"? That's a
+  signal the next test hasn't been written yet. Write the test.
+
+## Preferred entry point: program via DNU
+
+**When adding a new method, let a `doesNotUnderstand:` capture drive
+the work.** Red-Green-Refactor-Micro-commit still applies in full —
+DNU adds the *entry point*: the caller has already pinned receiver
+class, selector, and arg shapes, and the captured session survives
+across tests, lint, and commit, so you complete a full TDD cycle per
+missing method and resume the original caller in place.
+
+The loop for each missing method:
+
+1. **Hit the DNU.** `evaluate` (or `run_tests`) the higher-level
+   code. Read the signature off the captured session: `debug_frame 0`
+   plus `debug_evaluate 0 'aMessage selector'` /
+   `'aMessage arguments'` / `'self class name'`.
+2. **Red.** Write one SUnit test in `SmallChat-*Tests` exercising the
+   behaviour the DNU implies. `run_tests` narrowed by selector regex
+   — confirm it fails for the right reason. The DNU itself is **not**
+   a red test — it's suspended on a fork, invisible to `run_tests`.
+   You still need a durable SUnit test before Green.
+3. **Green.** Compile via
+   `evaluate 'ClassName compile: ''…'' classified: ''…'''`.
+   `run_tests` — green.
+4. **Refactor.** Same rule as usual: no mixing with behaviour.
+5. **Micro-commit.** `commit`. The parked debug session is unaffected
+   — `commit` walks Iceberg state on the reader process, not the fork.
+6. **Continue the debugger.** `debug_restart <sessionId>` on the
+   **caller frame** — the one above `doesNotUnderstand:` (typically
+   index 1 for a one-liner from `evaluate`, higher when driven
+   through test or app code). Restarting the caller re-dispatches
+   `self <selector>` and picks up the fresh method. A next missing
+   piece captures a new session — loop back to step 1.
+
+**Never restart the `doesNotUnderstand:` frame itself (or the
+just-compiled method's frame).** Captured contexts hold direct
+`CompiledMethod` pointers; restart-in-place replays old bytecodes
+and re-raises the same DNU. Always restart higher, where the next
+*send* triggers a fresh lookup.
+
+When *not* to use DNU-driven entry (fall back to plain TDD against
+a SUnit test):
+
+- **Pure refactoring** — no new selector, so no DNU.
+- **New classes with no caller yet.** Class lookup fails at parse
+  time (`OCUndeclaredVariableNotice`), not as a runtime DNU. Create
+  the class via `evaluate` first, then let a caller DNU drive the
+  methods.
+- **Bug in an existing method.** A reproducing test is the entry
+  point, not a DNU.
+- **Expensive / non-idempotent caller setup** (live network,
+  stateful external system). Use a unit test against a fixture.
 
 ## Snapshot hygiene
 
 The dev image is long-lived, so a VM crash loses any in-image state
-that hasn't been written to Tonel. Two safeguards:
+not flushed to Tonel. Two safeguards:
 
-- A successful `commit` flushes in-image changes to `src/` on disk
-  before creating the git commit. Anything that's been committed
-  survives a crash via git.
-- For long-running work between commits (large refactor, exploration),
-  snapshot explicitly:
+- A successful `commit` flushes in-image changes to `src/` before
+  creating the git commit — anything committed survives a crash
+  via git.
+- For long work between commits, snapshot explicitly:
   ```smalltalk
   Smalltalk snapshot: true andQuit: false
   ```
-  This saves the image state in place. **Never `andQuit: true`** —
-  that terminates the MCP server too.
+  **Never `andQuit: true`** — that terminates the MCP server too.
 
 ## Baseline layout
 
-- `BaselineOfSmallChat` — declares the packages and groups:
+- `BaselineOfSmallChat` declares packages and groups:
   - `default` (verifier): `SmallChat`, `SmallChat-LM`, `SmallChat-MCP`,
-    `SmallChat-Tests` — verifier loads MCP too so MCP-dependent tests
-    (the debug-session family) can run in `just test`.
-  - `dev` (MCP image): adds Iceberg + session-manager wiring on top
-    of the same package set; the baseline package group is the same
-    as `default`.
-  - Plus narrower groups (`core`, `tests`, `mcp`) for ad-hoc loads.
+    `SmallChat-Tests`. The verifier loads MCP too so MCP-dependent
+    tests (debug-session family) run in `just test`.
+  - `dev` (MCP image): `default` plus Iceberg + session-manager
+    wiring.
+  - Narrower groups (`core`, `tests`, `mcp`) for ad-hoc loads.
+
   Add new packages here, not in `lib/load-packages.st`.
-- `SmallChat` package — application code. `SmallChatApp` is the entry
-  point; the agent loop, LM Studio client, and chat UI hang off it.
-- `SmallChat-Tests` package — SUnit test cases. `just test` matches
-  packages against `SmallChat.*`, so any new test package whose name
-  starts with `SmallChat-` is picked up automatically.
-- `SmallChat-MCP` package — MCP server, vendored from akkuna, plus
-  the in-image debugger-driven runner (`SmallChatDebugEvaluator`,
-  `SmallChatDebugSessionRegistry`, `SmallChatDebug*Tool`). Lint and
-  tests run against it just like any other package.
+- `SmallChat` — application code. `SmallChatApp` is the entry point;
+  agent loop, LM Studio client, and chat UI hang off it.
+- `SmallChat-Tests` — SUnit cases. `just test` matches `SmallChat.*`,
+  so any new `SmallChat-*Tests` package is picked up automatically.
+- `SmallChat-MCP` — MCP server (vendored from akkuna) plus the
+  in-image debugger runner (`SmallChatDebugEvaluator`,
+  `SmallChatDebugSessionRegistry`, `SmallChatDebug*Tool`).
 
-## Pharo gotchas (general)
+## Pharo gotchas
 
-- `install.sh` is idempotent. The VM and seed are downloaded only if
-  missing; the working image is rebuilt if absent or if `--rebuild` is
-  passed. `just test` and `just lint` both trigger `--rebuild` for the
-  verifier flavour; `just rebuild-mcp` triggers `--rebuild --mcp` for
-  the dev flavour.
-- Headless loads must use `--save` (as in `install.sh`); otherwise the
-  loaded baseline is discarded when the VM exits.
-- The verifier image is disposable. Nothing inside it survives the
-  next `just test` run — anything that matters belongs in `src/`.
-- The dev image is long-lived. In-image changes survive between MCP
-  calls, but `just rebuild-mcp` wipes it. `just test` and `just lint`
-  only touch the verifier image at `pharo/Pharo.verifier.image`, so
-  they are safe to run while a dev session is up.
-- **Never trigger Pharo's UI debugger from code that isn't routed
-  through `SmallChatDebugEvaluator`.** The MCP reader runs on a
-  forked process; a modal UI debugger on the reader's stack deadlocks
-  MCP, and dismissing via the X often kills the reader (server
-  drops). `evaluate` and opt-in `run_tests debug_first_failure: true`
-  now capture unhandled exceptions into suspended, introspectable
-  debug sessions instead of UI debuggers — use those paths for
-  anything that might raise. For other code paths (chat agent loop,
-  Morphic handlers, test-runner machinery):
-  - Use `TestCase>>run` (or `suite run`) for programmatic test runs.
-    They return a `TestResult` and never open the debugger. Avoid
-    `runCase`, which re-raises straight into the UI.
-  - Wrap risky one-shot expressions in
-    `[ ... ] on: Error, TestFailure do: [ :e | e messageText ]` so a
-    failure returns a string instead of opening a debugger.
-  - If a debugger does open: click **Return** (not the X) to unwind
+- **Never trigger Pharo's UI debugger from code not routed through
+  `SmallChatDebugEvaluator`.** The MCP reader runs on a fork; a modal
+  UI debugger on the reader's stack deadlocks MCP, and dismissing
+  via the X often kills the reader. `evaluate` and `run_tests
+  debug_first_failure: true` already capture into suspended debug
+  sessions. For other code paths (chat agent loop, Morphic handlers,
+  test-runner machinery):
+  - Use `TestCase>>run` (or `suite run`) for programmatic test runs
+    — they return a `TestResult` and never open the debugger. Avoid
+    `runCase`, which re-raises into the UI.
+  - Wrap risky one-shot expressions with
+    `[ ... ] on: Error, TestFailure do: [ :e | e messageText ]` so
+    failures return a string.
+  - If a debugger does open, click **Return** (not the X) to unwind
     the frame and free the reader.
+- Headless loads must use `--save` (as in `install.sh`); otherwise
+  the loaded baseline is discarded at VM exit.
+- `install.sh` is idempotent. The VM and seed are downloaded only
+  if missing; the working image is rebuilt on `--rebuild`. `just
+  test`/`just lint` pass `--rebuild` for the verifier flavour;
+  `just rebuild-mcp` passes `--rebuild --mcp` for the dev flavour.
 
 ## MCP server hard constraints (inherited from akkuna)
 
-These are non-negotiable for any code in `SmallChat-MCP/`. They are
-encoded in the vendored akkuna source and were hard-won:
+Non-negotiable for code in `SmallChat-MCP/` — hard-won from akkuna:
 
-- **Stdout is reserved for MCP JSON-RPC framing.** Any write to stdout
-  from Pharo code corrupts the channel. `muteTranscriptToStdout` runs
-  on server start; never `Transcript show:` from reader-path code.
-  Use `SmallChatMCPServer logToFile:` (writes to
+- **Stdout is reserved for MCP JSON-RPC framing.** Any stdout write
+  from Pharo corrupts the channel. `muteTranscriptToStdout` runs on
+  server start; never `Transcript show:` from reader-path code. Use
+  `SmallChatMCPServer logToFile:` (writes to
   `pharo/smallchat-mcp.log`) or `logToStderr:`.
 - **No embedded newlines in MCP messages.** Use `STONJSON toString:`
-  (compact). NeoJSON is not in the base Pharo image.
+  (compact). NeoJSON isn't in base Pharo.
 - **`Stdio stdin next` returns bytes vs Characters inconsistently** —
   `readLine` normalises via `isInteger`/`asInteger`. Don't simplify.
 - **Launch via `open -n -a Pharo.app --args IMAGE`** (macOS
   LaunchServices). Direct `exec` beachballs on first window click.
 - **TCP bridge via BSD `nc`** without `-N` (macOS doesn't recognise
-  it; the BSD default already half-closes on stdin EOF, which is what
+  it; BSD default already half-closes on stdin EOF, which is what
   Claude Code expects).
 - **`pharo/mcp.port` handshake.** Shell polls; Pharo writes on
-  `SmallChatMCPTcpServer>>start`. Stale port files are removed before
-  relaunch.
+  `SmallChatMCPTcpServer>>start`. Stale port files are removed
+  before relaunch.
 - **`SMALLCHAT_NO_GUI=1` opt-in headless mode** uses
-  `eval --no-quit '1'` to keep the VM alive while the MCP reader pumps
-  stdin.
+  `eval --no-quit '1'` to keep the VM alive while the MCP reader
+  pumps stdin.
 - **`Smalltalk vm imageFile parent`**, NOT `imageDirectory` (latter
   doesn't exist in newer VMs).
 - **`waitForStdinData` uses a fresh Semaphore per call.** The shared
   one in `AbstractBinaryFileStream` stops signalling on stdin after
-  ~3 reads on Pharo 14; the fresh-Semaphore pattern is defensive on
+  ~3 reads on Pharo 14; fresh-Semaphore pattern is defensive on
   Pharo 13 and required on 14.
 - **`UIManager default defer: [ ... ]`** for any Morphic/Spec2 window
-  op from tool code. The MCP reader runs on a forked process; opening
-  a window from it can deadlock the VM.
+  op from tool code. Opening a window from the forked reader can
+  deadlock the VM.
 - **`on: Notification do: [:n | n resume]`** wraps tool execution in
   `SmallChatToolRegistry>>run:with:`. Pharo's default notification
   handler writes to stdout (deprecation warnings, Metacello progress)
@@ -447,31 +334,29 @@ encoded in the vendored akkuna source and were hard-won:
 
 - **`Package>>isLoaded` shim.** Pharo 13 renamed `RPackage` to
   `Package` and dropped `#isLoaded`. Iceberg's `IceCommit` calls it
-  on every iterated package; without the shim,
-  `workingCopyDiff` and `modifiedPackages` raise
-  DoesNotUnderstand. `lib/iceberg-setup.st` installs the shim
+  on every iterated package; without the shim, `workingCopyDiff` and
+  `modifiedPackages` raise DNU. `lib/iceberg-setup.st` installs it
   unconditionally.
 - **`IceRepositoryCreator>>addLocalRepository` ignores
-  `subdirectory:`.** The right sequence is `location:; subdirectory:;
-  ensureProjectFile; addLocalRepository` so `IceBasicProject` is
+  `subdirectory:`.** Correct sequence: `location:; subdirectory:;
+  ensureProjectFile; addLocalRepository`, so `IceBasicProject` is
   created with `src/` as its source directory. `addLocalRepository`
-  also doesn't register the repo — call `IceRepository
-  registerRepository:` afterward.
+  also doesn't register — call `IceRepository registerRepository:`
+  afterward.
 - **Newly-attached packages look like all-additions.** After
-  `basicAddPackage:`, `workingCopyDiff` reports every class and method
-  as `IceAddition` because Iceberg's package state is empty. Call
-  `workingCopy refreshPackages` after attaching to reconcile against
-  HEAD.
+  `basicAddPackage:`, `workingCopyDiff` reports every class and
+  method as `IceAddition` because Iceberg's package state is empty.
+  Call `workingCopy refreshPackages` after attaching to reconcile
+  against HEAD.
 - **`commit` only sees in-image changes made during the session.**
-  Files added to `src/` via the Write tool (or any path other than
-  in-image compilation) are invisible to `workingCopyDiff` and won't
-  appear in a `commit` tool call. See "How the repo maps to the
-  image" above.
-- **Shell `git commit` desyncs the in-image working copy.** When you
-  hand-edit on disk and `git commit` from a shell while the dev image
-  is up, `workingCopy referenceCommit` still points at the *old*
-  HEAD. The next MCP `commit` raises `IceWorkingCopyDesyncronized`
-  because Iceberg's invariant is "reference == HEAD." Re-anchor:
+  Files added to `src/` via Write (or anything other than in-image
+  compilation) are invisible to `workingCopyDiff`. See "How the repo
+  maps to the image".
+- **Shell `git commit` desyncs the in-image working copy.** Hand-edit
+  on disk and `git commit` while the dev image is up →
+  `workingCopy referenceCommit` still points at the old HEAD → next
+  MCP `commit` raises `IceWorkingCopyDesyncronized` (Iceberg's
+  invariant is reference == HEAD). Re-anchor:
   ```smalltalk
   | repo wc |
   repo := IceRepository registry detect: [ :r | r name = 'smallchat' ].
