@@ -96,6 +96,103 @@ Rules that follow from this:
   that's a signal the next test hasn't been written yet. Write the
   test.
 
+## Preferred entry point: program via DNU
+
+**When adding a new method, prefer to let a `doesNotUnderstand:`
+capture drive the work.** The Red-Green-Refactor-Micro-commit
+discipline above still applies in full — DNU-driven programming is
+not a replacement for it. What DNU adds is the *entry point*: the
+caller that needs the method already tells you the receiver class,
+selector, and arg shapes, and the captured debug session survives
+across tests, lint, and commit, so you can complete a full TDD
+cycle for each missing method and then resume the original caller
+in place.
+
+The loop for each missing method:
+
+1. **Hit the DNU.** `evaluate` (or `run_tests`) the higher-level
+   code that needs the method. The uncaught `MessageNotUnderstood`
+   is captured as a debug session. Inspect via `debug_frame 0` plus
+   `debug_evaluate 0 'aMessage selector'` / `'aMessage arguments'`
+   / `'self class name'` — that's the signature you need to build.
+2. **Red.** Write one SUnit test in the matching `SmallChat-*Tests`
+   package that exercises the behaviour the DNU implies. Run
+   `run_tests` narrowed by selector regex — confirm it fails for
+   the *right* reason (missing method, or wrong result once
+   compiled). The DNU itself is **not** a red test — it is
+   suspended state on a fork, invisible to `run_tests`. You still
+   need a durable SUnit test before Green.
+3. **Green.** Compile the method via
+   `evaluate 'ClassName compile: ''...'' classified: ''...'''`.
+   Run `run_tests` — confirm green.
+4. **Refactor.** With the suite green, clean up. Run `run_tests`
+   after each refactor step. Same rule as usual: no mixing refactor
+   with behaviour.
+5. **Micro-commit.** Call the `commit` tool. The parked debug
+   session lives in an in-image registry and is unaffected — the
+   commit path only walks Iceberg package state on the MCP reader
+   process and never touches the fork. Verify with `debug_stack
+   <sessionId>` afterwards if paranoid.
+6. **Continue the debugger.** `debug_restart <sessionId>` on the
+   **caller frame** — the one above `doesNotUnderstand:` in the
+   stack (typically index 1 when debugging a one-liner from
+   `evaluate`, higher when driven through test or app code).
+   Restarting the caller re-dispatches `self <selector>` through
+   normal method lookup and picks up the fresh method. If execution
+   hits the *next* missing piece, a new debug session is captured
+   — loop back to step 1 with its id.
+
+**Never restart the `doesNotUnderstand:` frame itself (or the
+just-compiled method's frame).** Captured contexts hold direct
+`CompiledMethod` pointers, so restart-in-place replays the old
+bytecodes and re-raises the same DNU. Always restart higher, where
+the next *send* triggers a fresh lookup.
+
+Why this is the preferred entry point:
+
+- The DNU frame fixes the signature. No guessing at method names
+  or arities — the caller has already committed to a concrete shape
+  before the test is written.
+- Each cycle unblocks one more layer of the original caller *and*
+  produces a durable test + landed commit. Progress is always
+  measurable end-to-end against the real use case, not against a
+  made-up fixture.
+- The captured session turns the caller into a persistent harness:
+  as long as you `debug_restart` the caller rather than terminating,
+  you only pay the setup cost once, no matter how many methods the
+  chain ends up needing.
+
+When *not* to use this path (fall back to straight Red-Green-
+Refactor against a SUnit test):
+
+- **Pure refactoring** — no new selector, so no DNU. Work from an
+  existing failing test.
+- **New classes with no caller yet.** There is no runtime DNU
+  because class lookup fails at parse time
+  (`OCUndeclaredVariableNotice`). Create the class via `evaluate`
+  first, then let a caller DNU drive the methods.
+- **Fixing a bug in an existing method.** The method already
+  exists; a reproducing test is the right entry point, not a DNU.
+- **Caller setup is expensive or non-idempotent** (live network,
+  stateful external system). Use a unit test against a fixture.
+
+Caveats that apply here:
+
+- **10-minute session TTL.** A single method's
+  Red-Green-Refactor-Commit cycle rarely exceeds this, but if a
+  chain of slow lint runs or long test suites pushes you past it,
+  the session is evicted and the fork terminated. Bump
+  `SmallChatDebugSessionRegistry default ttlMilliseconds:`
+  up-front when you know a cycle will be long.
+- **Max 8 concurrent sessions.** DNU-chained work normally consumes
+  one session per restart (the old id is released when you
+  `debug_restart` its caller), so this rarely bites. If it does,
+  evictions are LRU and terminate the parked process.
+- **`commit` still has no green guard.** The SUnit test from step 2
+  must already be green before step 5 — this is on discipline, not
+  enforced. `just test` + `just lint` from a shell at the end of
+  the session remains the final gate per the rule above.
+
 ## Commands
 
 All common tasks go through `just` (see `justfile`):
