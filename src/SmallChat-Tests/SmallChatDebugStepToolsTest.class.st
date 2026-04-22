@@ -12,6 +12,24 @@ SmallChatDebugStepToolsTest >> tearDown [
 ]
 
 { #category : 'tests' }
+SmallChatDebugStepToolsTest >> testSecondStepOverSkipsRepopAndAdvancesFurther [
+    | evalResult sid session afterFirstIctx afterSecondIctx |
+    SmallChatDebugSessionRegistry reset.
+    evalResult := SmallChatToolRegistry default run: 'evaluate' with: (Dictionary new at: 'code' put: '1/0. 2/0. 99'; yourself).
+    sid := (evalResult at: 'debugSession') at: 'id'.
+    SmallChatToolRegistry default run: 'debug_step_over' with: (Dictionary new at: 'sessionId' put: sid; yourself).
+    session := SmallChatDebugSessionRegistry default at: sid.
+    self assert: session stepped.
+    afterFirstIctx := session debugSession interruptedContext.
+    SmallChatToolRegistry default run: 'debug_step_over' with: (Dictionary new at: 'sessionId' put: sid; yourself).
+    session := SmallChatDebugSessionRegistry default at: sid.
+    self assert: session stepped.
+    afterSecondIctx := session debugSession interruptedContext.
+    self deny: afterSecondIctx == afterFirstIctx description: 'second step must advance ictx beyond first step'.
+    self assert: session process isSuspended description: 'process remains parked between steps'
+]
+
+{ #category : 'tests' }
 SmallChatDebugStepToolsTest >> testSessionSteppedDefaultsToFalseAndRoundTrips [
     | s |
     s := SmallChatDebugSession new.
