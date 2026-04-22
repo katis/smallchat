@@ -90,6 +90,14 @@ SmallChatDebugStepToolsTest >> testStepIntoEntersNextMethodCall [
 ]
 
 { #category : 'tests' }
+SmallChatDebugStepToolsTest >> testStepIntoOnUnknownSessionRaisesError [
+    | result |
+    SmallChatDebugSessionRegistry reset.
+    result := SmallChatToolRegistry default run: 'debug_step_into' with: (Dictionary new at: 'sessionId' put: 'ds-nope'; yourself).
+    self assert: (result at: 'isError' ifAbsent: [ false ]) description: 'unknown sessionId must yield an MCP error result'
+]
+
+{ #category : 'tests' }
 SmallChatDebugStepToolsTest >> testStepOverAdvancesIctxPastSignalAndMarksStepped [
     | evalResult sid session preIctx postIctx |
     SmallChatDebugSessionRegistry reset.
@@ -105,6 +113,14 @@ SmallChatDebugStepToolsTest >> testStepOverAdvancesIctxPastSignalAndMarksStepped
     postIctx := session debugSession interruptedContext.
     self deny: postIctx == preIctx.
     self deny: (postIctx receiver class == SmallInteger and: [ postIctx selector == #/ ])
+]
+
+{ #category : 'tests' }
+SmallChatDebugStepToolsTest >> testStepOverOnUnknownSessionRaisesError [
+    | result |
+    SmallChatDebugSessionRegistry reset.
+    result := SmallChatToolRegistry default run: 'debug_step_over' with: (Dictionary new at: 'sessionId' put: 'ds-nope'; yourself).
+    self assert: (result at: 'isError' ifAbsent: [ false ]) description: 'unknown sessionId must yield an MCP error result'
 ]
 
 { #category : 'tests' }
