@@ -41,7 +41,7 @@ SmallChatLMSession >> initialize [
 	conversation := SmallChatLMConversation new.
 	prompt := SmallChatConfig systemPrompt.
 	(prompt isNil or: [ prompt isEmpty ]) ifFalse: [ conversation addSystem: prompt ].
-	client := SmallChatLMCompletionsClient new
+	client := SmallChatLMChatClient new
 ]
 
 { #category : 'chat' }

@@ -33,6 +33,17 @@ SmallChatConfigTest >> testBaseUrlIsNonEmptyString [
 ]
 
 { #category : 'tests' }
+SmallChatConfigTest >> testDefaultBaseUrlPointsAtLocalOMLX [
+	"Reset the cached baseUrl and ensure no env override interferes."
+	| envBaseUrl |
+	envBaseUrl := OSEnvironment current at: 'SMALLCHAT_LM_BASE_URL' ifAbsent: [ nil ].
+	envBaseUrl isNil ifFalse: [
+		self skip: 'SMALLCHAT_LM_BASE_URL is set in this environment' ].
+	SmallChatConfig baseUrl: nil.
+	self assert: SmallChatConfig baseUrl equals: 'http://127.0.0.1:8000'
+]
+
+{ #category : 'tests' }
 SmallChatConfigTest >> testBaseUrlOverride [
 	SmallChatConfig baseUrl: 'http://example.com:8000'.
 	self assert: SmallChatConfig baseUrl equals: 'http://example.com:8000'

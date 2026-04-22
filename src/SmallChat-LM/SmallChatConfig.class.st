@@ -4,7 +4,7 @@ caller can do `SmallChatConfig baseUrl: '...'` once per session; first
 read falls back to an environment variable, then to a hard-coded default.
 
 Env vars:
-  SMALLCHAT_LM_BASE_URL   default http://localhost:1234
+  SMALLCHAT_LM_BASE_URL   default http://127.0.0.1:8000
   SMALLCHAT_LM_MODEL      default qwen3.6-35b-a3b
 
 maxTokens and temperature are not parameterised yet -- promote them to
@@ -24,7 +24,7 @@ Class {
 
 { #category : 'accessing' }
 SmallChatConfig class >> baseUrl [
-	^ BaseUrl ifNil: [ BaseUrl := self envAt: 'SMALLCHAT_LM_BASE_URL' ifAbsent: 'http://localhost:1234' ]
+	^ BaseUrl ifNil: [ BaseUrl := self envAt: 'SMALLCHAT_LM_BASE_URL' ifAbsent: 'http://127.0.0.1:8000' ]
 ]
 
 { #category : 'accessing' }

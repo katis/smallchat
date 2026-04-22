@@ -10,10 +10,15 @@ SmallChatLMSessionTest >> sessionWithCannedReply: aString [
 	| stub client session |
 	stub := SmallChatLMHttpStub new
 		response: (STONJSON toString: (Dictionary new
-			at: 'choices' put: { Dictionary new at: 'text' put: aString; yourself };
+			at: 'choices' put: { Dictionary new
+				at: 'message' put: (Dictionary new
+					at: 'role' put: 'assistant';
+					at: 'content' put: aString;
+					yourself);
+				yourself };
 			yourself));
 		yourself.
-	client := SmallChatLMCompletionsClient new
+	client := SmallChatLMChatClient new
 		baseUrl: 'http://localhost:1234';
 		httpClient: stub;
 		yourself.
@@ -45,7 +50,7 @@ SmallChatLMSessionTest >> testEmptyInputIsANoOp [
 { #category : 'tests' }
 SmallChatLMSessionTest >> testSendUserInputAppendsUserAndAssistantTurns [
 	| session reply nonSystemRoles |
-	session := self sessionWithCannedReply: 'hello back<|im_end|>'.
+	session := self sessionWithCannedReply: 'hello back'.
 	reply := session sendUserInput: 'hi'.
 	self assert: reply role equals: #assistant.
 	self assert: reply content equals: 'hello back'.
@@ -55,9 +60,14 @@ SmallChatLMSessionTest >> testSendUserInputAppendsUserAndAssistantTurns [
 ]
 
 { #category : 'tests' }
+SmallChatLMSessionTest >> testSessionInitializesWithChatClient [
+	self assert: SmallChatLMSession new client class equals: SmallChatLMChatClient
+]
+
+{ #category : 'tests' }
 SmallChatLMSessionTest >> testTranscriptTextIncludesBothTurns [
 	| session |
-	session := self sessionWithCannedReply: 'hello back<|im_end|>'.
+	session := self sessionWithCannedReply: 'hello back'.
 	session sendUserInput: 'hi'.
 	self assert: (session transcriptText includesSubstring: 'user: hi').
 	self assert: (session transcriptText includesSubstring: 'assistant: hello back')
@@ -66,7 +76,7 @@ SmallChatLMSessionTest >> testTranscriptTextIncludesBothTurns [
 { #category : 'tests' }
 SmallChatLMSessionTest >> testTranscriptTextOmitsThinking [
 	| session text |
-	session := self sessionWithCannedReply: '<think>reasoning</think>hello back<|im_end|>'.
+	session := self sessionWithCannedReply: '<think>reasoning</think>hello back'.
 	session sendUserInput: 'hi'.
 	text := session transcriptText.
 	self assert: (text includesSubstring: 'assistant: hello back').

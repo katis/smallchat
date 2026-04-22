@@ -1,0 +1,86 @@
+Class {
+	#name : 'SmallChatLMChatClientTest',
+	#superclass : 'TestCase',
+	#category : 'SmallChat-Tests',
+	#package : 'SmallChat-Tests'
+}
+
+{ #category : 'helpers' }
+SmallChatLMChatClientTest >> clientWithStub: aStub [
+	^ SmallChatLMChatClient new
+		baseUrl: 'http://localhost:1234';
+		modelName: 'test-model';
+		maxTokens: 512;
+		temperature: 0.3;
+		httpClient: aStub;
+		yourself
+]
+
+{ #category : 'helpers' }
+SmallChatLMChatClientTest >> stubRespondingWith: aString [
+	^ SmallChatLMHttpStub new response: aString; yourself
+]
+
+{ #category : 'tests' }
+SmallChatLMChatClientTest >> testCompletePostsToChatCompletionsEndpoint [
+	| stub client |
+	stub := self stubRespondingWith: '{"choices":[{"message":{"role":"assistant","content":"ok"}}]}'.
+	client := self clientWithStub: stub.
+	client complete: (SmallChatLMConversation new addUser: 'hi'; yourself).
+	self assert: stub lastUrl equals: 'http://localhost:1234/v1/chat/completions'
+]
+
+{ #category : 'tests' }
+SmallChatLMChatClientTest >> testCompleteRequestBodyIsOpenAIChatShaped [
+	| stub client body messages |
+	stub := self stubRespondingWith: '{"choices":[{"message":{"role":"assistant","content":"ok"}}]}'.
+	client := self clientWithStub: stub.
+	client complete: (SmallChatLMConversation new
+		addSystem: 'sys';
+		addUser: 'hi';
+		yourself).
+	body := STONJSON fromString: stub lastBody.
+	self assert: (body at: 'model') equals: 'test-model'.
+	self assert: (body at: 'max_tokens') equals: 512.
+	self assert: (body at: 'temperature') equals: 0.3.
+	self assert: (body at: 'stream') equals: false.
+	messages := body at: 'messages'.
+	self assert: messages size equals: 2.
+	self assert: ((messages first) at: 'role') equals: 'system'.
+	self assert: ((messages first) at: 'content') equals: 'sys'.
+	self assert: ((messages second) at: 'role') equals: 'user'.
+	self assert: ((messages second) at: 'content') equals: 'hi'
+]
+
+{ #category : 'tests' }
+SmallChatLMChatClientTest >> testCompleteReturnsAssistantMessageFromChoicesMessageContent [
+	| stub client result |
+	stub := self stubRespondingWith: '{"choices":[{"message":{"role":"assistant","content":"hi there"}}]}'.
+	client := self clientWithStub: stub.
+	result := client complete: (SmallChatLMConversation new addUser: 'hi'; yourself).
+	self assert: result role equals: #assistant.
+	self assert: result content equals: 'hi there'.
+	self assert: result thinking isNil
+]
+
+{ #category : 'tests' }
+SmallChatLMChatClientTest >> testCompleteSeparatesThinkingFromContent [
+	| stub client result |
+	stub := self stubRespondingWith: '{"choices":[{"message":{"role":"assistant","content":"<think>reasoning</think>answer"}}]}'.
+	client := self clientWithStub: stub.
+	result := client complete: (SmallChatLMConversation new addUser: 'hi'; yourself).
+	self assert: result role equals: #assistant.
+	self assert: result thinking equals: 'reasoning'.
+	self assert: result content equals: 'answer'
+]
+
+{ #category : 'tests' }
+SmallChatLMChatClientTest >> testInitializeUsesConfigDefaults [
+	| client |
+	client := SmallChatLMChatClient new.
+	self assert: client baseUrl equals: SmallChatConfig baseUrl.
+	self assert: client modelName equals: SmallChatConfig modelName.
+	self assert: client maxTokens equals: SmallChatConfig maxTokens.
+	self assert: client temperature equals: SmallChatConfig temperature.
+	self assert: client httpClient class equals: SmallChatLMZnHttpClient
+]

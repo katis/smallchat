@@ -1,7 +1,7 @@
 "
 Records the last #post:to: call and returns a canned response body.
-Used by SmallChatLMCompletionsClientTest to drive the client without
-hitting the network.
+Used by SmallChatLMChatClientTest to drive the client without hitting
+the network.
 "
 Class {
 	#name : 'SmallChatLMHttpStub',

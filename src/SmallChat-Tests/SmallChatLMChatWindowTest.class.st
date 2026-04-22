@@ -13,10 +13,15 @@ SmallChatLMChatWindowTest >> stubSessionWithCannedReply: aString [
 	| stub client session |
 	stub := SmallChatLMHttpStub new
 		response: (STONJSON toString: (Dictionary new
-			at: 'choices' put: { Dictionary new at: 'text' put: aString; yourself };
+			at: 'choices' put: { Dictionary new
+				at: 'message' put: (Dictionary new
+					at: 'role' put: 'assistant';
+					at: 'content' put: aString;
+					yourself);
+				yourself };
 			yourself));
 		yourself.
-	client := SmallChatLMCompletionsClient new
+	client := SmallChatLMChatClient new
 		baseUrl: 'http://localhost:1234';
 		httpClient: stub;
 		yourself.
@@ -29,7 +34,7 @@ SmallChatLMChatWindowTest >> stubSessionWithCannedReply: aString [
 { #category : 'tests' }
 SmallChatLMChatWindowTest >> testPresenterCachePreservesFoldStateAcrossSends [
 	| window session firstAssistantPresenter |
-	session := self stubSessionWithCannedReply: '<think>reasoning</think>hello<|im_end|>'.
+	session := self stubSessionWithCannedReply: '<think>reasoning</think>hello'.
 	window := SmallChatLMChatWindow new
 		session: session;
 		yourself.
@@ -50,7 +55,7 @@ SmallChatLMChatWindowTest >> testPresenterCachePreservesFoldStateAcrossSends [
 { #category : 'tests' }
 SmallChatLMChatWindowTest >> testSendFromInputAppendsPresenterForEachMessage [
 	| window session |
-	session := self stubSessionWithCannedReply: 'hello back<|im_end|>'.
+	session := self stubSessionWithCannedReply: 'hello back'.
 	window := SmallChatLMChatWindow new
 		session: session;
 		yourself.
@@ -64,7 +69,7 @@ SmallChatLMChatWindowTest >> testSendFromInputAppendsPresenterForEachMessage [
 { #category : 'tests' }
 SmallChatLMChatWindowTest >> testSystemMessagesNotRendered [
 	| window session |
-	session := self stubSessionWithCannedReply: 'hello back<|im_end|>'.
+	session := self stubSessionWithCannedReply: 'hello back'.
 	window := SmallChatLMChatWindow new
 		session: session;
 		yourself.

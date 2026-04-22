@@ -1,24 +1,18 @@
 "
-Talks to an OpenAI-compatible /v1/completions endpoint (LM Studio is the
-target today). Renders the conversation through an in-image prompt
-template, POSTs a raw completion request, parses choices[0].text, and
-strips the trailing stop token from the result.
+Talks to an OpenAI-compatible /v1/chat/completions endpoint (oMLX is the target today). Sends the conversation as a messages array and parses choices[0].message.content. Thinking extraction (<think>...</think> prefix) is handled in-image since oMLX-served Qwen-family models emit it inline.
 
 Collaborators (all injectable):
-  template     a SmallChatLMPromptTemplate (default: Qwen3)
   httpClient   anything understanding #post:to: (default: a ZnClient adapter)
   baseUrl, modelName, maxTokens, temperature  (defaults from SmallChatConfig)
 
-Test strategy: inject a stub httpClient that records the outbound body
-and URL and returns canned JSON. No network in the suite.
+Test strategy: inject a stub httpClient that records the outbound body and URL and returns canned JSON. No network in the suite.
 "
 Class {
-	#name : 'SmallChatLMCompletionsClient',
+	#name : 'SmallChatLMChatClient',
 	#superclass : 'SmallChatLMClient',
 	#instVars : [
 		'baseUrl',
 		'modelName',
-		'template',
 		'maxTokens',
 		'temperature',
 		'httpClient'
@@ -28,24 +22,28 @@ Class {
 }
 
 { #category : 'accessing' }
-SmallChatLMCompletionsClient >> baseUrl [
+SmallChatLMChatClient >> baseUrl [
 	^ baseUrl
 ]
 
 { #category : 'accessing' }
-SmallChatLMCompletionsClient >> baseUrl: aString [
+SmallChatLMChatClient >> baseUrl: aString [
 	baseUrl := aString
 ]
 
+{ #category : 'private' }
+SmallChatLMChatClient >> chatCompletionsUrl [
+	^ baseUrl , '/v1/chat/completions'
+]
+
 { #category : 'chat' }
-SmallChatLMCompletionsClient >> complete: aConversation [
-	| requestBody responseBody parsed text stripped split |
+SmallChatLMChatClient >> complete: aConversation [
+	| requestBody responseBody parsed content split |
 	requestBody := STONJSON toString: (self requestBodyFor: aConversation).
-	responseBody := httpClient post: requestBody to: self completionsUrl.
+	responseBody := httpClient post: requestBody to: self chatCompletionsUrl.
 	parsed := STONJSON fromString: responseBody.
-	text := self extractCompletionText: parsed.
-	stripped := self stripTrailingStopToken: text.
-	split := self splitThinkingAndContent: stripped.
+	content := self extractAssistantContent: parsed.
+	split := self splitThinkingAndContent: content.
 	^ SmallChatLMMessage
 		role: #assistant
 		content: (split at: 2)
@@ -53,62 +51,64 @@ SmallChatLMCompletionsClient >> complete: aConversation [
 ]
 
 { #category : 'private' }
-SmallChatLMCompletionsClient >> completionsUrl [
-	^ baseUrl , '/v1/completions'
-]
-
-{ #category : 'private' }
-SmallChatLMCompletionsClient >> extractCompletionText: aResponseDictionary [
-	^ (aResponseDictionary at: 'choices') first at: 'text'
+SmallChatLMChatClient >> extractAssistantContent: aResponseDictionary [
+	^ (((aResponseDictionary at: 'choices') first) at: 'message') at: 'content'
 ]
 
 { #category : 'accessing' }
-SmallChatLMCompletionsClient >> httpClient [
+SmallChatLMChatClient >> httpClient [
 	^ httpClient
 ]
 
 { #category : 'accessing' }
-SmallChatLMCompletionsClient >> httpClient: anObject [
+SmallChatLMChatClient >> httpClient: anObject [
 	httpClient := anObject
 ]
 
 { #category : 'initialization' }
-SmallChatLMCompletionsClient >> initialize [
+SmallChatLMChatClient >> initialize [
 	super initialize.
 	baseUrl := SmallChatConfig baseUrl.
 	modelName := SmallChatConfig modelName.
 	maxTokens := SmallChatConfig maxTokens.
 	temperature := SmallChatConfig temperature.
-	template := SmallChatLMQwen3PromptTemplate new.
 	httpClient := SmallChatLMZnHttpClient new
 ]
 
 { #category : 'accessing' }
-SmallChatLMCompletionsClient >> maxTokens [
+SmallChatLMChatClient >> maxTokens [
 	^ maxTokens
 ]
 
 { #category : 'accessing' }
-SmallChatLMCompletionsClient >> maxTokens: anInteger [
+SmallChatLMChatClient >> maxTokens: anInteger [
 	maxTokens := anInteger
 ]
 
+{ #category : 'private' }
+SmallChatLMChatClient >> messagesFor: aConversation [
+	^ aConversation messages collect: [ :msg |
+		Dictionary new
+			at: 'role' put: msg role asString;
+			at: 'content' put: msg content;
+			yourself ]
+]
+
 { #category : 'accessing' }
-SmallChatLMCompletionsClient >> modelName [
+SmallChatLMChatClient >> modelName [
 	^ modelName
 ]
 
 { #category : 'accessing' }
-SmallChatLMCompletionsClient >> modelName: aString [
+SmallChatLMChatClient >> modelName: aString [
 	modelName := aString
 ]
 
 { #category : 'private' }
-SmallChatLMCompletionsClient >> requestBodyFor: aConversation [
+SmallChatLMChatClient >> requestBodyFor: aConversation [
 	^ Dictionary new
 		at: 'model' put: modelName;
-		at: 'prompt' put: (template render: aConversation);
-		at: 'stop' put: template stopTokens asArray;
+		at: 'messages' put: (self messagesFor: aConversation) asArray;
 		at: 'max_tokens' put: maxTokens;
 		at: 'temperature' put: temperature;
 		at: 'stream' put: false;
@@ -116,7 +116,7 @@ SmallChatLMCompletionsClient >> requestBodyFor: aConversation [
 ]
 
 { #category : 'private' }
-SmallChatLMCompletionsClient >> splitThinkingAndContent: aString [
+SmallChatLMChatClient >> splitThinkingAndContent: aString [
 	"Answer { thinkingOrNil. content } parsed from aString. Handles the
 	 Qwen3 convention of a single <think>...</think> block prefixing the
 	 visible answer. If the string does not start with <think> (ignoring
@@ -134,31 +134,12 @@ SmallChatLMCompletionsClient >> splitThinkingAndContent: aString [
 	^ { thinking. rest }
 ]
 
-{ #category : 'private' }
-SmallChatLMCompletionsClient >> stripTrailingStopToken: aString [
-	| s |
-	s := aString.
-	template stopTokens do: [ :tok |
-		(s endsWith: tok) ifTrue: [ s := s copyFrom: 1 to: s size - tok size ] ].
-	^ s trimRight
-]
-
 { #category : 'accessing' }
-SmallChatLMCompletionsClient >> temperature [
+SmallChatLMChatClient >> temperature [
 	^ temperature
 ]
 
 { #category : 'accessing' }
-SmallChatLMCompletionsClient >> temperature: aNumber [
+SmallChatLMChatClient >> temperature: aNumber [
 	temperature := aNumber
-]
-
-{ #category : 'accessing' }
-SmallChatLMCompletionsClient >> template [
-	^ template
-]
-
-{ #category : 'accessing' }
-SmallChatLMCompletionsClient >> template: aTemplate [
-	template := aTemplate
 ]
