@@ -6,6 +6,7 @@ read falls back to an environment variable, then to a hard-coded default.
 Env vars:
   SMALLCHAT_LM_BASE_URL   default http://127.0.0.1:8000
   SMALLCHAT_LM_MODEL      default qwen3.6-35b-a3b
+  SMALLCHAT_LM_API_KEY    no default; nil/empty means no Authorization header
 
 maxTokens and temperature are not parameterised yet -- promote them to
 class vars (and env) when a caller needs per-session override.
@@ -14,6 +15,7 @@ Class {
 	#name : 'SmallChatConfig',
 	#superclass : 'Object',
 	#classVars : [
+		'ApiKey',
 		'BaseUrl',
 		'ModelName',
 		'SystemPrompt'
@@ -21,6 +23,21 @@ Class {
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
 }
+
+{ #category : 'accessing' }
+SmallChatConfig class >> apiKey [
+	"Returns the configured API key, or nil if none. Reads env on first access.
+	 An unset / empty env var yields nil so callers can skip the Authorization header."
+	^ ApiKey ifNil: [
+		| env |
+		env := self envAt: 'SMALLCHAT_LM_API_KEY' ifAbsent: nil.
+		ApiKey := (env isNil or: [ env isEmpty ]) ifTrue: [ nil ] ifFalse: [ env ] ]
+]
+
+{ #category : 'accessing' }
+SmallChatConfig class >> apiKey: aStringOrNil [
+	ApiKey := aStringOrNil
+]
 
 { #category : 'accessing' }
 SmallChatConfig class >> baseUrl [
@@ -70,7 +87,8 @@ SmallChatConfig class >> modelName: aString [
 SmallChatConfig class >> reset [
 	BaseUrl := nil.
 	ModelName := nil.
-	SystemPrompt := nil
+	SystemPrompt := nil.
+	ApiKey := nil
 ]
 
 { #category : 'accessing' }

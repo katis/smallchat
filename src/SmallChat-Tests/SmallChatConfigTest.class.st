@@ -27,9 +27,24 @@ SmallChatConfigTest >> tearDown [
 ]
 
 { #category : 'tests' }
+SmallChatConfigTest >> testApiKeyNilWhenEnvUnset [
+	| savedApiKey |
+	savedApiKey := SmallChatConfig apiKey.
+	[ SmallChatConfig apiKey: nil.
+	  self assert: SmallChatConfig apiKey isNil ]
+		ensure: [ SmallChatConfig apiKey: savedApiKey ]
+]
+
+{ #category : 'tests' }
 SmallChatConfigTest >> testBaseUrlIsNonEmptyString [
 	self assert: SmallChatConfig baseUrl isString.
 	self deny: SmallChatConfig baseUrl isEmpty
+]
+
+{ #category : 'tests' }
+SmallChatConfigTest >> testBaseUrlOverride [
+	SmallChatConfig baseUrl: 'http://example.com:8000'.
+	self assert: SmallChatConfig baseUrl equals: 'http://example.com:8000'
 ]
 
 { #category : 'tests' }
@@ -41,12 +56,6 @@ SmallChatConfigTest >> testDefaultBaseUrlPointsAtLocalOMLX [
 		self skip: 'SMALLCHAT_LM_BASE_URL is set in this environment' ].
 	SmallChatConfig baseUrl: nil.
 	self assert: SmallChatConfig baseUrl equals: 'http://127.0.0.1:8000'
-]
-
-{ #category : 'tests' }
-SmallChatConfigTest >> testBaseUrlOverride [
-	SmallChatConfig baseUrl: 'http://example.com:8000'.
-	self assert: SmallChatConfig baseUrl equals: 'http://example.com:8000'
 ]
 
 { #category : 'tests' }
