@@ -5,7 +5,7 @@ read falls back to an environment variable, then to a hard-coded default.
 
 Env vars:
   SMALLCHAT_LM_BASE_URL   default http://127.0.0.1:8000
-  SMALLCHAT_LM_MODEL      default qwen3.6-35b-a3b
+  SMALLCHAT_LM_MODEL      default Qwen3.6-35B-A3B-nvfp4
   SMALLCHAT_LM_API_KEY    no default; nil/empty means no Authorization header
 
 maxTokens and temperature are not parameterised yet -- promote them to
@@ -75,7 +75,7 @@ SmallChatConfig class >> maxTokens [
 
 { #category : 'accessing' }
 SmallChatConfig class >> modelName [
-	^ ModelName ifNil: [ ModelName := self envAt: 'SMALLCHAT_LM_MODEL' ifAbsent: 'qwen3.6-35b-a3b' ]
+	^ ModelName ifNil: [ ModelName := self envAt: 'SMALLCHAT_LM_MODEL' ifAbsent: 'Qwen3.6-35B-A3B-nvfp4' ]
 ]
 
 { #category : 'accessing' }

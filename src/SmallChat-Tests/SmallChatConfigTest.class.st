@@ -28,7 +28,11 @@ SmallChatConfigTest >> tearDown [
 
 { #category : 'tests' }
 SmallChatConfigTest >> testApiKeyNilWhenEnvUnset [
-	| savedApiKey |
+	"Reset the cached apiKey and ensure no env override interferes."
+	| envApiKey savedApiKey |
+	envApiKey := OSEnvironment current at: 'SMALLCHAT_LM_API_KEY' ifAbsent: [ nil ].
+	envApiKey isNil ifFalse: [
+		self skip: 'SMALLCHAT_LM_API_KEY is set in this environment' ].
 	savedApiKey := SmallChatConfig apiKey.
 	[ SmallChatConfig apiKey: nil.
 	  self assert: SmallChatConfig apiKey isNil ]
