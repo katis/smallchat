@@ -59,17 +59,35 @@ No production code is written without a failing test that demands it.
    extract, or restructure. Run `run_tests` after each refactor step.
    Never mix refactor edits with behaviour changes; if a refactor
    requires a new test, stop and go back to Red.
+4. **Micro-commit** — as soon as a Green (or a Green+Refactor) is
+   stable, call the MCP `commit` tool to flush Tonel to disk and land
+   a small commit. Every Green becomes a crash-safe checkpoint: if the
+   dev image freezes, the VM is killed, or `updateDiskWorkingCopy:`
+   gets stuck mid-flush (this has happened repeatedly), git holds
+   everything up to the last micro-commit and nothing in-image is
+   load-bearing. Don't batch many Greens into one commit — a long burst
+   of unflushed in-image work is exactly the window an Iceberg CPU-spin
+   can swallow. Messages are tiny and prefixed with the larger feature
+   you're building, e.g.:
+
+       chat-client: post to /v1/chat/completions
+       chat-client: parse choices[0].message.content
+       chat-client: split thinking from content
+       chat-client: wire session to chat client
 
 Rules that follow from this:
 
 - One failing test at a time. Never leave the suite with more than one
   red test.
-- **Never commit on Red**, and never commit until `just test` from a
-  shell also passes. The MCP `commit` tool has no automated green
-  guard — the discipline lives here. In-image green via `run_tests`
-  does NOT guarantee a fresh rebuild via `just test` will also pass;
-  Metacello load order, dropped-but-still-in-image classes, or
-  uncommitted Tonel divergence can mask real failures.
+- **Never commit on Red.** Each Green commit is a checkpoint, but the
+  feature isn't considered done until `just test` (and `just lint`)
+  from a shell also pass from a fresh rebuild — run both at the end of
+  a session as the final gate, and fix forward with new commits if
+  they uncover divergence the in-image `run_tests` / `lint` missed.
+  The MCP `commit` tool has no automated green guard — the discipline
+  lives here. In-image green does NOT guarantee a fresh rebuild will
+  also pass; Metacello load order, dropped-but-still-in-image classes,
+  or uncommitted Tonel divergence can mask real failures.
 - `lint` (in-image) and `just lint` (fresh rebuild) must both be clean
   before committing; treat Critiques findings like compile errors.
 - When a bug is reported, reproduce it as a failing test *first*, then
