@@ -56,6 +56,51 @@ SmallChatLMChatWindowTest >> testPresenterCachePreservesFoldStateAcrossSends [
 ]
 
 { #category : 'tests' }
+SmallChatLMChatWindowTest >> testSecondSendBlockedWhileFirstPending [
+    | stub client session window userTurns |
+    stub := SmallChatLMHttpStub new
+        response: (STONJSON toString: (Dictionary new
+            at: 'choices' put: { Dictionary new
+                at: 'message' put: (Dictionary new
+                    at: 'role' put: 'assistant';
+                    at: 'content' put: 'ok';
+                    yourself);
+                yourself };
+            yourself));
+        gateOn;
+        yourself.
+    client := SmallChatLMChatClient new
+        baseUrl: 'http://localhost:1234';
+        httpClient: stub;
+        yourself.
+    session := SmallChatLMSession new
+        client: client;
+        yourself.
+    window := SmallChatLMChatWindow new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    window input text: 'one'.
+    window sendFromInput.
+    window input text: 'two'.
+    window sendFromInput.
+    userTurns := session conversation messages select: [ :m | m role = #user ].
+    self assert: userTurns size equals: 1.
+    self assert: userTurns first content equals: 'one'.
+    self deny: window sendButton isEnabled.
+    stub releaseGate.
+    window waitForPending.
+    self assert: window sendButton isEnabled.
+    window input text: 'two'.
+    window sendFromInput.
+    userTurns := session conversation messages select: [ :m | m role = #user ].
+    self assert: userTurns size equals: 2.
+    self assert: userTurns second content equals: 'two'.
+    stub releaseGate.
+    window waitForPending
+]
+
+{ #category : 'tests' }
 SmallChatLMChatWindowTest >> testSendFromInputAppendsPresenterForEachMessage [
     | window session |
     session := self stubSessionWithCannedReply: 'hello back'.
