@@ -39,3 +39,15 @@ SmallChatDebugStepToolsTest >> testStepOverAdvancesIctxPastSignalAndMarksStepped
     self deny: postIctx == preIctx.
     self deny: (postIctx receiver class == SmallInteger and: [ postIctx selector == #/ ])
 ]
+
+{ #category : 'tests' }
+SmallChatDebugStepToolsTest >> testStepOverResponseIsDebugSessionPayloadWithSameId [
+    | evalResult sid stepResult stepSessionPayload |
+    SmallChatDebugSessionRegistry reset.
+    evalResult := SmallChatToolRegistry default run: 'evaluate' with: (Dictionary new at: 'code' put: '1/0. 42'; yourself).
+    sid := (evalResult at: 'debugSession') at: 'id'.
+    stepResult := SmallChatToolRegistry default run: 'debug_step_over' with: (Dictionary new at: 'sessionId' put: sid; yourself).
+    stepSessionPayload := stepResult at: 'debugSession' ifAbsent: [ nil ].
+    self assert: stepSessionPayload notNil description: 'response must carry a debugSession payload'.
+    self assert: (stepSessionPayload at: 'id') equals: sid
+]
