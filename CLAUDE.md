@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 smallchat is a self-modifying agent that lives inside a Pharo 13 Smalltalk
 image. It connects to a local LM Studio server (target model:
-`qwen3.6-35b-a3b`) and exposes Smalltalk-native tool calling so the agent
+`Qwen3.6-35B-A3B-nvfp4`) and exposes Smalltalk-native tool calling so the agent
 can inspect and rewrite classes/methods in the same image it is running
 in. The UI, agent loop, and model client are all in-image; `src/` is the
 on-disk source of truth.
