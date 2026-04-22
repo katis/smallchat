@@ -13,10 +13,12 @@ Class {
 }
 
 { #category : 'api' }
-SmallChatLMZnHttpClient >> post: aJsonString to: aUrl [
-	^ ZnClient new
+SmallChatLMZnHttpClient >> post: aJsonString to: aUrl withHeaders: aHeadersDict [
+	| client |
+	client := ZnClient new
 		url: aUrl;
 		entity: (ZnEntity with: aJsonString type: ZnMimeType applicationJson);
-		post;
-		contents
+		yourself.
+	aHeadersDict keysAndValuesDo: [ :k :v | client headerAt: k put: v ].
+	^ client post; contents
 ]

@@ -9,7 +9,8 @@ Class {
 	#instVars : [
 		'response',
 		'lastUrl',
-		'lastBody'
+		'lastBody',
+		'lastHeaders'
 	],
 	#category : 'SmallChat-Tests',
 	#package : 'SmallChat-Tests'
@@ -21,14 +22,20 @@ SmallChatLMHttpStub >> lastBody [
 ]
 
 { #category : 'accessing' }
+SmallChatLMHttpStub >> lastHeaders [
+	^ lastHeaders
+]
+
+{ #category : 'accessing' }
 SmallChatLMHttpStub >> lastUrl [
 	^ lastUrl
 ]
 
 { #category : 'api' }
-SmallChatLMHttpStub >> post: aBody to: aUrl [
+SmallChatLMHttpStub >> post: aBody to: aUrl withHeaders: aHeadersDict [
 	lastBody := aBody.
 	lastUrl := aUrl.
+	lastHeaders := aHeadersDict.
 	^ response
 ]
 

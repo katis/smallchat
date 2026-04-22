@@ -22,6 +22,19 @@ SmallChatLMChatClientTest >> stubRespondingWith: aString [
 ]
 
 { #category : 'tests' }
+SmallChatLMChatClientTest >> testCompleteOmitsAuthorizationHeaderWhenApiKeyIsNilOrEmpty [
+	| stub client |
+	stub := self stubRespondingWith: '{"choices":[{"message":{"role":"assistant","content":"ok"}}]}'.
+	client := self clientWithStub: stub.
+	client apiKey: nil.
+	client complete: (SmallChatLMConversation new addUser: 'hi'; yourself).
+	self deny: (stub lastHeaders includesKey: 'Authorization').
+	client apiKey: ''.
+	client complete: (SmallChatLMConversation new addUser: 'hi'; yourself).
+	self deny: (stub lastHeaders includesKey: 'Authorization')
+]
+
+{ #category : 'tests' }
 SmallChatLMChatClientTest >> testCompletePostsToChatCompletionsEndpoint [
 	| stub client |
 	stub := self stubRespondingWith: '{"choices":[{"message":{"role":"assistant","content":"ok"}}]}'.
@@ -64,6 +77,16 @@ SmallChatLMChatClientTest >> testCompleteReturnsAssistantMessageFromChoicesMessa
 ]
 
 { #category : 'tests' }
+SmallChatLMChatClientTest >> testCompleteSendsAuthorizationBearerHeaderWhenApiKeySet [
+	| stub client |
+	stub := self stubRespondingWith: '{"choices":[{"message":{"role":"assistant","content":"ok"}}]}'.
+	client := self clientWithStub: stub.
+	client apiKey: 'sk-test-123'.
+	client complete: (SmallChatLMConversation new addUser: 'hi'; yourself).
+	self assert: (stub lastHeaders at: 'Authorization') equals: 'Bearer sk-test-123'
+]
+
+{ #category : 'tests' }
 SmallChatLMChatClientTest >> testCompleteSeparatesThinkingFromContent [
 	| stub client result |
 	stub := self stubRespondingWith: '{"choices":[{"message":{"role":"assistant","content":"<think>reasoning</think>answer"}}]}'.
@@ -72,6 +95,15 @@ SmallChatLMChatClientTest >> testCompleteSeparatesThinkingFromContent [
 	self assert: result role equals: #assistant.
 	self assert: result thinking equals: 'reasoning'.
 	self assert: result content equals: 'answer'
+]
+
+{ #category : 'tests' }
+SmallChatLMChatClientTest >> testInitializePullsApiKeyFromConfig [
+	| saved |
+	saved := SmallChatConfig apiKey.
+	[ SmallChatConfig apiKey: 'sk-from-config'.
+	  self assert: SmallChatLMChatClient new apiKey equals: 'sk-from-config' ]
+		ensure: [ SmallChatConfig apiKey: saved ]
 ]
 
 { #category : 'tests' }

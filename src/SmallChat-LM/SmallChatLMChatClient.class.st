@@ -15,11 +15,22 @@ Class {
 		'modelName',
 		'maxTokens',
 		'temperature',
-		'httpClient'
+		'httpClient',
+		'apiKey'
 	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
 }
+
+{ #category : 'accessing' }
+SmallChatLMChatClient >> apiKey [
+	^ apiKey
+]
+
+{ #category : 'accessing' }
+SmallChatLMChatClient >> apiKey: aStringOrNil [
+	apiKey := aStringOrNil
+]
 
 { #category : 'accessing' }
 SmallChatLMChatClient >> baseUrl [
@@ -40,7 +51,10 @@ SmallChatLMChatClient >> chatCompletionsUrl [
 SmallChatLMChatClient >> complete: aConversation [
 	| requestBody responseBody parsed content split |
 	requestBody := STONJSON toString: (self requestBodyFor: aConversation).
-	responseBody := httpClient post: requestBody to: self chatCompletionsUrl.
+	responseBody := httpClient
+		post: requestBody
+		to: self chatCompletionsUrl
+		withHeaders: self requestHeaders.
 	parsed := STONJSON fromString: responseBody.
 	content := self extractAssistantContent: parsed.
 	split := self splitThinkingAndContent: content.
@@ -72,6 +86,7 @@ SmallChatLMChatClient >> initialize [
 	modelName := SmallChatConfig modelName.
 	maxTokens := SmallChatConfig maxTokens.
 	temperature := SmallChatConfig temperature.
+	apiKey := SmallChatConfig apiKey.
 	httpClient := SmallChatLMZnHttpClient new
 ]
 
@@ -113,6 +128,15 @@ SmallChatLMChatClient >> requestBodyFor: aConversation [
 		at: 'temperature' put: temperature;
 		at: 'stream' put: false;
 		yourself
+]
+
+{ #category : 'private' }
+SmallChatLMChatClient >> requestHeaders [
+	| headers |
+	headers := Dictionary new.
+	(apiKey isNil or: [ apiKey isEmpty ]) ifFalse: [
+		headers at: 'Authorization' put: 'Bearer ' , apiKey ].
+	^ headers
 ]
 
 { #category : 'private' }
