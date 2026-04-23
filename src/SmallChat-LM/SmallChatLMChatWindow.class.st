@@ -91,6 +91,7 @@ SmallChatLMChatWindow >> beginPendingSendOf: aString [
 SmallChatLMChatWindow >> defaultLayout [
     ^ SpBoxLayout newTopToBottom
         spacing: 4;
+        add: mcpStatusLabel expand: false;
         add: messagesPane;
         add: statusLabel expand: false;
         add: (SpBoxLayout newLeftToRight

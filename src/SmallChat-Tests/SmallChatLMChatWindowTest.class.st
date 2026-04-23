@@ -61,6 +61,14 @@ SmallChatLMChatWindowTest >> stubSessionWithChunks: anArray [
 ]
 
 { #category : 'tests' }
+SmallChatLMChatWindowTest >> testDefaultLayoutPlacesMcpHeaderAtTop [
+    "MCP status sits at the very top of the window, above the transcript."
+    | window |
+    window := SmallChatLMChatWindow new.
+    self assert: window defaultLayout children first == window mcpStatusLabel
+]
+
+{ #category : 'tests' }
 SmallChatLMChatWindowTest >> testErrorFromClientShowsErrorInStatusLabel [
     | stub client session window assistantTurns |
     stub := SmallChatLMHttpStub new
