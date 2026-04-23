@@ -10,8 +10,8 @@ BaselineOfSmallChat >> baseline: spec [
 	spec for: #common do: [
 		spec
 			package: 'SmallChat';
-			package: 'SmallChat-LM'    with: [ spec requires: #('SmallChat') ];
 			package: 'SmallChat-MCP'   with: [ spec requires: #('SmallChat') ];
+			package: 'SmallChat-LM'    with: [ spec requires: #('SmallChat' 'SmallChat-MCP') ];
 			package: 'SmallChat-Tests' with: [ spec requires: #('SmallChat' 'SmallChat-LM' 'SmallChat-MCP') ].
 		spec
 			group: 'default' with: #('SmallChat' 'SmallChat-LM' 'SmallChat-MCP' 'SmallChat-Tests');
