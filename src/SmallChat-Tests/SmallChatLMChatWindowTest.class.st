@@ -459,6 +459,39 @@ SmallChatLMChatWindowTest >> testSystemMessagesNotRendered [
 ]
 
 { #category : 'tests' }
+SmallChatLMChatWindowTest >> testWindowUpdatesLabelOnMCPStateAnnouncement [
+    "Announce a synthetic state change through the default TCP server's
+     announcer; the window should have subscribed during #initializePresenters
+     and must update mcpStatusLabel accordingly. Cleanup unsubscribes the
+     window from the (real, live) default announcer."
+    | window announcer |
+    window := SmallChatLMChatWindow new
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    announcer := SmallChatMCPTcpServer default announcer.
+    [
+        announcer announce:
+            (SmallChatMCPStateChanged new
+                running: true;
+                clientCount: 2;
+                yourself).
+        self assert: window mcpStatusLabel label equals: 'MCP: connected'.
+        announcer announce:
+            (SmallChatMCPStateChanged new
+                running: true;
+                clientCount: 0;
+                yourself).
+        self assert: window mcpStatusLabel label equals: 'MCP: listening'.
+        announcer announce:
+            (SmallChatMCPStateChanged new
+                running: false;
+                clientCount: 0;
+                yourself).
+        self assert: window mcpStatusLabel label equals: 'MCP: offline'
+    ] ensure: [ announcer unsubscribe: window ]
+]
+
+{ #category : 'tests' }
 SmallChatLMChatWindowTest >> testWorldMenuItemOpensChatWindow [
 	| method builder item |
 	method := SmallChatLMChatWindow class >> #menuCommandOn:.

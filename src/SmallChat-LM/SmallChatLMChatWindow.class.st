@@ -71,6 +71,14 @@ SmallChatLMChatWindow >> appendDelta: aString toAssistantMessage: aMessage [
     (aString includes: Character lf) ifTrue: [ self refreshMessages ]
 ]
 
+{ #category : 'mcp status' }
+SmallChatLMChatWindow >> applyMCPState: aStateAnnouncement [
+    "Refresh the header text from a state-change announcement. Called via
+     uiDeferrer so mutation lands on the UI thread regardless of which
+     process triggered the announcement."
+    mcpStatusLabel label: (self class labelForMCPState: aStateAnnouncement)
+]
+
 { #category : 'private' }
 SmallChatLMChatWindow >> beginPendingSendOf: aString [
     session conversation addUser: aString.
@@ -176,7 +184,8 @@ SmallChatLMChatWindow >> initializePresenters [
     sendButton := self newButton
         label: 'Send';
         action: [ self sendFromInput ];
-        yourself
+        yourself.
+    self subscribeToMCPAnnouncer
 ]
 
 { #category : 'initialization' }
@@ -264,6 +273,17 @@ SmallChatLMChatWindow >> session: aSession [
 { #category : 'accessing' }
 SmallChatLMChatWindow >> statusLabel [
     ^ statusLabel
+]
+
+{ #category : 'mcp status' }
+SmallChatLMChatWindow >> subscribeToMCPAnnouncer [
+    "Subscribe to SmallChatMCPStateChanged on the default TCP server so the
+     header label tracks connect/disconnect events. The subscription is keyed
+     by self so it can be removed with #unsubscribe: on window close."
+    SmallChatMCPTcpServer default announcer
+        when: SmallChatMCPStateChanged
+        do: [ :ann | uiDeferrer value: [ self applyMCPState: ann ] ]
+        for: self
 ]
 
 { #category : 'accessing' }
