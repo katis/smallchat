@@ -34,6 +34,14 @@ SmallChatLMSession >> conversation [
 	^ conversation
 ]
 
+{ #category : 'tool dispatch' }
+SmallChatLMSession >> dispatchToolCall: aToolCall [
+	| tool |
+	tool := self toolFor: aToolCall.
+	tool ifNil: [ ^ 'Error: unknown tool ' , aToolCall name printString ].
+	^ tool runWithArgumentsJSON: aToolCall arguments
+]
+
 { #category : 'initialization' }
 SmallChatLMSession >> initialize [
 	| prompt |
@@ -44,18 +52,50 @@ SmallChatLMSession >> initialize [
 	client := SmallChatLMChatClient new
 ]
 
+{ #category : 'tool dispatch' }
+SmallChatLMSession >> maxToolIterations [
+	"Per-turn budget on tool-call rounds before the loop gives up and inserts
+	 a synthetic error message. Tight enough to stop runaway loops, loose
+	 enough to support a handful of honest tool hops in one answer."
+	^ 8
+]
+
 { #category : 'chat' }
 SmallChatLMSession >> sendUserInput: aString [
-	"Append the user turn, ask the client for the next assistant turn,
-	 append that too. Returns the assistant message (nil if aString is
-	 empty -- an empty submission is a no-op rather than an error, since
-	 the UI's send button may fire on blank input)."
-	| reply |
+	"Append the user turn, call the client, then loop as long as the reply
+	 carries tool_calls: dispatch each, append tool-result messages, call
+	 again. Gives up after maxToolIterations rounds. Returns the final
+	 assistant message (always a content-bearing one, modulo the synthetic
+	 budget-exhausted stub)."
+	| reply iterations |
 	(aString isNil or: [ aString isEmpty ]) ifTrue: [ ^ nil ].
 	conversation addUser: aString.
 	reply := client complete: conversation.
 	conversation addMessage: reply.
+	iterations := 0.
+	[ reply toolCalls notNil and: [ reply toolCalls notEmpty ] ] whileTrue: [
+		iterations := iterations + 1.
+		iterations > self maxToolIterations ifTrue: [
+			| synthetic |
+			synthetic := SmallChatLMMessage
+				role: #assistant
+				content: 'Error: tool-call budget (' , self maxToolIterations printString , ' rounds) exhausted.'.
+			conversation addMessage: synthetic.
+			^ synthetic ].
+		reply toolCalls do: [ :tc |
+			conversation addTool: (self dispatchToolCall: tc) forCallId: tc id ].
+		reply := client complete: conversation.
+		conversation addMessage: reply ].
 	^ reply
+]
+
+{ #category : 'tool dispatch' }
+SmallChatLMSession >> toolFor: aToolCall [
+	"Dispatch target lookup. Only #evaluate is wired today; anything else
+	 surfaces as a descriptive error string on the tool-result message so
+	 the model can course-correct instead of the session silently stalling."
+	aToolCall name = 'evaluate' ifTrue: [ ^ SmallChatLMEvaluateTool new ].
+	^ nil
 ]
 
 { #category : 'rendering' }

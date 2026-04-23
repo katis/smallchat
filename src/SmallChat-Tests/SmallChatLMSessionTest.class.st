@@ -60,6 +60,44 @@ SmallChatLMSessionTest >> testSendUserInputAppendsUserAndAssistantTurns [
 ]
 
 { #category : 'tests' }
+SmallChatLMSessionTest >> testSendUserInputDispatchesToolCallsAndLoopsToFinalAnswer [
+	| mock tc toolReply finalReply session result nonSystem roles |
+	mock := SmallChatLMMockClient new.
+	tc := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{"code":"3 + 4"}'.
+	toolReply := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc }.
+	finalReply := SmallChatLMMessage role: #assistant content: 'The answer is 7.'.
+	mock queueReply: toolReply.
+	mock queueReply: finalReply.
+	session := SmallChatLMSession new client: mock; yourself.
+	result := session sendUserInput: 'what is 3 + 4?'.
+	self assert: result equals: finalReply.
+	self assert: mock callCount equals: 2.
+	nonSystem := session conversation messages reject: [ :m | m role = #system ].
+	roles := nonSystem collect: [ :m | m role ].
+	self assert: roles asArray equals: #(#user #assistant #tool #assistant).
+	self assert: (nonSystem third toolCallId) equals: 'c1'.
+	self assert: (nonSystem third content) equals: '7'
+]
+
+{ #category : 'tests' }
+SmallChatLMSessionTest >> testSendUserInputStopsAfterToolIterationBudget [
+	| mock session result tc replyWithCall |
+	mock := SmallChatLMMockClient new.
+	tc := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{"code":"1"}'.
+	"Queue enough tool-call replies to trip the 8-round budget, plus one more."
+	1 to: 12 do: [ :_ |
+		replyWithCall := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc }.
+		mock queueReply: replyWithCall ].
+	session := SmallChatLMSession new client: mock; yourself.
+	result := session sendUserInput: 'loop forever'.
+	self assert: result role equals: #assistant.
+	self assert: (result content includesSubstring: 'budget').
+	self assert: mock callCount <= 9.
+	"Exactly 1 initial + 8 tool rounds = 9 calls max."
+	self assert: mock callCount equals: 9
+]
+
+{ #category : 'tests' }
 SmallChatLMSessionTest >> testSessionInitializesWithChatClient [
 	self assert: SmallChatLMSession new client class equals: SmallChatLMChatClient
 ]
