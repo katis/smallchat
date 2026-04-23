@@ -52,6 +52,14 @@ SmallChatLMMessagePresenterTest >> testToggleExpandsAndCollapses [
 ]
 
 { #category : 'tests' }
+SmallChatLMMessagePresenterTest >> testToggleGlyphsAreAscii [
+	"Regression: Tonel round-trips multi-byte UTF-8 as mojibake.
+	 Keep the glyphs in the 7-bit ASCII range so the label renders cleanly."
+	self assert: (SmallChatLMMessagePresenter collapsedGlyph allSatisfy: [ :c | c asInteger < 128 ]).
+	self assert: (SmallChatLMMessagePresenter expandedGlyph allSatisfy: [ :c | c asInteger < 128 ])
+]
+
+{ #category : 'tests' }
 SmallChatLMMessagePresenterTest >> testToggleLabelReflectsState [
 	| msg presenter |
 	msg := SmallChatLMMessage role: #assistant content: 'hi' thinking: 'reasoning'.

@@ -29,12 +29,12 @@ Class {
 
 { #category : 'constants' }
 SmallChatLMMessagePresenter class >> collapsedGlyph [
-	^ 'â¸'
+	^ '>'
 ]
 
 { #category : 'constants' }
 SmallChatLMMessagePresenter class >> expandedGlyph [
-	^ 'â¾'
+	^ 'v'
 ]
 
 { #category : 'instance creation' }
