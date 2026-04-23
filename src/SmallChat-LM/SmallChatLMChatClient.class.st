@@ -169,6 +169,7 @@ SmallChatLMChatClient >> requestBodyFor: aConversation streaming: aBoolean [
         at: 'max_tokens' put: maxTokens;
         at: 'temperature' put: temperature;
         at: 'stream' put: aBoolean;
+        at: 'tools' put: { SmallChatLMEvaluateTool toolSchema };
         yourself
 ]
 

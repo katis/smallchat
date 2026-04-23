@@ -136,6 +136,22 @@ SmallChatLMChatClientTest >> testCompletePostsToChatCompletionsEndpoint [
 ]
 
 { #category : 'tests' }
+SmallChatLMChatClientTest >> testCompleteRequestBodyIncludesToolsArrayWithEvaluate [
+	| stub client parsed tools first fn |
+	stub := self stubRespondingWith: '{"choices":[{"message":{"role":"assistant","content":"ok"}}]}'.
+	client := self clientWithStub: stub.
+	client complete: (SmallChatLMConversation new addUser: 'hi'; yourself).
+	parsed := STONJSON fromString: stub lastBody.
+	tools := parsed at: 'tools'.
+	self assert: tools isArray.
+	self assert: tools size equals: 1.
+	first := tools first.
+	self assert: (first at: 'type') equals: 'function'.
+	fn := first at: 'function'.
+	self assert: (fn at: 'name') equals: 'evaluate'
+]
+
+{ #category : 'tests' }
 SmallChatLMChatClientTest >> testCompleteRequestBodyIsOpenAIChatShaped [
 	| stub client body messages |
 	stub := self stubRespondingWith: '{"choices":[{"message":{"role":"assistant","content":"ok"}}]}'.
