@@ -34,6 +34,34 @@ SmallChatCommitFilesToolTest >> testGitAddFailureAbortsBeforeCommitAndResync [
 ]
 
 { #category : 'tests' }
+SmallChatCommitFilesToolTest >> testGitCommitFailureSkipsResync [
+	| tool calls resyncCalled result json |
+	calls := OrderedCollection new.
+	resyncCalled := false.
+	tool := SmallChatCommitFilesTool new
+		gitRunner: [ :argv |
+			| res |
+			calls add: argv asArray.
+			res := Dictionary new at: 'stdout' put: ''; at: 'stderr' put: ''; yourself.
+			argv first = 'add'
+				ifTrue: [ res at: 'exitCode' put: 0 ]
+				ifFalse: [ res at: 'exitCode' put: 1. res at: 'stderr' put: 'nothing to commit, working tree clean' ].
+			res ];
+		resyncer: [ resyncCalled := true. 'SHOULD-NOT-BE-CALLED' ];
+		yourself.
+	result := tool run: (Dictionary new
+		at: 'paths' put: #('CLAUDE.md');
+		at: 'message' put: 'msg';
+		yourself).
+	json := STONJSON fromString: result.
+	self assert: (json at: 'error') isString.
+	self assert: ((json at: 'error') includesSubstring: 'git commit').
+	self assert: ((json at: 'error') includesSubstring: 'nothing to commit').
+	self deny: resyncCalled.
+	self assert: calls size equals: 2
+]
+
+{ #category : 'tests' }
 SmallChatCommitFilesToolTest >> testIsRegisteredAsCommitFiles [
 	| registry spec |
 	registry := SmallChatToolRegistry default.
