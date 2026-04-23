@@ -155,6 +155,22 @@ SmallChatLMChatWindow >> finishStreamingWith: aFinalMessage placeholder: aPlaceh
     pendingRequest := nil
 ]
 
+{ #category : 'private' }
+SmallChatLMChatWindow >> formatToolActivity: aToolCallsList results: aResultsDict [
+	"Format a flat log of tool calls paired with their results. nil when the
+	 list is empty so the presenter can hide its toggle."
+	aToolCallsList isEmpty ifTrue: [ ^ nil ].
+	^ String streamContents: [ :s |
+		aToolCallsList doWithIndex: [ :tc :i |
+			i > 1 ifTrue: [ s nextPutAll: String lf ].
+			s
+				nextPutAll: tc name;
+				nextPutAll: '(';
+				nextPutAll: tc arguments;
+				nextPutAll: ') => ';
+				nextPutAll: (aResultsDict at: tc id ifAbsent: [ '(no result)' ]) ] ]
+]
+
 { #category : 'initialization' }
 SmallChatLMChatWindow >> initializePresenters [
     session isNil ifTrue: [ session := SmallChatLMSession new ].
@@ -242,9 +258,18 @@ SmallChatLMChatWindow >> pendingRequest [
 
 { #category : 'private' }
 SmallChatLMChatWindow >> presenterFor: aMessage [
-	^ presentersByMessage
+	"Look up (or create) the presenter for aMessage and keep its tool-activity
+	 summary in sync with the current conversation state. The summary walks back
+	 to the previous user turn so intermediate tool plumbing from this same
+	 response folds under this bubble's toggle."
+	| presenter activity |
+	presenter := presentersByMessage
 		at: aMessage
-		ifAbsentPut: [ SmallChatLMMessagePresenter on: aMessage ]
+		ifAbsentPut: [ SmallChatLMMessagePresenter on: aMessage ].
+	aMessage role = #assistant ifTrue: [
+		activity := self toolActivityTextFor: aMessage.
+		presenter toolActivity: activity ].
+	^ presenter
 ]
 
 { #category : 'private' }
@@ -296,6 +321,35 @@ SmallChatLMChatWindow >> subscribeToMCPAnnouncer [
         when: SmallChatMCPStateChanged
         do: [ :ann | uiDeferrer value: [ self applyMCPState: ann ] ]
         for: self
+]
+
+{ #category : 'private' }
+SmallChatLMChatWindow >> toolActivityTextFor: anAssistantMessage [
+	"Walk the conversation backwards from anAssistantMessage to the previous
+	 non-plumbing message (user, system, or another final assistant). Collect
+	 paired tool_call+tool-result messages and format them as a short log,
+	 one call per pair. Returns nil when there was no tool activity before
+	 this turn so the presenter can omit its toggle."
+	| all idx calls results |
+	all := session conversation messages.
+	idx := all indexOf: anAssistantMessage.
+	idx = 0 ifTrue: [ ^ nil ].
+	calls := OrderedCollection new.
+	results := Dictionary new.
+	idx - 1 to: 1 by: -1 do: [ :i | | m isBoundary isPlumbing |
+		m := all at: i.
+		(m role = #assistant
+			and: [ m toolCalls notNil and: [ m toolCalls notEmpty ] ])
+			ifTrue: [ m toolCalls do: [ :tc | calls addFirst: tc ] ].
+		m role = #tool ifTrue: [ results at: m toolCallId put: m content ].
+		isPlumbing := (m role = #tool)
+			or: [ m role = #assistant
+				and: [ m toolCalls notNil
+				and: [ m toolCalls notEmpty
+				and: [ m content isNil or: [ m content isEmpty ] ] ] ] ].
+		isBoundary := isPlumbing not.
+		isBoundary ifTrue: [ ^ self formatToolActivity: calls results: results ] ].
+	^ self formatToolActivity: calls results: results
 ]
 
 { #category : 'accessing' }

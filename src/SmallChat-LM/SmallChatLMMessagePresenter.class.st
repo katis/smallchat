@@ -17,7 +17,11 @@ Class {
 		'contentText',
 		'toggleButton',
 		'thinkingText',
-		'thinkingVisible'
+		'thinkingVisible',
+		'toolActivity',
+		'toolActivityVisible',
+		'toolActivityToggle',
+		'toolActivityText'
 	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
@@ -55,6 +59,10 @@ SmallChatLMMessagePresenter >> defaultLayout [
         outer add: toggleButton expand: false.
         self isThinkingVisible ifTrue: [
             outer add: thinkingText expand: true ] ].
+    self hasToolActivity ifTrue: [
+        outer add: toolActivityToggle expand: false.
+        self isToolActivityVisible ifTrue: [
+            outer add: toolActivityText expand: true ] ].
     ^ outer
 ]
 
@@ -62,6 +70,11 @@ SmallChatLMMessagePresenter >> defaultLayout [
 SmallChatLMMessagePresenter >> hasThinking [
 	^ message thinking notNil
 		and: [ message thinking isEmpty not ]
+]
+
+{ #category : 'accessing' }
+SmallChatLMMessagePresenter >> hasToolActivity [
+	^ toolActivity notNil and: [ toolActivity isEmpty not ]
 ]
 
 { #category : 'initialization' }
@@ -88,6 +101,11 @@ SmallChatLMMessagePresenter >> initializePresenters [
 { #category : 'accessing' }
 SmallChatLMMessagePresenter >> isThinkingVisible [
 	^ thinkingVisible = true
+]
+
+{ #category : 'accessing' }
+SmallChatLMMessagePresenter >> isToolActivityVisible [
+	^ toolActivityVisible = true
 ]
 
 { #category : 'accessing' }
@@ -140,6 +158,36 @@ SmallChatLMMessagePresenter >> toggleThinking [
 	self updateThinkingWidget
 ]
 
+{ #category : 'actions' }
+SmallChatLMMessagePresenter >> toggleToolActivity [
+	toolActivityVisible := self isToolActivityVisible not.
+	self updateToolActivityWidget
+]
+
+{ #category : 'accessing' }
+SmallChatLMMessagePresenter >> toolActivity [
+	^ toolActivity
+]
+
+{ #category : 'accessing' }
+SmallChatLMMessagePresenter >> toolActivity: aStringOrNil [
+	"Attach a pre-formatted tool-activity summary for this assistant turn. The
+	 window computes the text from the preceding tool_calls/tool-result messages
+	 and pushes it onto the presenter via this setter so the layout can add the
+	 toggle section. Passing nil or empty removes the toggle."
+	toolActivity := aStringOrNil.
+	self updateToolActivityWidget
+]
+
+{ #category : 'accessing' }
+SmallChatLMMessagePresenter >> toolActivityToggleLabel [
+	| glyph |
+	glyph := self isToolActivityVisible
+		ifTrue: [ self class expandedGlyph ]
+		ifFalse: [ self class collapsedGlyph ].
+	^ glyph , ' tool activity'
+]
+
 { #category : 'private' }
 SmallChatLMMessagePresenter >> updateThinkingWidget [
     "Re-apply the layout so the thinking body appears or disappears based on
@@ -147,4 +195,24 @@ SmallChatLMMessagePresenter >> updateThinkingWidget [
      has no adapter (i.e. in unit tests where the presenter is never opened)."
     toggleButton isNil ifFalse: [ toggleButton label: self toggleLabel ].
     self replaceLayoutWith: self defaultLayout
+]
+
+{ #category : 'private' }
+SmallChatLMMessagePresenter >> updateToolActivityWidget [
+	"Instantiate / update the tool-activity toggle + body widgets to match the
+	 current toolActivity value and visibility, then re-apply the layout. Mirrors
+	 the thinking widget machinery."
+	(self hasToolActivity and: [ toolActivityToggle isNil ]) ifTrue: [
+		toolActivityToggle := self newButton
+			label: self toolActivityToggleLabel;
+			action: [ self toggleToolActivity ];
+			yourself.
+		toolActivityText := self newText
+			beNotEditable;
+			propagateNaturalHeight: true;
+			text: (toolActivity ifNil: [ '' ]);
+			yourself ].
+	toolActivityToggle isNil ifFalse: [ toolActivityToggle label: self toolActivityToggleLabel ].
+	toolActivityText isNil ifFalse: [ toolActivityText text: (toolActivity ifNil: [ '' ]) ].
+	self replaceLayoutWith: self defaultLayout
 ]

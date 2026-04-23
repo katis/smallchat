@@ -6,6 +6,16 @@ Class {
 }
 
 { #category : 'tests' }
+SmallChatLMMessagePresenterTest >> testPresenterAcceptsToolActivityAndShowsToggleCollapsed [
+	| msg presenter |
+	msg := SmallChatLMMessage role: #assistant content: 'The answer is 7.'.
+	presenter := SmallChatLMMessagePresenter on: msg.
+	presenter toolActivity: 'evaluate(3+4) => 7'.
+	self assert: presenter hasToolActivity.
+	self deny: presenter isToolActivityVisible
+]
+
+{ #category : 'tests' }
 SmallChatLMMessagePresenterTest >> testPresenterForMessageWithThinkingStartsCollapsed [
 	| msg presenter |
 	msg := SmallChatLMMessage role: #assistant content: 'hi' thinking: 'reasoning'.
@@ -20,6 +30,14 @@ SmallChatLMMessagePresenterTest >> testPresenterForMessageWithoutThinkingOmitsTo
 	msg := SmallChatLMMessage role: #assistant content: 'hi'.
 	presenter := SmallChatLMMessagePresenter on: msg.
 	self deny: presenter hasThinking
+]
+
+{ #category : 'tests' }
+SmallChatLMMessagePresenterTest >> testPresenterWithoutToolActivityOmitsToggle [
+	| msg presenter |
+	msg := SmallChatLMMessage role: #assistant content: 'plain'.
+	presenter := SmallChatLMMessagePresenter on: msg.
+	self deny: presenter hasToolActivity
 ]
 
 { #category : 'tests' }
@@ -41,4 +59,16 @@ SmallChatLMMessagePresenterTest >> testToggleLabelReflectsState [
 	self assert: (presenter toggleLabel includesSubstring: SmallChatLMMessagePresenter collapsedGlyph).
 	presenter toggleThinking.
 	self assert: (presenter toggleLabel includesSubstring: SmallChatLMMessagePresenter expandedGlyph)
+]
+
+{ #category : 'tests' }
+SmallChatLMMessagePresenterTest >> testToggleToolActivityFlipsVisibility [
+	| msg presenter |
+	msg := SmallChatLMMessage role: #assistant content: 'done'.
+	presenter := SmallChatLMMessagePresenter on: msg.
+	presenter toolActivity: 'evaluate(x) => y'.
+	presenter toggleToolActivity.
+	self assert: presenter isToolActivityVisible.
+	presenter toggleToolActivity.
+	self deny: presenter isToolActivityVisible
 ]

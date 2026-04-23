@@ -97,6 +97,32 @@ SmallChatLMChatWindowTest >> testErrorFromClientShowsErrorInStatusLabel [
 ]
 
 { #category : 'tests' }
+SmallChatLMChatWindowTest >> testFinalAssistantBubblePresentsPrecedingToolActivity [
+	"After refreshMessages, the presenter for the final content-bearing assistant
+	 message carries a tool-activity summary derived from the preceding tool_calls
+	 + tool-result messages."
+	| session window tc plumbingMsg toolMsg finalMsg finalPresenter |
+	session := self stubSessionWithCannedReply: 'unused'.
+	window := SmallChatLMChatWindow new
+		session: session;
+		uiDeferrer: [ :blk | blk value ];
+		yourself.
+	session conversation addUser: 'what is 3+4?'.
+	tc := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{"code":"3+4"}'.
+	plumbingMsg := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc }.
+	session conversation addMessage: plumbingMsg.
+	toolMsg := SmallChatLMMessage role: #tool content: '7' toolCallId: 'c1'.
+	session conversation addMessage: toolMsg.
+	finalMsg := SmallChatLMMessage role: #assistant content: 'The answer is 7.'.
+	session conversation addMessage: finalMsg.
+	window refreshMessages.
+	finalPresenter := window messagePresenters last.
+	self assert: finalPresenter hasToolActivity.
+	self assert: (finalPresenter toolActivity includesSubstring: 'evaluate').
+	self assert: (finalPresenter toolActivity includesSubstring: '7')
+]
+
+{ #category : 'tests' }
 SmallChatLMChatWindowTest >> testLabelForMCPState [
     "Pure mapping from SmallChatMCPStateChanged to label text. ASCII only --
      Tonel round-trips non-ASCII as mojibake in Pharo 13."
