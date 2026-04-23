@@ -88,6 +88,23 @@ SmallChatLMChatWindowTest >> testErrorFromClientShowsErrorInStatusLabel [
     self assert: assistantTurns isEmpty
 ]
 
+{ #category : 'tests-streaming' }
+SmallChatLMChatWindowTest >> testMessagesPaneIsScrollable [
+    "The transcript needs to scroll vertically when long replies push it past
+     the window height."
+    | session window |
+    session := self stubSessionWithCannedReply: 'hello'.
+    window := SmallChatLMChatWindow new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    self assert: window messagesPane layout class equals: SpScrollableLayout.
+    window input text: 'hi'.
+    window sendFromInput.
+    window waitForPending.
+    self assert: window messagesPane layout class equals: SpScrollableLayout
+]
+
 { #category : 'tests' }
 SmallChatLMChatWindowTest >> testPresenterCachePreservesFoldStateAcrossSends [
     | window session firstAssistantPresenter |

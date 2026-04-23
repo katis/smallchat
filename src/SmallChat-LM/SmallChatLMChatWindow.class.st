@@ -146,7 +146,7 @@ SmallChatLMChatWindow >> initializePresenters [
     presentersByMessage := IdentityDictionary new.
     uiDeferrer := [ :aBlock | UIManager default defer: aBlock ].
     messagesPane := self newPresenter.
-    messagesPane layout: SpBoxLayout newTopToBottom.
+    messagesPane layout: (SpScrollableLayout with: SpBoxLayout newTopToBottom).
     statusLabel := self newLabel.
     input := self newTextInput
         placeholder: 'message';
@@ -178,6 +178,11 @@ SmallChatLMChatWindow >> messagePresenters [
 ]
 
 { #category : 'accessing' }
+SmallChatLMChatWindow >> messagesPane [
+    ^ messagesPane
+]
+
+{ #category : 'accessing' }
 SmallChatLMChatWindow >> pendingRequest [
     ^ pendingRequest
 ]
@@ -191,10 +196,10 @@ SmallChatLMChatWindow >> presenterFor: aMessage [
 
 { #category : 'private' }
 SmallChatLMChatWindow >> refreshMessages [
-	| layout |
-	layout := SpBoxLayout newTopToBottom.
-	self messagePresenters do: [ :p | layout add: p expand: false ].
-	messagesPane layout: layout
+    | inner |
+    inner := SpBoxLayout newTopToBottom.
+    self messagePresenters do: [ :p | inner add: p expand: false ].
+    messagesPane layout: (SpScrollableLayout with: inner)
 ]
 
 { #category : 'accessing' }
