@@ -29,6 +29,11 @@ SmallChatLMConversation >> addSystem: aString [
 ]
 
 { #category : 'adding' }
+SmallChatLMConversation >> addTool: aString forCallId: anId [
+	^ self addMessage: (SmallChatLMMessage role: #tool content: aString toolCallId: anId)
+]
+
+{ #category : 'adding' }
 SmallChatLMConversation >> addUser: aString [
 	^ self addMessage: (SmallChatLMMessage role: #user content: aString)
 ]

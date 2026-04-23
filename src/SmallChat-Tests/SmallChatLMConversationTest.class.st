@@ -6,6 +6,18 @@ Class {
 }
 
 { #category : 'tests' }
+SmallChatLMConversationTest >> testAddToolForCallIdAppendsToolMessage [
+	| conv msg |
+	conv := SmallChatLMConversation new.
+	conv addTool: '42' forCallId: 'call_1'.
+	self assert: conv messages size equals: 1.
+	msg := conv messages first.
+	self assert: msg role equals: #tool.
+	self assert: msg content equals: '42'.
+	self assert: msg toolCallId equals: 'call_1'
+]
+
+{ #category : 'tests' }
 SmallChatLMConversationTest >> testAddsPreserveOrder [
 	| conv roles contents |
 	conv := SmallChatLMConversation new
