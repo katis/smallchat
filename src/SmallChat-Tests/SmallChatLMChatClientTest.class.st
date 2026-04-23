@@ -127,6 +127,23 @@ SmallChatLMChatClientTest >> testCompleteOnDeltaToleratesLeadingRoleOnlyDelta [
 ]
 
 { #category : 'tests' }
+SmallChatLMChatClientTest >> testCompleteParsesToolCallsFromNonStreamingResponse [
+	| stub client conv reply tc |
+	stub := self stubRespondingWith: '{"choices":[{"message":{"role":"assistant","content":null,"tool_calls":[{"id":"call_1","type":"function","function":{"name":"evaluate","arguments":"{\"code\":\"3+4\"}"}}]},"finish_reason":"tool_calls"}]}'.
+	client := self clientWithStub: stub.
+	conv := SmallChatLMConversation new addUser: 'add them'; yourself.
+	reply := client complete: conv.
+	self assert: reply role equals: #assistant.
+	self assert: reply toolCalls notNil.
+	self assert: reply toolCalls size equals: 1.
+	tc := reply toolCalls first.
+	self assert: tc id equals: 'call_1'.
+	self assert: tc name equals: 'evaluate'.
+	self assert: tc arguments equals: '{"code":"3+4"}'.
+	self assert: (reply content isNil or: [ reply content isEmpty ])
+]
+
+{ #category : 'tests' }
 SmallChatLMChatClientTest >> testCompletePostsToChatCompletionsEndpoint [
 	| stub client |
 	stub := self stubRespondingWith: '{"choices":[{"message":{"role":"assistant","content":"ok"}}]}'.

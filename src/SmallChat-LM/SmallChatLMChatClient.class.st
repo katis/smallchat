@@ -61,19 +61,31 @@ SmallChatLMChatClient >> chatCompletionsUrl [
 
 { #category : 'chat' }
 SmallChatLMChatClient >> complete: aConversation [
-	| requestBody responseBody parsed content split |
+	| requestBody responseBody parsed message content toolCalls split |
 	requestBody := STONJSON toString: (self requestBodyFor: aConversation).
 	responseBody := httpClient
 		post: requestBody
 		to: self chatCompletionsUrl
 		withHeaders: self requestHeaders.
 	parsed := STONJSON fromString: responseBody.
-	content := self extractAssistantContent: parsed.
+	message := ((parsed at: 'choices') first) at: 'message'.
+	content := message at: 'content' ifAbsent: [ nil ].
+	content isNil ifTrue: [ content := '' ].
+	toolCalls := self toolCallsFrom: (message at: 'tool_calls' ifAbsent: [ nil ]).
 	split := self splitThinkingAndContent: content.
-	^ SmallChatLMMessage
-		role: #assistant
-		content: (split at: 2)
-		thinking: (split at: 1)
+	^ toolCalls
+		ifNil: [
+			SmallChatLMMessage
+				role: #assistant
+				content: (split at: 2)
+				thinking: (split at: 1) ]
+		ifNotNil: [ | msg |
+			msg := SmallChatLMMessage
+				role: #assistant
+				content: (split at: 2)
+				toolCalls: toolCalls.
+			msg thinking: (split at: 1).
+			msg ]
 ]
 
 { #category : 'chat' }
@@ -230,4 +242,21 @@ SmallChatLMChatClient >> temperature [
 { #category : 'accessing' }
 SmallChatLMChatClient >> temperature: aNumber [
 	temperature := aNumber
+]
+
+{ #category : 'private' }
+SmallChatLMChatClient >> toolCallsFrom: aToolCallsArrayOrNil [
+	"Map an OpenAI-shaped tool_calls array (non-streaming or assembled-streaming)
+	 to SmallChatLMToolCall instances. nil or empty returns nil so the message can
+	 keep its toolCalls slot unset."
+	| calls |
+	(aToolCallsArrayOrNil isNil or: [ aToolCallsArrayOrNil isEmpty ])
+		ifTrue: [ ^ nil ].
+	calls := aToolCallsArrayOrNil collect: [ :raw | | fn |
+		fn := raw at: 'function' ifAbsent: [ Dictionary new ].
+		SmallChatLMToolCall
+			id: (raw at: 'id' ifAbsent: [ '' ])
+			name: (fn at: 'name' ifAbsent: [ '' ])
+			arguments: (fn at: 'arguments' ifAbsent: [ '' ]) ].
+	^ calls asArray
 ]
