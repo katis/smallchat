@@ -61,21 +61,22 @@ SmallChatLMHttpStub >> post: aBody to: aUrl withHeaders: aHeadersDict [
 
 { #category : 'api' }
 SmallChatLMHttpStub >> post: aBody to: aUrl withHeaders: aHeadersDict onChunk: aBlock [
-    "Streaming variant. If errorToRaise is set, raise before emitting chunks --
-     mirrors the legacy raiseOnPost: contract. Otherwise iterate canned chunks
-     (from #chunks: or, when only #response: was set, a single synthetic chunk
-     synthesised from the buffered response so existing buffered tests carry
-     over) and forward each to aBlock; #gate is waited per chunk if set."
+    "Streaming variant. Raises errorToRaise immediately when nothing to emit
+     (legacy #raiseOnPost: contract); when chunks are queued, emits them first
+     and then raises so callers can simulate a mid-stream failure that leaves
+     partial content on the wire."
     | toEmit |
     lastBody := aBody.
     lastUrl := aUrl.
     lastHeaders := aHeadersDict.
-    errorToRaise ifNotNil: [ Error signal: errorToRaise ].
     toEmit := chunks ifNil: [ self syntheticChunksFromResponse ].
-    toEmit ifNil: [ ^ self ].
+    toEmit ifNil: [
+        errorToRaise ifNotNil: [ Error signal: errorToRaise ].
+        ^ self ].
     toEmit do: [ :c |
         gate ifNotNil: [ gate wait ].
-        aBlock value: c ]
+        aBlock value: c ].
+    errorToRaise ifNotNil: [ Error signal: errorToRaise ]
 ]
 
 { #category : 'gating' }

@@ -313,6 +313,34 @@ SmallChatLMChatWindowTest >> testStreamingDoesNotDuplicateAssistantTurn [
 ]
 
 { #category : 'tests-streaming' }
+SmallChatLMChatWindowTest >> testStreamingMidStreamErrorPreservesPartialAssistantContent [
+    "Two chunks land, then the stream raises. The partial assistant content
+     ('ab') must remain in the transcript -- the placeholder is not removed
+     -- and the status label/send button reflect the failure."
+    | pair session stub window assistantTurns |
+    pair := self stubSessionWithChunks: {
+        self deltaChunkWithContent: 'a'.
+        self deltaChunkWithContent: 'b' }.
+    session := pair first.
+    stub := pair second.
+    stub raiseOnPost: 'mid-stream boom'.
+    window := SmallChatLMChatWindow new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    window input text: 'hi'.
+    window sendFromInput.
+    window waitForPending.
+    self assert: window pendingRequest isNil.
+    self assert: window sendButton isEnabled.
+    self assert: (window statusLabel label asLowercase includesSubstring: 'error').
+    self assert: (window statusLabel label includesSubstring: 'mid-stream boom').
+    assistantTurns := session conversation messages select: [ :m | m role = #assistant ].
+    self assert: assistantTurns size equals: 1.
+    self assert: assistantTurns first content equals: 'ab'
+]
+
+{ #category : 'tests-streaming' }
 SmallChatLMChatWindowTest >> testStreamingPlaceholderAssistantBubbleAppearsBeforeFirstChunk [
     | pair session stub window assistantTurns |
     pair := self stubSessionWithChunks: { self deltaChunkWithContent: 'hi' }.
