@@ -83,7 +83,7 @@ SmallChatLMChatClient >> complete: aConversation onDelta: aOneArgBlock [
      accumulates the full content, and returns the assembled SmallChatLMMessage with
      thinking split from content."
     | requestBody accumulator |
-    requestBody := STONJSON toString: (self requestBodyFor: aConversation).
+    requestBody := STONJSON toString: (self requestBodyFor: aConversation streaming: true).
     accumulator := WriteStream on: String new.
     httpClient
         post: requestBody
@@ -158,13 +158,18 @@ SmallChatLMChatClient >> modelName: aString [
 
 { #category : 'private' }
 SmallChatLMChatClient >> requestBodyFor: aConversation [
-	^ Dictionary new
-		at: 'model' put: modelName;
-		at: 'messages' put: (self messagesFor: aConversation) asArray;
-		at: 'max_tokens' put: maxTokens;
-		at: 'temperature' put: temperature;
-		at: 'stream' put: false;
-		yourself
+    ^ self requestBodyFor: aConversation streaming: false
+]
+
+{ #category : 'private' }
+SmallChatLMChatClient >> requestBodyFor: aConversation streaming: aBoolean [
+    ^ Dictionary new
+        at: 'model' put: modelName;
+        at: 'messages' put: (self messagesFor: aConversation) asArray;
+        at: 'max_tokens' put: maxTokens;
+        at: 'temperature' put: temperature;
+        at: 'stream' put: aBoolean;
+        yourself
 ]
 
 { #category : 'private' }

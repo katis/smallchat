@@ -59,6 +59,17 @@ SmallChatLMChatClientTest >> testCompleteOnDeltaInvokesBlockPerDeltaInOrder [
     self assert: reply role equals: #assistant
 ]
 
+{ #category : 'tests-streaming' }
+SmallChatLMChatClientTest >> testCompleteOnDeltaSendsStreamTrueInBody [
+    | client stub parsed |
+    stub := SmallChatLMHttpStub new.
+    stub chunks: { self deltaChunkWithContent: 'hi' }.
+    client := self clientWithStub: stub.
+    client complete: SmallChatLMConversation new onDelta: [ :_ | ].
+    parsed := STONJSON fromString: stub lastBody.
+    self assert: (parsed at: 'stream') equals: true
+]
+
 { #category : 'tests' }
 SmallChatLMChatClientTest >> testCompletePostsToChatCompletionsEndpoint [
 	| stub client |
