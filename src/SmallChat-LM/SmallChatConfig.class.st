@@ -51,8 +51,6 @@ SmallChatConfig class >> baseUrl: aString [
 
 { #category : 'accessing' }
 SmallChatConfig class >> defaultSystemPrompt [
-	"Hard-coded default so the compiled Tonel file stays free of tricky
-	 mixed-quote escapes. Built from pieces via streamContents:."
 	^ String streamContents: [ :s |
 		s nextPutAll: 'You are a Pharo 13 Smalltalk expert. You use best practices like Red-Green TDD, Intention-revealing selectors, Method protocols, Mandatory Class comments, '.
 		s nextPut: $".
@@ -60,7 +58,7 @@ SmallChatConfig class >> defaultSystemPrompt [
 		s nextPut: $'.
 		s nextPutAll: 't ask'.
 		s nextPut: $".
-		s nextPutAll: ' and double dispatch. Use Live programming techniques, Code Critic for linting, and Iceberg for VCS operations.' ]
+		s nextPutAll: ' and double dispatch. Use Live programming techniques, Code Critic for linting, and Iceberg for VCS operations. You have an evaluate(code) function that runs Smalltalk in this live Pharo image and returns the printString of the result. Use it to inspect classes, try expressions, and verify changes rather than guessing. Tool results are plain text; compose multiple calls when you need to refine an answer.' ]
 ]
 
 { #category : 'private' }
