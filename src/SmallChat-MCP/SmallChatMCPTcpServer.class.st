@@ -17,7 +17,9 @@ Class {
 		'acceptProcess',
 		'protocol',
 		'running',
-		'port'
+		'port',
+		'activeClients',
+		'clientsMutex'
 	],
 	#classVars : [
 		'Default'
@@ -72,6 +74,11 @@ SmallChatMCPTcpServer >> acceptLoop [
 				named: 'SmallChat MCP TCP Client' ] ]
 ]
 
+{ #category : 'accessing' }
+SmallChatMCPTcpServer >> activeClientCount [
+	^ clientsMutex critical: [ activeClients size ]
+]
+
 { #category : 'listening' }
 SmallChatMCPTcpServer >> handleConnection: clientSocket [
 	"Run newline-delimited JSON-RPC on the given socket until the client
@@ -93,7 +100,9 @@ SmallChatMCPTcpServer >> handleConnection: clientSocket [
 SmallChatMCPTcpServer >> initialize [
 	super initialize.
 	protocol := SmallChatMCPProtocol default.
-	running := false
+	running := false.
+	activeClients := OrderedCollection new.
+	clientsMutex := Mutex new
 ]
 
 { #category : 'accessing' }
