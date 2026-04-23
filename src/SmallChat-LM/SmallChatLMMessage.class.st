@@ -10,7 +10,8 @@ Class {
 	#instVars : [
 		'role',
 		'content',
-		'thinking'
+		'thinking',
+		'rawStream'
 	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
@@ -59,6 +60,16 @@ SmallChatLMMessage >> printOn: aStream [
 		nextPutAll: ': ';
 		print: content;
 		nextPutAll: ')'
+]
+
+{ #category : 'accessing' }
+SmallChatLMMessage >> rawStream [
+    ^ rawStream
+]
+
+{ #category : 'accessing' }
+SmallChatLMMessage >> rawStream: aStringOrNil [
+    rawStream := aStringOrNil
 ]
 
 { #category : 'accessing' }

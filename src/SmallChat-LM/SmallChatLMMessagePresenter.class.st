@@ -88,6 +88,29 @@ SmallChatLMMessagePresenter >> message [
 	^ message
 ]
 
+{ #category : 'updating' }
+SmallChatLMMessagePresenter >> refreshFromMessage [
+    "Push the message's current content/thinking into the existing widgets in
+     place. Used by the chat window between streaming deltas so we don't
+     refreshMessages (and rebuild the entire pane) per token."
+    | thinkingJustAppeared |
+    thinkingJustAppeared := thinkingText isNil and: [ self hasThinking ].
+    contentText text: (message content ifNil: [ '' ]).
+    thinkingText isNil ifFalse: [
+        thinkingText text: (message thinking ifNil: [ '' ]) ].
+    thinkingJustAppeared ifTrue: [
+        toggleButton := self newButton
+            label: self toggleLabel;
+            action: [ self toggleThinking ];
+            yourself.
+        thinkingText := self newText
+            beNotEditable;
+            text: message thinking;
+            yourself.
+        (self respondsTo: #withWindowDo:) ifTrue: [
+            self withWindowDo: [ :w | self needRebuild: false. self buildWithSpec ] ] ]
+]
+
 { #category : 'initialization' }
 SmallChatLMMessagePresenter >> setMessage: aMessage [
 	message := aMessage

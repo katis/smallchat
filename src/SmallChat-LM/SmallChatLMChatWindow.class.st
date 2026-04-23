@@ -41,6 +41,22 @@ SmallChatLMChatWindow class >> menuCommandOn: aBuilder [
 ]
 
 { #category : 'private' }
+SmallChatLMChatWindow >> appendDelta: aString toAssistantMessage: aMessage [
+    "Append one streaming delta to aMessage's raw buffer, re-run the
+     thinking/content split so partial mid-tag chunks reclassify correctly,
+     and push the new text into the cached presenter's widgets in place. On
+     the first delta, clear the waiting status so the user sees content."
+    | client split |
+    aMessage rawStream: aMessage rawStream , aString.
+    client := session client.
+    split := client splitThinkingAndContent: aMessage rawStream.
+    aMessage thinking: (split at: 1).
+    aMessage content: (split at: 2).
+    statusLabel label isEmpty ifFalse: [ statusLabel label: '' ].
+    (self presenterFor: aMessage) refreshFromMessage
+]
+
+{ #category : 'private' }
 SmallChatLMChatWindow >> beginPendingSendOf: aString [
     session conversation addUser: aString.
     statusLabel label: 'waiting...'.
@@ -65,38 +81,63 @@ SmallChatLMChatWindow >> defaultLayout [
 
 { #category : 'private' }
 SmallChatLMChatWindow >> dispatchSendOf: aString [
-    | snapshot block |
-    snapshot := session conversation.
+    "Send aString to the LM via complete:onDelta:. The placeholder assistant
+     message is created up front so an empty bubble appears immediately; tokens
+     are appended to it as deltas arrive. The snapshot passed to the client is a
+     copy of the pre-placeholder conversation so the LM is asked to complete the
+     user turn, not the empty assistant placeholder."
+    | snapshot placeholder block |
+    snapshot := session conversation copy.
+    placeholder := SmallChatLMMessage role: #assistant content: '' thinking: nil.
+    placeholder rawStream: ''.
+    session conversation addMessage: placeholder.
+    self refreshMessages.
     block := [
-        | reply failure |
+        | failure final |
         failure := nil.
-        [ reply := session client complete: snapshot ]
+        final := nil.
+        [ final := session client
+            complete: snapshot
+            onDelta: [ :delta |
+                uiDeferrer value: [ self appendDelta: delta toAssistantMessage: placeholder ] ] ]
             on: Error
             do: [ :e | failure := e ].
         failure
-            ifNil: [ uiDeferrer value: [ self finishPendingWith: reply ] ]
-            ifNotNil: [ uiDeferrer value: [ self finishPendingWithError: failure ] ] ].
+            ifNil: [ uiDeferrer value: [ self finishStreamingWith: final placeholder: placeholder ] ]
+            ifNotNil: [ uiDeferrer value: [ self finishPendingWithError: failure placeholder: placeholder ] ] ].
     pendingRequest := block newProcess.
     pendingRequest resume
 ]
 
 { #category : 'private' }
-SmallChatLMChatWindow >> finishPendingWith: aMessage [
-    session conversation addMessage: aMessage.
-    statusLabel label: ''.
+SmallChatLMChatWindow >> finishPendingWithError: anException placeholder: aPlaceholder [
+    "Stream raised. If no chunks landed, the placeholder is empty -- drop it
+     so the transcript doesn't carry a stranded empty assistant bubble. With
+     partial content, leave the placeholder in place so the user keeps what
+     was streamed before the failure."
+    | text |
+    (aPlaceholder rawStream isNil or: [ aPlaceholder rawStream isEmpty ])
+        ifTrue: [ session conversation removeMessage: aPlaceholder ].
+    text := anException messageText ifNil: [ anException class name ].
+    statusLabel label: '[error: ' , text , ']'.
     sendButton enable.
     pendingRequest := nil.
     self refreshMessages
 ]
 
 { #category : 'private' }
-SmallChatLMChatWindow >> finishPendingWithError: anException [
-    | text |
-    text := anException messageText ifNil: [ anException class name ].
-    statusLabel label: '[error: ' , text , ']'.
+SmallChatLMChatWindow >> finishStreamingWith: aFinalMessage placeholder: aPlaceholder [
+    "Final reconcile: the streaming client returns a finalised SmallChatLMMessage
+     built from the same accumulator we mirrored on aPlaceholder. Defensive copy
+     of content/thinking covers any drift, then UI state resets. Note: we do NOT
+     addMessage: aFinalMessage -- the placeholder IS the assistant turn."
+    aPlaceholder content: aFinalMessage content.
+    aPlaceholder thinking: aFinalMessage thinking.
+    aPlaceholder rawStream: nil.
+    (self presenterFor: aPlaceholder) refreshFromMessage.
+    statusLabel label: ''.
     sendButton enable.
-    pendingRequest := nil.
-    self refreshMessages
+    pendingRequest := nil
 ]
 
 { #category : 'initialization' }

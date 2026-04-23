@@ -33,6 +33,21 @@ SmallChatLMConversation >> addUser: aString [
 	^ self addMessage: (SmallChatLMMessage role: #user content: aString)
 ]
 
+{ #category : 'copying' }
+SmallChatLMConversation >> copy [
+    "Independent copy: messages collection is its own, but message instances are
+     shared (intentional -- tests rely on identity for the presenter cache)."
+    ^ self class new
+        copyMessagesFrom: messages;
+        yourself
+]
+
+{ #category : 'copying' }
+SmallChatLMConversation >> copyMessagesFrom: aCollection [
+    "asOrderedCollection on an OrderedCollection returns self -- copy explicitly."
+    messages := aCollection asOrderedCollection copy
+]
+
 { #category : 'initialization' }
 SmallChatLMConversation >> initialize [
 	super initialize.
@@ -42,4 +57,11 @@ SmallChatLMConversation >> initialize [
 { #category : 'accessing' }
 SmallChatLMConversation >> messages [
 	^ messages
+]
+
+{ #category : 'adding' }
+SmallChatLMConversation >> removeMessage: aMessage [
+    "Drop aMessage if present. Used by the chat window when a streaming send fails
+     before any chunk arrives so an empty assistant placeholder doesn't linger."
+    messages remove: aMessage ifAbsent: [ ]
 ]

@@ -9,6 +9,16 @@ Class {
 }
 
 { #category : 'helpers' }
+SmallChatLMChatWindowTest >> deltaChunkWithContent: aString [
+    "Mirror SmallChatLMChatClientTest>>deltaChunkWithContent: -- streaming-shaped
+     frame whose delta carries aString as content."
+    | delta choice |
+    delta := Dictionary new at: 'content' put: aString; yourself.
+    choice := Dictionary new at: 'delta' put: delta; yourself.
+    ^ Dictionary new at: 'choices' put: { choice }; yourself
+]
+
+{ #category : 'helpers' }
 SmallChatLMChatWindowTest >> stubSessionWithCannedReply: aString [
 	| stub client session |
 	stub := SmallChatLMHttpStub new
@@ -29,6 +39,25 @@ SmallChatLMChatWindowTest >> stubSessionWithCannedReply: aString [
 		client: client;
 		yourself.
 	^ session
+]
+
+{ #category : 'helpers' }
+SmallChatLMChatWindowTest >> stubSessionWithChunks: anArray [
+    "Build a session with a stub whose post:to:withHeaders:onChunk: emits anArray
+     in order. anArray elements are streaming-shaped frame dicts (see
+     SmallChatLMChatClientTest>>deltaChunkWithContent:)."
+    | stub client session |
+    stub := SmallChatLMHttpStub new
+        chunks: anArray;
+        yourself.
+    client := SmallChatLMChatClient new
+        baseUrl: 'http://localhost:1234';
+        httpClient: stub;
+        yourself.
+    session := SmallChatLMSession new
+        client: client;
+        yourself.
+    ^ { session . stub }
 ]
 
 { #category : 'tests' }
@@ -223,6 +252,87 @@ SmallChatLMChatWindowTest >> testSendFromInputReturnsImmediatelyWhilePendingRepl
     self assert: (window messagePresenters anySatisfy: [ :p | p message content = 'later' ]).
     self assert: window statusLabel label isEmpty.
     self assert: window sendButton isEnabled
+]
+
+{ #category : 'tests-streaming' }
+SmallChatLMChatWindowTest >> testStreamingClearsStatusOnDone [
+    | pair session window |
+    pair := self stubSessionWithChunks: { self deltaChunkWithContent: 'hi' }.
+    session := pair first.
+    window := SmallChatLMChatWindow new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    window input text: 'hi'.
+    window sendFromInput.
+    window waitForPending.
+    self assert: window statusLabel label isEmpty.
+    self assert: window sendButton isEnabled.
+    self assert: window pendingRequest isNil
+]
+
+{ #category : 'tests-streaming' }
+SmallChatLMChatWindowTest >> testStreamingDeltasGrowAssistantContent [
+    | pair session window assistantTurns |
+    pair := self stubSessionWithChunks: {
+        self deltaChunkWithContent: 'a'.
+        self deltaChunkWithContent: 'b'.
+        self deltaChunkWithContent: 'c' }.
+    session := pair first.
+    window := SmallChatLMChatWindow new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    window input text: 'hi'.
+    window sendFromInput.
+    window waitForPending.
+    assistantTurns := session conversation messages select: [ :m | m role = #assistant ].
+    self assert: assistantTurns size equals: 1.
+    self assert: assistantTurns first content equals: 'abc'
+]
+
+{ #category : 'tests-streaming' }
+SmallChatLMChatWindowTest >> testStreamingDoesNotDuplicateAssistantTurn [
+    "Regression: the placeholder mutation pattern means the streaming finalise
+     must reconcile into the placeholder, not addMessage: a new assistant turn."
+    | pair session window assistantTurns |
+    pair := self stubSessionWithChunks: {
+        self deltaChunkWithContent: 'hi'.
+        self deltaChunkWithContent: ' there' }.
+    session := pair first.
+    window := SmallChatLMChatWindow new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    window input text: 'hi'.
+    window sendFromInput.
+    window waitForPending.
+    assistantTurns := session conversation messages select: [ :m | m role = #assistant ].
+    self assert: assistantTurns size equals: 1.
+    self assert: assistantTurns first content equals: 'hi there'
+]
+
+{ #category : 'tests-streaming' }
+SmallChatLMChatWindowTest >> testStreamingPlaceholderAssistantBubbleAppearsBeforeFirstChunk [
+    | pair session stub window assistantTurns |
+    pair := self stubSessionWithChunks: { self deltaChunkWithContent: 'hi' }.
+    session := pair first.
+    stub := pair second.
+    stub gateOn.
+    window := SmallChatLMChatWindow new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    window input text: 'hello'.
+    window sendFromInput.
+    "Before releasing the gate, the user message and the empty assistant
+     placeholder should both be rendered."
+    self assert: window messagePresenters size equals: 2.
+    assistantTurns := session conversation messages select: [ :m | m role = #assistant ].
+    self assert: assistantTurns size equals: 1.
+    self assert: assistantTurns first content equals: ''.
+    stub releaseGate.
+    window waitForPending
 ]
 
 { #category : 'tests' }
