@@ -19,7 +19,8 @@ Class {
 		'running',
 		'port',
 		'activeClients',
-		'clientsMutex'
+		'clientsMutex',
+		'announcer'
 	],
 	#classVars : [
 		'Default'
@@ -79,6 +80,27 @@ SmallChatMCPTcpServer >> activeClientCount [
 	^ clientsMutex critical: [ activeClients size ]
 ]
 
+{ #category : 'private' }
+SmallChatMCPTcpServer >> announceState [
+	self announcer announce: self currentState
+]
+
+{ #category : 'accessing' }
+SmallChatMCPTcpServer >> announcer [
+	"Broadcasts SmallChatMCPStateChanged when the listener starts/stops or
+	 when a client connects/disconnects. UI subscribes here."
+	^ announcer ifNil: [ announcer := Announcer new ]
+]
+
+{ #category : 'accessing' }
+SmallChatMCPTcpServer >> currentState [
+	"Fresh snapshot of running + client count. Safe to call from any process."
+	^ SmallChatMCPStateChanged new
+		running: (running == true);
+		clientCount: self activeClientCount;
+		yourself
+]
+
 { #category : 'listening' }
 SmallChatMCPTcpServer >> handleConnection: clientSocket [
 	"Run newline-delimited JSON-RPC on the given socket until the client
@@ -123,9 +145,8 @@ SmallChatMCPTcpServer >> readLineFrom: stream [
 
 { #category : 'private' }
 SmallChatMCPTcpServer >> registerClient: aClient [
-	"Track an active client socket (or any identity marker) so the GUI can
-	 distinguish listening-but-idle from actively-connected."
-	clientsMutex critical: [ activeClients add: aClient ]
+	clientsMutex critical: [ activeClients add: aClient ].
+	self announceState
 ]
 
 { #category : 'private' }
@@ -174,7 +195,7 @@ SmallChatMCPTcpServer >> start [
 	port := listener localPort.
 	self writePortFile.
 	SmallChatMCPServer logToFile: 'tcp: listening on 127.0.0.1:', port printString.
-	running := true.
+	self updateRunning: true.
 	acceptProcess := [
 		[ self acceptLoop ]
 			on: Error
@@ -185,7 +206,7 @@ SmallChatMCPTcpServer >> start [
 
 { #category : 'lifecycle' }
 SmallChatMCPTcpServer >> stop [
-	running := false.
+	self updateRunning: false.
 	acceptProcess ifNotNil: [ :p |
 		[ p terminate ] on: Error do: [ :e | ].
 		acceptProcess := nil ].
@@ -197,8 +218,16 @@ SmallChatMCPTcpServer >> stop [
 
 { #category : 'private' }
 SmallChatMCPTcpServer >> unregisterClient: aClient [
-	"Remove a client from the active set. Safe to call more than once."
-	clientsMutex critical: [ activeClients remove: aClient ifAbsent: [ nil ] ]
+	clientsMutex critical: [ activeClients remove: aClient ifAbsent: [ nil ] ].
+	self announceState
+]
+
+{ #category : 'private' }
+SmallChatMCPTcpServer >> updateRunning: aBoolean [
+	"Flip the running flag and fire a state-change announcement. Used by
+	 #start and #stop so the GUI (or any other subscriber) sees transitions."
+	running := aBoolean.
+	self announceState
 ]
 
 { #category : 'private' }
