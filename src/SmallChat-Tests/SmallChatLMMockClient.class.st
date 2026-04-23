@@ -32,6 +32,21 @@ SmallChatLMMockClient >> complete: aConversation [
 	^ replies removeFirst
 ]
 
+{ #category : 'chat' }
+SmallChatLMMockClient >> complete: aConversation onDelta: aOneArgBlock [
+	"Streaming facade: emit the next queued reply's content as a single delta
+	 (unless the reply is tool-call-only, in which case no delta fires), then
+	 return the reply. Good enough for session-loop tests -- real chunk
+	 granularity lives on SmallChatLMChatClient and is covered there."
+	| reply |
+	callLog add: aConversation messages copy.
+	reply := replies isEmpty
+		ifTrue: [ SmallChatLMMessage role: #assistant content: '(no more replies)' ]
+		ifFalse: [ replies removeFirst ].
+	(reply content isNil or: [ reply content isEmpty ]) ifFalse: [ aOneArgBlock value: reply content ].
+	^ reply
+]
+
 { #category : 'initialization' }
 SmallChatLMMockClient >> initialize [
 	super initialize.

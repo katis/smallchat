@@ -89,6 +89,33 @@ SmallChatLMSession >> sendUserInput: aString [
 	^ reply
 ]
 
+{ #category : 'chat' }
+SmallChatLMSession >> sendUserInput: aString onDelta: aOneArgBlock [
+	"Streaming variant of sendUserInput:. Drives client complete:onDelta: in the
+	 same tool-dispatch loop, forwarding content deltas to aOneArgBlock between
+	 tool rounds. Returns the final assistant message."
+	| reply iterations |
+	(aString isNil or: [ aString isEmpty ]) ifTrue: [ ^ nil ].
+	conversation addUser: aString.
+	reply := client complete: conversation onDelta: aOneArgBlock.
+	conversation addMessage: reply.
+	iterations := 0.
+	[ reply toolCalls notNil and: [ reply toolCalls notEmpty ] ] whileTrue: [
+		iterations := iterations + 1.
+		iterations > self maxToolIterations ifTrue: [
+			| synthetic |
+			synthetic := SmallChatLMMessage
+				role: #assistant
+				content: 'Error: tool-call budget (' , self maxToolIterations printString , ' rounds) exhausted.'.
+			conversation addMessage: synthetic.
+			^ synthetic ].
+		reply toolCalls do: [ :tc |
+			conversation addTool: (self dispatchToolCall: tc) forCallId: tc id ].
+		reply := client complete: conversation onDelta: aOneArgBlock.
+		conversation addMessage: reply ].
+	^ reply
+]
+
 { #category : 'tool dispatch' }
 SmallChatLMSession >> toolFor: aToolCall [
 	"Dispatch target lookup. Only #evaluate is wired today; anything else

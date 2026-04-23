@@ -80,6 +80,24 @@ SmallChatLMSessionTest >> testSendUserInputDispatchesToolCallsAndLoopsToFinalAns
 ]
 
 { #category : 'tests' }
+SmallChatLMSessionTest >> testSendUserInputOnDeltaStreamsContentAndDispatchesTools [
+	| mock tc toolReply finalReply session deltas result |
+	mock := SmallChatLMMockClient new.
+	tc := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{"code":"2 + 2"}'.
+	"tool-call reply has empty content -- no delta should fire for it"
+	toolReply := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc }.
+	finalReply := SmallChatLMMessage role: #assistant content: 'it is 4'.
+	mock queueReply: toolReply.
+	mock queueReply: finalReply.
+	session := SmallChatLMSession new client: mock; yourself.
+	deltas := OrderedCollection new.
+	result := session sendUserInput: 'add them' onDelta: [ :d | deltas add: d ].
+	self assert: result equals: finalReply.
+	self assert: mock callCount equals: 2.
+	self assert: deltas asArray equals: #('it is 4')
+]
+
+{ #category : 'tests' }
 SmallChatLMSessionTest >> testSendUserInputStopsAfterToolIterationBudget [
 	| mock session result tc replyWithCall |
 	mock := SmallChatLMMockClient new.
