@@ -91,16 +91,55 @@ SmallChatLMSession >> sendUserInput: aString [
 
 { #category : 'chat' }
 SmallChatLMSession >> sendUserInput: aString onDelta: aOneArgBlock [
-	"Streaming variant of sendUserInput:. Drives client complete:onDelta: in the
-	 same tool-dispatch loop, forwarding content deltas to aOneArgBlock between
-	 tool rounds. Returns the final assistant message."
-	| reply iterations |
+	"Convenience entry point: add the user turn, seed a placeholder, and drive
+	 the streaming tool loop. Used by session tests. The chat window bypasses
+	 this method and calls streamToolLoopUsingPlaceholder:onDelta: directly so
+	 the placeholder appears on the UI thread before the fork starts."
+	| placeholder |
 	(aString isNil or: [ aString isEmpty ]) ifTrue: [ ^ nil ].
 	conversation addUser: aString.
-	reply := client complete: conversation onDelta: aOneArgBlock.
-	conversation addMessage: reply.
+	placeholder := SmallChatLMMessage role: #assistant content: '' thinking: nil.
+	conversation addMessage: placeholder.
+	^ self streamToolLoopUsingPlaceholder: placeholder onDelta: aOneArgBlock
+]
+
+{ #category : 'private' }
+SmallChatLMSession >> snapshotExcluding: aMessage [
+	"Shallow copy of the conversation with aMessage removed -- used to avoid
+	 sending an empty placeholder to the LM during streaming."
+	| snapshot |
+	snapshot := conversation copy.
+	snapshot messages remove: aMessage ifAbsent: [ ].
+	^ snapshot
+]
+
+{ #category : 'chat' }
+SmallChatLMSession >> streamToolLoopUsingPlaceholder: initialPlaceholder onDelta: aOneArgBlock [
+	"Drive the tool-calling streaming loop. initialPlaceholder must already be
+	 the last message in the conversation; its rawStream is (re-)initialised to
+	 an empty string and mutated as chunks arrive. On each client round the
+	 current placeholder is reconciled from the reply. If the reply carries
+	 tool_calls, each call is dispatched and a tool-result message appended; a
+	 fresh placeholder is then added and the loop re-enters. Budget exhaustion
+	 appends a synthetic error message and returns it."
+	| iterations placeholder |
+	placeholder := initialPlaceholder.
 	iterations := 0.
-	[ reply toolCalls notNil and: [ reply toolCalls notEmpty ] ] whileTrue: [
+	[ true ] whileTrue: [
+		| reply snapshot |
+		placeholder rawStream: ''.
+		snapshot := self snapshotExcluding: placeholder.
+		reply := client
+			complete: snapshot
+			onDelta: [ :d |
+				placeholder rawStream: placeholder rawStream , d.
+				aOneArgBlock value: d ].
+		placeholder content: reply content.
+		placeholder thinking: reply thinking.
+		placeholder toolCalls: reply toolCalls.
+		placeholder rawStream: nil.
+		(placeholder toolCalls isNil or: [ placeholder toolCalls isEmpty ])
+			ifTrue: [ ^ placeholder ].
 		iterations := iterations + 1.
 		iterations > self maxToolIterations ifTrue: [
 			| synthetic |
@@ -109,11 +148,10 @@ SmallChatLMSession >> sendUserInput: aString onDelta: aOneArgBlock [
 				content: 'Error: tool-call budget (' , self maxToolIterations printString , ' rounds) exhausted.'.
 			conversation addMessage: synthetic.
 			^ synthetic ].
-		reply toolCalls do: [ :tc |
+		placeholder toolCalls do: [ :tc |
 			conversation addTool: (self dispatchToolCall: tc) forCallId: tc id ].
-		reply := client complete: conversation onDelta: aOneArgBlock.
-		conversation addMessage: reply ].
-	^ reply
+		placeholder := SmallChatLMMessage role: #assistant content: '' thinking: nil.
+		conversation addMessage: placeholder ]
 ]
 
 { #category : 'tool dispatch' }

@@ -52,22 +52,17 @@ SmallChatLMChatWindow class >> menuCommandOn: aBuilder [
 ]
 
 { #category : 'private' }
-SmallChatLMChatWindow >> appendDelta: aString toAssistantMessage: aMessage [
-    "Append one streaming delta to aMessage's raw buffer, re-run the
-     thinking/content split so partial mid-tag chunks reclassify correctly,
-     and push the new text into the cached presenter's widgets in place. On
-     the first delta, clear the waiting status so the user sees content. When
-     the chunk crosses a line break, force a layout refresh so the bubble
-     re-measures and grows -- propagateNaturalHeight only feeds preferred
-     sizes through a layout pass, not through plain text:."
-    | client split |
-    aMessage rawStream: aMessage rawStream , aString.
+SmallChatLMChatWindow >> appendStreamingDelta: aString [
+    | placeholder client split |
+    placeholder := session conversation messages last.
+    (placeholder role = #assistant and: [ placeholder rawStream notNil ])
+        ifFalse: [ ^ self ].
     client := session client.
-    split := client splitThinkingAndContent: aMessage rawStream.
-    aMessage thinking: (split at: 1).
-    aMessage content: (split at: 2).
+    split := client splitThinkingAndContent: placeholder rawStream.
+    placeholder thinking: (split at: 1).
+    placeholder content: (split at: 2).
     statusLabel label isEmpty ifFalse: [ statusLabel label: '' ].
-    (self presenterFor: aMessage) refreshFromMessage.
+    (self presenterFor: placeholder) refreshFromMessage.
     (aString includes: Character lf) ifTrue: [ self refreshMessages ]
 ]
 
@@ -105,13 +100,7 @@ SmallChatLMChatWindow >> defaultLayout [
 
 { #category : 'private' }
 SmallChatLMChatWindow >> dispatchSendOf: aString [
-    "Send aString to the LM via complete:onDelta:. The placeholder assistant
-     message is created up front so an empty bubble appears immediately; tokens
-     are appended to it as deltas arrive. The snapshot passed to the client is a
-     copy of the pre-placeholder conversation so the LM is asked to complete the
-     user turn, not the empty assistant placeholder."
-    | snapshot placeholder block |
-    snapshot := session conversation copy.
+    | placeholder block |
     placeholder := SmallChatLMMessage role: #assistant content: '' thinking: nil.
     placeholder rawStream: ''.
     session conversation addMessage: placeholder.
@@ -120,10 +109,10 @@ SmallChatLMChatWindow >> dispatchSendOf: aString [
         | failure final |
         failure := nil.
         final := nil.
-        [ final := session client
-            complete: snapshot
+        [ final := session
+            streamToolLoopUsingPlaceholder: placeholder
             onDelta: [ :delta |
-                uiDeferrer value: [ self appendDelta: delta toAssistantMessage: placeholder ] ] ]
+                uiDeferrer value: [ self appendStreamingDelta: delta ] ] ]
             on: Error
             do: [ :e | failure := e ].
         failure
