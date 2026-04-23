@@ -122,6 +122,13 @@ SmallChatMCPTcpServer >> readLineFrom: stream [
 ]
 
 { #category : 'private' }
+SmallChatMCPTcpServer >> registerClient: aClient [
+	"Track an active client socket (or any identity marker) so the GUI can
+	 distinguish listening-but-idle from actively-connected."
+	clientsMutex critical: [ activeClients add: aClient ]
+]
+
+{ #category : 'private' }
 SmallChatMCPTcpServer >> removePortFile [
 	[ | file |
 	  file := Smalltalk vm imageFile parent / 'mcp.port'.
@@ -186,6 +193,12 @@ SmallChatMCPTcpServer >> stop [
 		[ listener destroy ] on: Error do: [ :e | ].
 		listener := nil ].
 	self removePortFile
+]
+
+{ #category : 'private' }
+SmallChatMCPTcpServer >> unregisterClient: aClient [
+	"Remove a client from the active set. Safe to call more than once."
+	clientsMutex critical: [ activeClients remove: aClient ifAbsent: [ nil ] ]
 ]
 
 { #category : 'private' }
