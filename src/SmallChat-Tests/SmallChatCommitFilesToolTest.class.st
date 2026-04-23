@@ -18,6 +18,32 @@ SmallChatCommitFilesToolTest >> testIsRegisteredAsCommitFiles [
 ]
 
 { #category : 'tests' }
+SmallChatCommitFilesToolTest >> testMissingMessageReturnsError [
+	| tool result json |
+	tool := SmallChatCommitFilesTool new
+		gitRunner: [ :argv | self fail: 'gitRunner should not be called when message missing' ];
+		resyncer: [ self fail: 'resyncer should not be called when message missing' ];
+		yourself.
+	result := tool run: (Dictionary new at: 'paths' put: #('CLAUDE.md'); yourself).
+	json := STONJSON fromString: result.
+	self assert: (json at: 'error') isString.
+	self assert: ((json at: 'error') includesSubstring: 'message')
+]
+
+{ #category : 'tests' }
+SmallChatCommitFilesToolTest >> testMissingPathsReturnsError [
+	| tool result json |
+	tool := SmallChatCommitFilesTool new
+		gitRunner: [ :argv | self fail: 'gitRunner should not be called when paths missing' ];
+		resyncer: [ self fail: 'resyncer should not be called when paths missing' ];
+		yourself.
+	result := tool run: (Dictionary new at: 'message' put: 'hi'; yourself).
+	json := STONJSON fromString: result.
+	self assert: (json at: 'error') isString.
+	self assert: ((json at: 'error') includesSubstring: 'paths')
+]
+
+{ #category : 'tests' }
 SmallChatCommitFilesToolTest >> testRunsGitAddThenCommitThenResyncs [
 	| tool calls resyncCalled result json |
 	tool := SmallChatCommitFilesTool new.

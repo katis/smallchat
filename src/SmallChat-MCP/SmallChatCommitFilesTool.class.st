@@ -38,6 +38,13 @@ SmallChatCommitFilesTool class >> toolName [
 	^ 'commit_files'
 ]
 
+{ #category : 'execution' }
+SmallChatCommitFilesTool >> errorResult: aString [
+	^ STONJSON toString: (Dictionary new
+		at: 'error' put: aString;
+		yourself)
+]
+
 { #category : 'accessing' }
 SmallChatCommitFilesTool >> gitRunner: aBlock [
 	gitRunner := aBlock
@@ -51,8 +58,16 @@ SmallChatCommitFilesTool >> resyncer: aBlock [
 { #category : 'execution' }
 SmallChatCommitFilesTool >> run: args [
 	| paths message commitId |
-	paths := args at: 'paths'.
-	message := args at: 'message'.
+	paths := args at: 'paths' ifAbsent: [ ^ self errorResult: 'paths is required' ].
+	message := args at: 'message' ifAbsent: [ ^ self errorResult: 'message is required' ].
+	(paths isCollection and: [ paths isString not ]) ifFalse: [
+		^ self errorResult: 'paths must be a non-empty array of strings' ].
+	paths isEmpty ifTrue: [
+		^ self errorResult: 'paths must be a non-empty array of strings' ].
+	(paths allSatisfy: [ :p | p isString and: [ p isEmpty not ] ]) ifFalse: [
+		^ self errorResult: 'paths must be a non-empty array of strings' ].
+	(message isString and: [ message isEmpty not ]) ifFalse: [
+		^ self errorResult: 'message must be a non-empty string' ].
 	gitRunner value: { 'add'. '--' } , paths asArray.
 	gitRunner value: { 'commit'. '-m'. message }.
 	commitId := resyncer value.
