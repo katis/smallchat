@@ -54,6 +54,28 @@ SmallChatLMChatClientTest >> testCompleteOmitsAuthorizationHeaderWhenApiKeyIsNil
 ]
 
 { #category : 'tests-streaming' }
+SmallChatLMChatClientTest >> testCompleteOnDeltaAssemblesStreamedToolCalls [
+	"Streaming tool_calls: fragments arrive with index keys, arguments string
+	 concatenated across chunks. Client must assemble them into a single
+	 SmallChatLMToolCall on the returned message."
+	| c1 c2 c3 stub client reply tc |
+	c1 := self toolCallDeltaChunkAtIndex: 0 id: 'call_1' name: 'evaluate' argumentsFragment: '' finishReason: nil.
+	c2 := self toolCallDeltaChunkAtIndex: 0 id: nil name: nil argumentsFragment: '{"co' finishReason: nil.
+	c3 := self toolCallDeltaChunkAtIndex: 0 id: nil name: nil argumentsFragment: 'de":"3+4"}' finishReason: 'tool_calls'.
+	stub := SmallChatLMHttpStub new.
+	stub chunks: { c1 . c2 . c3 }.
+	client := self clientWithStub: stub.
+	reply := client complete: SmallChatLMConversation new onDelta: [ :_ | ].
+	self assert: reply role equals: #assistant.
+	self assert: reply toolCalls notNil.
+	self assert: reply toolCalls size equals: 1.
+	tc := reply toolCalls first.
+	self assert: tc id equals: 'call_1'.
+	self assert: tc name equals: 'evaluate'.
+	self assert: tc arguments equals: '{"code":"3+4"}'
+]
+
+{ #category : 'tests-streaming' }
 SmallChatLMChatClientTest >> testCompleteOnDeltaInvokesBlockPerDeltaInOrder [
     | client stub deltas reply chunkA chunkB chunkC |
     chunkA := self deltaChunkWithContent: 'a'.
@@ -287,4 +309,22 @@ SmallChatLMChatClientTest >> testMessagesForToolMessageSerialisesRoleAndToolCall
 	self assert: (dict at: 'content') equals: '7'.
 	self assert: (dict at: 'tool_call_id') equals: 'c1'.
 	self deny: (dict includesKey: 'tool_calls')
+]
+
+{ #category : 'helpers' }
+SmallChatLMChatClientTest >> toolCallDeltaChunkAtIndex: anIndex id: anId name: aName argumentsFragment: anArgsFragment finishReason: aFinishOrNil [
+	"Build one streaming chunk carrying a delta.tool_calls[anIndex] fragment.
+	 Pass nil for any field to omit it (mirrors how OpenAI streams partial state)."
+	| toolCall fn delta choice chunk |
+	fn := Dictionary new.
+	aName ifNotNil: [ :n | fn at: 'name' put: n ].
+	anArgsFragment ifNotNil: [ :a | fn at: 'arguments' put: a ].
+	toolCall := Dictionary new at: 'index' put: anIndex; yourself.
+	anId ifNotNil: [ :i | toolCall at: 'id' put: i; at: 'type' put: 'function' ].
+	fn isEmpty ifFalse: [ toolCall at: 'function' put: fn ].
+	delta := Dictionary new at: 'tool_calls' put: { toolCall }; yourself.
+	choice := Dictionary new at: 'delta' put: delta; yourself.
+	aFinishOrNil ifNotNil: [ :f | choice at: 'finish_reason' put: f ].
+	chunk := Dictionary new at: 'choices' put: { choice }; yourself.
+	^ chunk
 ]

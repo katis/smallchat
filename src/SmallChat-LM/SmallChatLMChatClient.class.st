@@ -22,6 +22,29 @@ Class {
 	#package : 'SmallChat-LM'
 }
 
+{ #category : 'private' }
+SmallChatLMChatClient >> accumulateToolCallsDelta: aDelta into: accumulator [
+	"Merge one streaming delta.tool_calls fragment into accumulator, keyed by
+	 the fragment's #index. id/name arrive on the first fragment for an index;
+	 arguments are concatenated across subsequent fragments."
+	| frags |
+	frags := aDelta at: 'tool_calls' ifAbsent: [ ^ self ].
+	frags do: [ :frag | | idx entry fn |
+		idx := frag at: 'index' ifAbsent: [ 0 ].
+		entry := accumulator at: idx ifAbsentPut: [
+			Dictionary new
+				at: 'id' put: '';
+				at: 'name' put: '';
+				at: 'arguments' put: '';
+				yourself ].
+		(frag at: 'id' ifAbsent: [ nil ]) ifNotNil: [ :v | entry at: 'id' put: v ].
+		fn := frag at: 'function' ifAbsent: [ nil ].
+		fn ifNotNil: [
+			(fn at: 'name' ifAbsent: [ nil ]) ifNotNil: [ :v | entry at: 'name' put: v ].
+			(fn at: 'arguments' ifAbsent: [ nil ]) ifNotNil: [ :v |
+				entry at: 'arguments' put: (entry at: 'arguments') , v ] ] ]
+]
+
 { #category : 'accessing' }
 SmallChatLMChatClient >> apiKey [
 	^ apiKey
@@ -90,13 +113,16 @@ SmallChatLMChatClient >> complete: aConversation [
 
 { #category : 'chat' }
 SmallChatLMChatClient >> complete: aConversation onDelta: aOneArgBlock [
-    "Streaming completion. Drives httpClient with the streaming POST seam, extracts
-     choices[0].delta.content per chunk, forwards non-empty deltas to aOneArgBlock,
-     accumulates the full content, and returns the assembled SmallChatLMMessage with
-     thinking split from content."
-    | requestBody accumulator |
+    "Streaming completion. Drives httpClient with the streaming POST seam. For
+     each chunk, forwards content deltas to aOneArgBlock (unchanged from the
+     pre-tool-calling behaviour) AND accumulates delta.tool_calls fragments by
+     index. At stream end, the returned message carries the assembled content
+     (with thinking split) and, when present, toolCalls populated from the
+     accumulator."
+    | requestBody accumulator toolAcc split |
     requestBody := STONJSON toString: (self requestBodyFor: aConversation streaming: true).
     accumulator := WriteStream on: String new.
+    toolAcc := Dictionary new.
     httpClient
         post: requestBody
         to: self chatCompletionsUrl
@@ -109,8 +135,22 @@ SmallChatLMChatClient >> complete: aConversation onDelta: aOneArgBlock [
                     content := delta at: 'content' ifAbsent: [ nil ].
                     (content isNil or: [ content isEmpty ]) ifFalse: [
                         accumulator nextPutAll: content.
-                        aOneArgBlock value: content ] ] ] ].
-    ^ self assistantMessageFromAccumulated: accumulator contents
+                        aOneArgBlock value: content ].
+                    self accumulateToolCallsDelta: delta into: toolAcc ] ] ].
+    split := self splitThinkingAndContent: accumulator contents.
+    ^ (self toolCallsFromAccumulator: toolAcc)
+        ifNil: [
+            SmallChatLMMessage
+                role: #assistant
+                content: (split at: 2)
+                thinking: (split at: 1) ]
+        ifNotNil: [ :calls | | msg |
+            msg := SmallChatLMMessage
+                role: #assistant
+                content: (split at: 2)
+                toolCalls: calls.
+            msg thinking: (split at: 1).
+            msg ]
 ]
 
 { #category : 'private' }
@@ -259,4 +299,19 @@ SmallChatLMChatClient >> toolCallsFrom: aToolCallsArrayOrNil [
 			name: (fn at: 'name' ifAbsent: [ '' ])
 			arguments: (fn at: 'arguments' ifAbsent: [ '' ]) ].
 	^ calls asArray
+]
+
+{ #category : 'private' }
+SmallChatLMChatClient >> toolCallsFromAccumulator: accumulator [
+	"Materialise the index-keyed accumulator into an Array of SmallChatLMToolCall
+	 sorted by index. nil if the accumulator is empty (no streamed tool calls)."
+	| keys |
+	accumulator isEmpty ifTrue: [ ^ nil ].
+	keys := accumulator keys asSortedCollection asArray.
+	^ (keys collect: [ :k | | e |
+		e := accumulator at: k.
+		SmallChatLMToolCall
+			id: (e at: 'id')
+			name: (e at: 'name')
+			arguments: (e at: 'arguments') ]) asArray
 ]
