@@ -32,6 +32,18 @@ SmallChatLMChatClient >> apiKey: aStringOrNil [
 	apiKey := aStringOrNil
 ]
 
+{ #category : 'private' }
+SmallChatLMChatClient >> assistantMessageFromAccumulated: aString [
+    "Apply the existing thinking/content split to the streamed accumulator and answer
+     the assembled assistant message."
+    | split |
+    split := self splitThinkingAndContent: aString.
+    ^ SmallChatLMMessage
+        role: #assistant
+        content: (split at: 2)
+        thinking: (split at: 1)
+]
+
 { #category : 'accessing' }
 SmallChatLMChatClient >> baseUrl [
 	^ baseUrl
@@ -62,6 +74,31 @@ SmallChatLMChatClient >> complete: aConversation [
 		role: #assistant
 		content: (split at: 2)
 		thinking: (split at: 1)
+]
+
+{ #category : 'chat' }
+SmallChatLMChatClient >> complete: aConversation onDelta: aOneArgBlock [
+    "Streaming completion. Drives httpClient with the streaming POST seam, extracts
+     choices[0].delta.content per chunk, forwards non-empty deltas to aOneArgBlock,
+     accumulates the full content, and returns the assembled SmallChatLMMessage with
+     thinking split from content."
+    | requestBody accumulator |
+    requestBody := STONJSON toString: (self requestBodyFor: aConversation).
+    accumulator := WriteStream on: String new.
+    httpClient
+        post: requestBody
+        to: self chatCompletionsUrl
+        withHeaders: self requestHeaders
+        onChunk: [ :frame | | choices delta content |
+            choices := frame at: 'choices' ifAbsent: [ #() ].
+            choices isEmpty ifFalse: [
+                delta := choices first at: 'delta' ifAbsent: [ nil ].
+                delta isNil ifFalse: [
+                    content := delta at: 'content' ifAbsent: [ nil ].
+                    (content isNil or: [ content isEmpty ]) ifFalse: [
+                        accumulator nextPutAll: content.
+                        aOneArgBlock value: content ] ] ] ].
+    ^ self assistantMessageFromAccumulated: accumulator contents
 ]
 
 { #category : 'private' }

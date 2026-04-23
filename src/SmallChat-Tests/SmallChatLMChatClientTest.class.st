@@ -17,6 +17,15 @@ SmallChatLMChatClientTest >> clientWithStub: aStub [
 ]
 
 { #category : 'helpers' }
+SmallChatLMChatClientTest >> deltaChunkWithContent: aString [
+    "Helper: build a streaming-shaped frame whose delta carries aString as content."
+    | delta choice |
+    delta := Dictionary new at: 'content' put: aString; yourself.
+    choice := Dictionary new at: 'delta' put: delta; yourself.
+    ^ Dictionary new at: 'choices' put: { choice }; yourself
+]
+
+{ #category : 'helpers' }
 SmallChatLMChatClientTest >> stubRespondingWith: aString [
 	^ SmallChatLMHttpStub new response: aString; yourself
 ]
@@ -32,6 +41,22 @@ SmallChatLMChatClientTest >> testCompleteOmitsAuthorizationHeaderWhenApiKeyIsNil
 	client apiKey: ''.
 	client complete: (SmallChatLMConversation new addUser: 'hi'; yourself).
 	self deny: (stub lastHeaders includesKey: 'Authorization')
+]
+
+{ #category : 'tests-streaming' }
+SmallChatLMChatClientTest >> testCompleteOnDeltaInvokesBlockPerDeltaInOrder [
+    | client stub deltas reply chunkA chunkB chunkC |
+    chunkA := self deltaChunkWithContent: 'a'.
+    chunkB := self deltaChunkWithContent: 'b'.
+    chunkC := self deltaChunkWithContent: 'c'.
+    stub := SmallChatLMHttpStub new.
+    stub chunks: { chunkA . chunkB . chunkC }.
+    client := self clientWithStub: stub.
+    deltas := OrderedCollection new.
+    reply := client complete: SmallChatLMConversation new onDelta: [ :d | deltas add: d ].
+    self assert: deltas asArray equals: #('a' 'b' 'c').
+    self assert: reply content equals: 'abc'.
+    self assert: reply role equals: #assistant
 ]
 
 { #category : 'tests' }
