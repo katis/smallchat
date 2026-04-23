@@ -46,7 +46,10 @@ SmallChatLMChatWindow >> appendDelta: aString toAssistantMessage: aMessage [
     "Append one streaming delta to aMessage's raw buffer, re-run the
      thinking/content split so partial mid-tag chunks reclassify correctly,
      and push the new text into the cached presenter's widgets in place. On
-     the first delta, clear the waiting status so the user sees content."
+     the first delta, clear the waiting status so the user sees content. When
+     the chunk crosses a line break, force a layout refresh so the bubble
+     re-measures and grows -- propagateNaturalHeight only feeds preferred
+     sizes through a layout pass, not through plain text:."
     | client split |
     aMessage rawStream: aMessage rawStream , aString.
     client := session client.
@@ -54,7 +57,8 @@ SmallChatLMChatWindow >> appendDelta: aString toAssistantMessage: aMessage [
     aMessage thinking: (split at: 1).
     aMessage content: (split at: 2).
     statusLabel label isEmpty ifFalse: [ statusLabel label: '' ].
-    (self presenterFor: aMessage) refreshFromMessage
+    (self presenterFor: aMessage) refreshFromMessage.
+    (aString includes: Character lf) ifTrue: [ self refreshMessages ]
 ]
 
 { #category : 'private' }
@@ -131,11 +135,13 @@ SmallChatLMChatWindow >> finishStreamingWith: aFinalMessage placeholder: aPlaceh
     "Final reconcile: the streaming client returns a finalised SmallChatLMMessage
      built from the same accumulator we mirrored on aPlaceholder. Defensive copy
      of content/thinking covers any drift, then UI state resets. Note: we do NOT
-     addMessage: aFinalMessage -- the placeholder IS the assistant turn."
+     addMessage: aFinalMessage -- the placeholder IS the assistant turn. One
+     final refreshMessages so the trailing partial line also grows the bubble."
     aPlaceholder content: aFinalMessage content.
     aPlaceholder thinking: aFinalMessage thinking.
     aPlaceholder rawStream: nil.
     (self presenterFor: aPlaceholder) refreshFromMessage.
+    self refreshMessages.
     statusLabel label: ''.
     sendButton enable.
     pendingRequest := nil
