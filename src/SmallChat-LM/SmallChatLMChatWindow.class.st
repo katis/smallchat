@@ -191,6 +191,21 @@ SmallChatLMChatWindow >> input [
 	^ input
 ]
 
+{ #category : 'private' }
+SmallChatLMChatWindow >> isHiddenFromTranscript: aMessage [
+	"Hide system turns, #tool result messages, and assistant messages that are
+	 empty tool-call-only plumbing. An assistant message with non-nil rawStream
+	 is a streaming placeholder -- keep it visible so the bubble grows live even
+	 before content arrives."
+	aMessage role = #system ifTrue: [ ^ true ].
+	aMessage role = #tool ifTrue: [ ^ true ].
+	^ aMessage role = #assistant
+		and: [ aMessage rawStream isNil
+		and: [ (aMessage content isNil or: [ aMessage content isEmpty ])
+		and: [ aMessage toolCalls notNil
+		and: [ aMessage toolCalls notEmpty ] ] ] ]
+]
+
 { #category : 'accessing' }
 SmallChatLMChatWindow >> mcpStatusLabel [
     ^ mcpStatusLabel
@@ -198,9 +213,15 @@ SmallChatLMChatWindow >> mcpStatusLabel [
 
 { #category : 'accessing' }
 SmallChatLMChatWindow >> messagePresenters [
-	"System turns are configuration, not transcript content; skip them so the
-	 seeded system prompt does not appear as a chat bubble."
-	^ (session conversation messages reject: [ :m | m role = #system ])
+	"System turns are configuration, not transcript. Tool plumbing -- the
+	 assistant messages that only carry tool_calls and the #tool result
+	 messages -- is not rendered as standalone bubbles either; those land
+	 inside the final assistant bubble's tool-activity section (see the
+	 message presenter's tool-activity toggle). What stays: user turns,
+	 assistant messages with real content (or still streaming, indicated by
+	 non-nil rawStream), and any other role Pharo might someday introduce."
+	^ (session conversation messages
+		reject: [ :m | self isHiddenFromTranscript: m ])
 		collect: [ :m | self presenterFor: m ]
 ]
 

@@ -467,6 +467,33 @@ SmallChatLMChatWindowTest >> testSystemMessagesNotRendered [
 ]
 
 { #category : 'tests' }
+SmallChatLMChatWindowTest >> testTranscriptFiltersIntermediateToolPlumbing [
+	"After a tool-calling round, the conversation contains user / asst(tool_calls) /
+	 tool(result) / asst(final). The transcript should only show user and the
+	 final assistant bubble -- intermediate tool-call-only assistant messages and
+	 #tool messages are not standalone bubbles."
+	| session window tc plumbingMsg toolMsg finalMsg |
+	session := self stubSessionWithCannedReply: 'unused'.
+	window := SmallChatLMChatWindow new
+		session: session;
+		uiDeferrer: [ :blk | blk value ];
+		yourself.
+	"Hand-build a post-tool-round conversation state."
+	session conversation addUser: 'what is 3+4?'.
+	tc := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{"code":"3+4"}'.
+	plumbingMsg := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc }.
+	session conversation addMessage: plumbingMsg.
+	toolMsg := SmallChatLMMessage role: #tool content: '7' toolCallId: 'c1'.
+	session conversation addMessage: toolMsg.
+	finalMsg := SmallChatLMMessage role: #assistant content: 'The answer is 7.'.
+	session conversation addMessage: finalMsg.
+	window refreshMessages.
+	self assert: window messagePresenters size equals: 2.
+	self assert: (window messagePresenters first message role) equals: #user.
+	self assert: (window messagePresenters second message) equals: finalMsg
+]
+
+{ #category : 'tests' }
 SmallChatLMChatWindowTest >> testUnsubscribeFromMCPAnnouncerStopsUpdates [
     "After unsubscribeFromMCPAnnouncer, further announcements on the default
      TCP server's announcer must NOT update the window's label. This is what
