@@ -224,3 +224,50 @@ SmallChatLMChatClientTest >> testInitializeUsesConfigDefaults [
 	self assert: client temperature equals: SmallChatConfig temperature.
 	self assert: client httpClient class equals: SmallChatLMZnHttpClient
 ]
+
+{ #category : 'tests' }
+SmallChatLMChatClientTest >> testMessagesForAssistantWithToolCallsSerialisesOpenAIShape [
+	| conv call msg client serialized dict calls first |
+	call := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{"code":"3+4"}'.
+	msg := SmallChatLMMessage role: #assistant content: '' toolCalls: { call }.
+	conv := SmallChatLMConversation new.
+	conv addMessage: msg.
+	client := self clientWithStub: (self stubRespondingWith: '{}').
+	serialized := client messagesFor: conv.
+	dict := serialized first.
+	self assert: (dict at: 'role') equals: 'assistant'.
+	self assert: (dict at: 'content') equals: ''.
+	calls := dict at: 'tool_calls'.
+	self assert: calls size equals: 1.
+	first := calls first.
+	self assert: (first at: 'id') equals: 'c1'.
+	self assert: (first at: 'type') equals: 'function'.
+	self assert: ((first at: 'function') at: 'name') equals: 'evaluate'.
+	self assert: ((first at: 'function') at: 'arguments') equals: '{"code":"3+4"}'
+]
+
+{ #category : 'tests' }
+SmallChatLMChatClientTest >> testMessagesForPlainAssistantOmitsToolCallsKey [
+	| conv client serialized dict |
+	conv := SmallChatLMConversation new addAssistant: 'hi'; yourself.
+	client := self clientWithStub: (self stubRespondingWith: '{}').
+	serialized := client messagesFor: conv.
+	dict := serialized first.
+	self deny: (dict includesKey: 'tool_calls').
+	self deny: (dict includesKey: 'tool_call_id')
+]
+
+{ #category : 'tests' }
+SmallChatLMChatClientTest >> testMessagesForToolMessageSerialisesRoleAndToolCallId [
+	| conv msg client serialized dict |
+	msg := SmallChatLMMessage role: #tool content: '7' toolCallId: 'c1'.
+	conv := SmallChatLMConversation new.
+	conv addMessage: msg.
+	client := self clientWithStub: (self stubRespondingWith: '{}').
+	serialized := client messagesFor: conv.
+	dict := serialized first.
+	self assert: (dict at: 'role') equals: 'tool'.
+	self assert: (dict at: 'content') equals: '7'.
+	self assert: (dict at: 'tool_call_id') equals: 'c1'.
+	self deny: (dict includesKey: 'tool_calls')
+]

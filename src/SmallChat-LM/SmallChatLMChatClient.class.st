@@ -139,11 +139,7 @@ SmallChatLMChatClient >> maxTokens: anInteger [
 
 { #category : 'private' }
 SmallChatLMChatClient >> messagesFor: aConversation [
-	^ aConversation messages collect: [ :msg |
-		Dictionary new
-			at: 'role' put: msg role asString;
-			at: 'content' put: msg content;
-			yourself ]
+	^ aConversation messages collect: [ :msg | self serializedMessageFor: msg ]
 ]
 
 { #category : 'accessing' }
@@ -180,6 +176,31 @@ SmallChatLMChatClient >> requestHeaders [
 	(apiKey isNil or: [ apiKey isEmpty ]) ifFalse: [
 		headers at: 'Authorization' put: 'Bearer ' , apiKey ].
 	^ headers
+]
+
+{ #category : 'private' }
+SmallChatLMChatClient >> serializedMessageFor: aMessage [
+	"Build the /v1/chat/completions wire dict for one message, handling the
+	 tool-calling shapes: assistant messages with toolCalls carry a tool_calls
+	 array; messages with role #tool carry tool_call_id."
+	| dict |
+	dict := Dictionary new
+		at: 'role' put: aMessage role asString;
+		at: 'content' put: aMessage content;
+		yourself.
+	(aMessage toolCalls notNil and: [ aMessage toolCalls notEmpty ])
+		ifTrue: [
+			dict at: 'tool_calls' put: (aMessage toolCalls collect: [ :tc |
+				Dictionary new
+					at: 'id' put: tc id;
+					at: 'type' put: 'function';
+					at: 'function' put: (Dictionary new
+						at: 'name' put: tc name;
+						at: 'arguments' put: tc arguments;
+						yourself);
+					yourself ]) asArray ].
+	aMessage toolCallId ifNotNil: [ :id | dict at: 'tool_call_id' put: id ].
+	^ dict
 ]
 
 { #category : 'private' }
