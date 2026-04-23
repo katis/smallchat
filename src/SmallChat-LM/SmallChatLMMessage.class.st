@@ -11,7 +11,9 @@ Class {
 		'role',
 		'content',
 		'thinking',
-		'rawStream'
+		'rawStream',
+		'toolCalls',
+		'toolCallId'
 	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
@@ -27,13 +29,25 @@ SmallChatLMMessage class >> role: aSymbol content: aString thinking: aThinkingOr
 	^ self new role: aSymbol; content: aString; thinking: aThinkingOrNil; yourself
 ]
 
+{ #category : 'instance creation' }
+SmallChatLMMessage class >> role: aSymbol content: aString toolCallId: anId [
+	^ self new role: aSymbol; content: aString; toolCallId: anId; yourself
+]
+
+{ #category : 'instance creation' }
+SmallChatLMMessage class >> role: aSymbol content: aString toolCalls: anArrayOfToolCalls [
+	^ self new role: aSymbol; content: aString; toolCalls: anArrayOfToolCalls; yourself
+]
+
 { #category : 'comparing' }
 SmallChatLMMessage >> = anObject [
 	self == anObject ifTrue: [ ^ true ].
 	self class = anObject class ifFalse: [ ^ false ].
 	^ role = anObject role
 		and: [ content = anObject content
-		and: [ thinking = anObject thinking ] ]
+		and: [ thinking = anObject thinking
+		and: [ toolCalls = anObject toolCalls
+		and: [ toolCallId = anObject toolCallId ] ] ] ]
 ]
 
 { #category : 'accessing' }
@@ -48,7 +62,8 @@ SmallChatLMMessage >> content: aString [
 
 { #category : 'comparing' }
 SmallChatLMMessage >> hash [
-	^ (role hash bitXor: content hash) bitXor: thinking hash
+	^ ((role hash bitXor: content hash) bitXor: thinking hash)
+		bitXor: (toolCalls hash bitXor: toolCallId hash)
 ]
 
 { #category : 'printing' }
@@ -90,4 +105,24 @@ SmallChatLMMessage >> thinking [
 { #category : 'accessing' }
 SmallChatLMMessage >> thinking: aStringOrNil [
 	thinking := aStringOrNil
+]
+
+{ #category : 'accessing' }
+SmallChatLMMessage >> toolCallId [
+	^ toolCallId
+]
+
+{ #category : 'accessing' }
+SmallChatLMMessage >> toolCallId: aStringOrNil [
+	toolCallId := aStringOrNil
+]
+
+{ #category : 'accessing' }
+SmallChatLMMessage >> toolCalls [
+	^ toolCalls
+]
+
+{ #category : 'accessing' }
+SmallChatLMMessage >> toolCalls: anArrayOrNil [
+	toolCalls := anArrayOrNil
 ]
