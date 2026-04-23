@@ -27,6 +27,20 @@ SmallChatToolRegistryDebugTest >> testEvaluateToolReturnsDebugShape [
 ]
 
 { #category : 'tests' }
+SmallChatToolRegistryDebugTest >> testNoWarningWhenNoStrayDebuggers [
+	"When the debuggerWatch seam reports no stray debuggers, the reply text is untouched."
+	| registry result text |
+	registry := SmallChatToolRegistry new.
+	registry debuggerWatch: [ #() ].
+	result := registry
+		run: 'evaluate'
+		with: (Dictionary new at: 'code' put: '''hello''' ; yourself).
+	text := ((result at: 'content') first) at: 'text'.
+	self deny: (text beginsWith: '[smallchat:').
+	self assert: text equals: '''hello'''
+]
+
+{ #category : 'tests' }
 SmallChatToolRegistryDebugTest >> testPrependsWarningWhenStrayDebuggerPresent [
 	"With the debuggerWatch seam returning a non-empty descriptor list, every tool reply
 	 gets the [smallchat: ...] warning prefix."
