@@ -178,6 +178,17 @@ Rules:
   The regression test is the deliverable.
 - Tempted to write production code "to see if it works"? That's a
   signal the next test hasn't been written yet. Write the test.
+- **Design the test seam before the test.** When behaviour binds to
+  real I/O (sockets, Morphic events, HTTP, the listener loop),
+  extract the isolating helper first — e.g. `updateRunning:` for a
+  `running` flip, `runClientSessionOn:` for the per-connection JSON-
+  RPC loop — then test the helper. Back-filling a seam after the
+  test has committed to the real thing wastes a cycle.
+- **Trust the wire for one-line hooks.** `aWindow whenClosedDo:
+  [ self cleanup ]` and similar external callbacks don't need an
+  end-to-end test — unit-test `cleanup` as a pure method and eyeball
+  the one-liner in `initializeWindow:`. Same for Morphic event
+  handlers: test the handler, trust the binding.
 
 ## Preferred entry point: program via DNU
 
@@ -263,6 +274,12 @@ not flushed to Tonel. Two safeguards:
 - `SmallChat-MCP` — MCP server (vendored from akkuna) plus the
   in-image debugger runner (`SmallChatDebugEvaluator`,
   `SmallChatDebugSessionRegistry`, `SmallChatDebug*Tool`).
+- **Update `spec requires:` in the same change that introduces a
+  cross-package reference.** Iceberg doesn't manage the baseline,
+  so edit `BaselineOfSmallChat.class.st` on disk and shell-commit.
+  Missed deps don't fail `just test`/`just lint` but surface as
+  `NewUndeclaredWarning` during rebuild — a real load-order bug
+  waiting to bite.
 
 ## Pharo gotchas
 
@@ -287,6 +304,28 @@ not flushed to Tonel. Two safeguards:
   if missing; the working image is rebuilt on `--rebuild`. `just
   test`/`just lint` pass `--rebuild` for the verifier flavour;
   `just rebuild-mcp` passes `--rebuild --mcp` for the dev flavour.
+- **Creating classes via `evaluate`:** `TestCase subclass: #Name`
+  returns the class but leaves it in `_UnpackagedPackage`. Follow
+  with `'SmallChat-Tests' asPackage addClass: cls` to place it.
+  Instance vars go on via `addInstVarNamed:`. The old one-liner
+  `subclass:instanceVariableNames:classVariableNames:package:` is
+  gone in Pharo 13.
+- **Screenshot the GUI for visual UI verification.** Spec2 layout
+  assertions prove wire-up, not pixels — any UI-touching slice
+  deserves a rendered-pixel check at the end:
+
+  ```smalltalk
+  | form path |
+  form := World imageForm.
+  path := '/tmp/smallchat-shot.png'.
+  PNGReadWriter putForm: form onFileNamed: path.
+  path
+  ```
+
+  Then Read the PNG from the harness. Use `aWindow imageForm` for a
+  tighter shot of one window. Never call `Screenshot>>makeAScreenshot`
+  — it opens a modal chooser that deadlocks the MCP reader. Use
+  sparingly (~80 KB per shot); end of a feature, not every Green.
 
 ## MCP server hard constraints (inherited from akkuna)
 
