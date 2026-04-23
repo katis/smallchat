@@ -81,6 +81,24 @@ SmallChatLMChatClientTest >> testCompleteOnDeltaSendsStreamTrueInBody [
 ]
 
 { #category : 'tests-streaming' }
+SmallChatLMChatClientTest >> testCompleteOnDeltaSplitsThinkingFromAccumulated [
+    "Chunks land mid-tag for both the opening and closing think markers; the
+     final assembled message must have the reasoning stripped into thinking
+     and the visible answer in content."
+    | client stub deltas reply c1 c2 c3 |
+    c1 := self deltaChunkWithContent: '<thi'.
+    c2 := self deltaChunkWithContent: 'nk>r</thi'.
+    c3 := self deltaChunkWithContent: 'nk>hi'.
+    stub := SmallChatLMHttpStub new.
+    stub chunks: { c1 . c2 . c3 }.
+    client := self clientWithStub: stub.
+    deltas := OrderedCollection new.
+    reply := client complete: SmallChatLMConversation new onDelta: [ :d | deltas add: d ].
+    self assert: reply thinking equals: 'r'.
+    self assert: reply content equals: 'hi'
+]
+
+{ #category : 'tests-streaming' }
 SmallChatLMChatClientTest >> testCompleteOnDeltaToleratesEmptyContentDelta [
     | client stub deltas reply emptyChunk realChunk |
     emptyChunk := self deltaChunkWithContent: ''.
