@@ -400,6 +400,31 @@ SmallChatLMChatWindowTest >> testStreamingPlaceholderAssistantBubbleAppearsBefor
     window waitForPending
 ]
 
+{ #category : 'tests-streaming' }
+SmallChatLMChatWindowTest >> testStreamingThinkingAppearingMidStreamDoesNotRaise [
+    "When </think> closes mid-stream the cached presenter must instantiate
+     the thinking widgets and re-apply its layout. The previous
+     buildWithSpec rebuild path raised a DNU that opened Pharo's UI
+     debugger in the live window."
+    | pair session window placeholder presenter |
+    pair := self stubSessionWithChunks: {
+        self deltaChunkWithContent: '<think>'.
+        self deltaChunkWithContent: 'reason</think>final' }.
+    session := pair first.
+    window := SmallChatLMChatWindow new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    window input text: 'hi'.
+    window sendFromInput.
+    window waitForPending.
+    placeholder := session conversation messages last.
+    presenter := window messagePresenters last.
+    self assert: placeholder content equals: 'final'.
+    self assert: placeholder thinking equals: 'reason'.
+    self assert: presenter hasThinking
+]
+
 { #category : 'tests' }
 SmallChatLMChatWindowTest >> testSystemMessagesNotRendered [
 	| window session |

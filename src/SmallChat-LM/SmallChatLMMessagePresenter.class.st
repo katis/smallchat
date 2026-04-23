@@ -99,7 +99,9 @@ SmallChatLMMessagePresenter >> message [
 SmallChatLMMessagePresenter >> refreshFromMessage [
     "Push the message's current content/thinking into the existing widgets in
      place. Used by the chat window between streaming deltas so we don't
-     refreshMessages (and rebuild the entire pane) per token."
+     refreshMessages (and rebuild the entire pane) per token. When the
+     thinking section appears mid-stream, instantiate its widgets and
+     re-apply the layout so the new disclosure button/text show up."
     | thinkingJustAppeared |
     thinkingJustAppeared := thinkingText isNil and: [ self hasThinking ].
     contentText text: (message content ifNil: [ '' ]).
@@ -115,8 +117,7 @@ SmallChatLMMessagePresenter >> refreshFromMessage [
             propagateNaturalHeight: true;
             text: message thinking;
             yourself.
-        (self respondsTo: #withWindowDo:) ifTrue: [
-            self withWindowDo: [ :w | self needRebuild: false. self buildWithSpec ] ] ]
+        self replaceLayoutWith: self defaultLayout ]
 ]
 
 { #category : 'initialization' }
@@ -141,10 +142,9 @@ SmallChatLMMessagePresenter >> toggleThinking [
 
 { #category : 'private' }
 SmallChatLMMessagePresenter >> updateThinkingWidget [
-	toggleButton isNil ifFalse: [ toggleButton label: self toggleLabel ].
-	"Rebuild the layout so the thinking body appears/disappears. Only
-	 meaningful once the presenter has a window/widget; in unit tests we
-	 exercise state without building, so skip the rebuild gracefully."
-	(self respondsTo: #withWindowDo:) ifTrue: [
-		self withWindowDo: [ :w | self needRebuild: false. self buildWithSpec ] ]
+    "Re-apply the layout so the thinking body appears or disappears based on
+     #isThinkingVisible. Spec2's replaceLayoutWith: no-ops when the presenter
+     has no adapter (i.e. in unit tests where the presenter is never opened)."
+    toggleButton isNil ifFalse: [ toggleButton label: self toggleLabel ].
+    self replaceLayoutWith: self defaultLayout
 ]
