@@ -55,6 +55,24 @@ SmallChatToolRegistryDebugTest >> testPrependsWarningWhenStrayDebuggerPresent [
 ]
 
 { #category : 'tests' }
+SmallChatToolRegistryDebugTest >> testWarningAttachedToDebugSessionReply [
+	"A tool returning SmallChatToolResult debugSession: still picks up the warning prefix
+	 on its content text item."
+	| registry result text session |
+	SmallChatDebugSessionRegistry reset.
+	registry := SmallChatToolRegistry new.
+	registry debuggerWatch: [ { Dictionary new at: 'modelClass' put: 'StDebugger'; yourself } ].
+	result := registry
+		run: 'evaluate'
+		with: (Dictionary new at: 'code' put: '1/0'; yourself).
+	self assert: (result at: 'isError') equals: true.
+	session := result at: 'debugSession'.
+	self assert: (session at: 'exceptionClass') equals: 'ZeroDivide'.
+	text := ((result at: 'content') first) at: 'text'.
+	self assert: (text beginsWith: '[smallchat:')
+]
+
+{ #category : 'tests' }
 SmallChatToolRegistryDebugTest >> testWarningAttachedToErrorReply [
 	"Even when the tool lookup fails (error reply), stray-debugger warning still lands."
 	| registry result text |
