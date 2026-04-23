@@ -467,6 +467,29 @@ SmallChatLMChatWindowTest >> testSystemMessagesNotRendered [
 ]
 
 { #category : 'tests' }
+SmallChatLMChatWindowTest >> testUnsubscribeFromMCPAnnouncerStopsUpdates [
+    "After unsubscribeFromMCPAnnouncer, further announcements on the default
+     TCP server's announcer must NOT update the window's label. This is what
+     initializeWindow: wires into whenClosedDo: so closed windows don't leak
+     subscriptions or mutate disposed widgets."
+    | window announcer before |
+    window := SmallChatLMChatWindow new
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    announcer := SmallChatMCPTcpServer default announcer.
+    before := window mcpStatusLabel label.
+    [
+        window unsubscribeFromMCPAnnouncer.
+        announcer announce:
+            (SmallChatMCPStateChanged new
+                running: true;
+                clientCount: 99;
+                yourself).
+        self assert: window mcpStatusLabel label equals: before
+    ] ensure: [ announcer unsubscribe: window ]
+]
+
+{ #category : 'tests' }
 SmallChatLMChatWindowTest >> testWindowUpdatesLabelOnMCPStateAnnouncement [
     "Announce a synthetic state change through the default TCP server's
      announcer; the window should have subscribed during #initializePresenters

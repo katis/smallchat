@@ -193,7 +193,8 @@ SmallChatLMChatWindow >> initializePresenters [
 SmallChatLMChatWindow >> initializeWindow: aWindow [
 	aWindow
 		title: 'smallchat';
-		initialExtent: 640 @ 480
+		initialExtent: 640 @ 480;
+		whenClosedDo: [ self unsubscribeFromMCPAnnouncer ]
 ]
 
 { #category : 'accessing' }
@@ -290,6 +291,14 @@ SmallChatLMChatWindow >> subscribeToMCPAnnouncer [
 { #category : 'accessing' }
 SmallChatLMChatWindow >> uiDeferrer: aBlock [
     uiDeferrer := aBlock
+]
+
+{ #category : 'mcp status' }
+SmallChatLMChatWindow >> unsubscribeFromMCPAnnouncer [
+    "Remove this window's subscription from the default TCP server's
+     announcer. Called from whenClosedDo: so the closed window does not
+     react to later state changes."
+    SmallChatMCPTcpServer default announcer unsubscribe: self
 ]
 
 { #category : 'synchronising' }
