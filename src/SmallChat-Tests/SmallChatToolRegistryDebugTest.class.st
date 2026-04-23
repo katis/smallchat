@@ -25,3 +25,17 @@ SmallChatToolRegistryDebugTest >> testEvaluateToolReturnsDebugShape [
     self assert: (session at: 'exceptionClass') equals: 'ZeroDivide'.
     self assert: (SmallChatDebugSessionRegistry default at: (session at: 'id')) notNil
 ]
+
+{ #category : 'tests' }
+SmallChatToolRegistryDebugTest >> testPrependsWarningWhenStrayDebuggerPresent [
+	"With the debuggerWatch seam returning a non-empty descriptor list, every tool reply
+	 gets the [smallchat: ...] warning prefix."
+	| registry result text |
+	registry := SmallChatToolRegistry new.
+	registry debuggerWatch: [ { Dictionary new at: 'modelClass' put: 'StDebugger'; yourself } ].
+	result := registry
+		run: 'evaluate'
+		with: (Dictionary new at: 'code' put: 'nil'; yourself).
+	text := ((result at: 'content') first) at: 'text'.
+	self assert: (text beginsWith: '[smallchat:')
+]

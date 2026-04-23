@@ -7,7 +7,8 @@ Class {
 	#name : 'SmallChatToolRegistry',
 	#superclass : 'Object',
 	#instVars : [
-		'cachedTools'
+		'cachedTools',
+		'debuggerWatch'
 	],
 	#classVars : [
 		'Default'
@@ -33,6 +34,39 @@ SmallChatToolRegistry >> allTools [
 		collect: [ :c | c new ]
 ]
 
+{ #category : 'accessing' }
+SmallChatToolRegistry >> debuggerWatch [
+	"Block returning Array of stray-debugger descriptors. Defaults to the live world
+	 query -- tests inject their own via #debuggerWatch:."
+	^ debuggerWatch ifNil: [ [ SmallChatDebuggerWatch openWindows ] ]
+]
+
+{ #category : 'accessing' }
+SmallChatToolRegistry >> debuggerWatch: aBlock [
+	"Seam: aBlock is a zero-arg value evaluated once per tool call to obtain an
+	 Array of descriptors for stray UI debugger windows. Tests inject a stub here;
+	 the default (see #debuggerWatch) queries SmallChatDebuggerWatch."
+	debuggerWatch := aBlock
+]
+
+{ #category : 'execution' }
+SmallChatToolRegistry >> decorateReply: aReplyDict withStray: descriptors [
+	"Prepend a single-line warning about stray debugger windows to the first content
+	 text item of aReplyDict. No-op when descriptors is empty. Returns aReplyDict."
+	| prefix content first text |
+	descriptors isEmpty ifTrue: [ ^ aReplyDict ].
+	prefix := '[smallchat: ' , descriptors size asString ,
+		' stray Pharo UI debugger window(s) open -- these block the dev image''s UI process. ',
+		'Dismiss via: SmallChatDebuggerWatch closeAll]' , String lf , String lf.
+	content := aReplyDict at: 'content' ifAbsent: [ ^ aReplyDict ].
+	content isEmpty ifTrue: [ ^ aReplyDict ].
+	first := content first.
+	(first at: 'type' ifAbsent: [ nil ]) = 'text' ifFalse: [ ^ aReplyDict ].
+	text := first at: 'text' ifAbsent: [ '' ].
+	first at: 'text' put: prefix , text.
+	^ aReplyDict
+]
+
 { #category : 'execution' }
 SmallChatToolRegistry >> errorResult: aString [
 	^ Dictionary new
@@ -51,10 +85,16 @@ SmallChatToolRegistry >> run: toolNameString with: argsDictionary [
 	 shaped as an MCP tool result: {content: [<contentDict>], isError: bool}.
 	 The tool's #run: may return a String (treated as text) or a
 	 SmallChatToolResult (text, image, or debugSession). A debugSession
-	 result is unwrapped via toMcpReplyDict into the richer reply shape."
-	| tool rawResult contentDict |
+	 result is unwrapped via toMcpReplyDict into the richer reply shape.
+
+	 After the tool returns, the reply is decorated with a warning prefix when
+	 SmallChatDebuggerWatch detects stray UI debugger windows -- the agent would
+	 otherwise have no visibility into debuggers left open by code outside the
+	 evaluator fork."
+	| tool rawResult contentDict reply stray |
 	tool := self toolNamed: toolNameString.
 	tool ifNil: [ ^ self errorResult: 'Unknown tool: ', toolNameString ].
+	stray := [ self debuggerWatch value ] on: Error do: [ :_ | #() ].
 	[
 		[ rawResult := tool run: (argsDictionary ifNil: [ Dictionary new ]) ]
 			on: Notification
@@ -63,15 +103,19 @@ SmallChatToolRegistry >> run: toolNameString with: argsDictionary [
 				 progress, etc). Pharo's default notification handler writes to
 				 stdout, which would corrupt MCP JSON-RPC framing." n resume ] ]
 		on: Error
-		do: [ :e | ^ self errorResult: (self safeErrorDescription: e) ].
-	(rawResult isKindOf: SmallChatToolResult) ifTrue: [ ^ rawResult toMcpReplyDict ].
+		do: [ :e |
+			reply := self errorResult: (self safeErrorDescription: e).
+			^ self decorateReply: reply withStray: stray ].
+	(rawResult isKindOf: SmallChatToolResult) ifTrue: [
+		^ self decorateReply: rawResult toMcpReplyDict withStray: stray ].
 	contentDict := Dictionary new
 		at: 'type' put: 'text';
 		at: 'text' put: (self safeAsString: rawResult);
 		yourself.
-	^ Dictionary new
+	reply := Dictionary new
 		at: 'content' put: { contentDict };
-		yourself
+		yourself.
+	^ self decorateReply: reply withStray: stray
 ]
 
 { #category : 'execution' }
