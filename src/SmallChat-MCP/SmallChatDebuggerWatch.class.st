@@ -48,21 +48,34 @@ SmallChatDebuggerWatch class >> closeAll [
 
 { #category : 'private' }
 SmallChatDebuggerWatch class >> descriptorFor: aMorph [
-	"Small {modelClass, title} Dictionary describing a stray debugger window."
-	^ Dictionary new
-		at: 'modelClass' put: aMorph model class name asString;
-		at: 'title' put: aMorph label asString;
-		yourself
+	"Small {modelClass, presenterClass, title} Dictionary describing a stray debugger window.
+	 presenterClass is omitted when the model already matches (no inner unwrapping)."
+	| d presenterName |
+	d := Dictionary new.
+	d at: 'modelClass' put: ([ aMorph model class name asString ] on: Error do: [ :_ | '<error>' ]).
+	presenterName := self presenterClassNameOf: ([ aMorph model ] on: Error do: [ :_ | nil ]).
+	presenterName ifNotNil: [ d at: 'presenterClass' put: presenterName asString ].
+	d at: 'title' put: ([ aMorph label asString ] on: Error do: [ :_ | '<no label>' ]).
+	^ d
+]
+
+{ #category : 'private' }
+SmallChatDebuggerWatch class >> isDebuggerClassName: aNameOrNil [
+	"Accept a String or Symbol; nil-tolerant."
+	aNameOrNil ifNil: [ ^ false ].
+	^ aNameOrNil asString includesSubstring: 'Debugger'
 ]
 
 { #category : 'private' }
 SmallChatDebuggerWatch class >> isDebuggerMorph: aMorph [
-	"True if aMorph has a model whose class name contains 'Debugger'.
-	 Tolerant: any exception reading the model (DNU, printer fault) -> false."
-	| name |
-	name := [ aMorph model class name asString ] on: Error do: [ :_ | nil ].
-	name ifNil: [ ^ false ].
-	^ name includesSubstring: 'Debugger'
+	"True if aMorph has a model whose class name contains 'Debugger', or whose
+	 #presenter (Spec2 wrapping path: StWindowPresenter -> StDebugger) does.
+	 Tolerant: any exception reading the chain -> false."
+	| model |
+	model := [ aMorph model ] on: Error do: [ :_ | nil ].
+	model ifNil: [ ^ false ].
+	(self isDebuggerClassName: model class name) ifTrue: [ ^ true ].
+	^ self isDebuggerClassName: (self presenterClassNameOf: model)
 ]
 
 { #category : 'querying' }
@@ -84,4 +97,12 @@ SmallChatDebuggerWatch class >> openWindowsIn: aWorld [
 	 under aWorld. Nil (headless mode) -> #()."
 	aWorld ifNil: [ ^ #() ].
 	^ self openWindowsFromMorphs: aWorld submorphs
+]
+
+{ #category : 'private' }
+SmallChatDebuggerWatch class >> presenterClassNameOf: anObject [
+	"Return the class name of anObject's #presenter, or nil if it does not respond or
+	 throws. Probes one Spec2 wrapping level -- StWindowPresenter wraps StDebugger."
+	(anObject respondsTo: #presenter) ifFalse: [ ^ nil ].
+	^ [ anObject presenter class name ] on: Error do: [ :_ | nil ]
 ]

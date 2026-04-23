@@ -33,6 +33,21 @@ SmallChatDebuggerWatchTest >> testMatchesDebuggerWindows [
 ]
 
 { #category : 'tests' }
+SmallChatDebuggerWatchTest >> testMatchesSpecWrappedDebugger [
+	"Pharo 13 StDebugger is wrapped by StWindowPresenter -- the outer model class name
+	 does not include 'Debugger'; the presenter chain does. The watcher must follow one
+	 level of #presenter so Spec2-hosted debuggers still match."
+	| outer fakeWindow |
+	outer := SmallChatWatchFakeOuter new
+		presenter: StDebugger basicNew;
+		yourself.
+	fakeWindow := SystemWindow new
+		model: outer;
+		yourself.
+	self assert: (SmallChatDebuggerWatch openWindowsFromMorphs: { fakeWindow }) size equals: 1
+]
+
+{ #category : 'tests' }
 SmallChatDebuggerWatchTest >> testTolerantOfErrors [
 	"A morph-like object that raises on #model must be skipped rather than crash."
 	| bare |
