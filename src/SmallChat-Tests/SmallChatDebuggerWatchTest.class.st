@@ -31,3 +31,11 @@ SmallChatDebuggerWatchTest >> testMatchesDebuggerWindows [
 	result := SmallChatDebuggerWatch openWindowsFromMorphs: { fakeWindow }.
 	self assert: result size equals: 1
 ]
+
+{ #category : 'tests' }
+SmallChatDebuggerWatchTest >> testTolerantOfErrors [
+	"A morph-like object that raises on #model must be skipped rather than crash."
+	| bare |
+	bare := Object new.
+	self assert: (SmallChatDebuggerWatch openWindowsFromMorphs: { bare }) equals: #()
+]

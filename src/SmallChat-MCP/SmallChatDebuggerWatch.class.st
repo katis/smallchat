@@ -17,9 +17,10 @@ SmallChatDebuggerWatch class >> descriptorFor: aMorph [
 { #category : 'private' }
 SmallChatDebuggerWatch class >> isDebuggerMorph: aMorph [
 	"True if aMorph has a model whose class name contains 'Debugger'.
-	 Matches StDebugger, StMorphicDebugSession, and any future debugger-presenter class."
+	 Tolerant: any exception reading the model (DNU, printer fault) -> false."
 	| name |
-	name := aMorph model class name asString.
+	name := [ aMorph model class name asString ] on: Error do: [ :_ | nil ].
+	name ifNil: [ ^ false ].
 	^ name includesSubstring: 'Debugger'
 ]
 
