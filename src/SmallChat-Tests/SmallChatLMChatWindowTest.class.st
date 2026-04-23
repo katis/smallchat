@@ -88,6 +88,27 @@ SmallChatLMChatWindowTest >> testErrorFromClientShowsErrorInStatusLabel [
     self assert: assistantTurns isEmpty
 ]
 
+{ #category : 'tests' }
+SmallChatLMChatWindowTest >> testLabelForMCPState [
+    "Pure mapping from SmallChatMCPStateChanged to label text. ASCII only --
+     Tonel round-trips non-ASCII as mojibake in Pharo 13."
+    | off listening connected |
+    off := SmallChatMCPStateChanged new running: false; clientCount: 0; yourself.
+    listening := SmallChatMCPStateChanged new running: true; clientCount: 0; yourself.
+    connected := SmallChatMCPStateChanged new running: true; clientCount: 1; yourself.
+    self assert: (SmallChatLMChatWindow labelForMCPState: off) equals: 'MCP: offline'.
+    self assert: (SmallChatLMChatWindow labelForMCPState: listening) equals: 'MCP: listening'.
+    self assert: (SmallChatLMChatWindow labelForMCPState: connected) equals: 'MCP: connected'
+]
+
+{ #category : 'tests' }
+SmallChatLMChatWindowTest >> testMcpStatusLabelPresentAndInitialised [
+    | window |
+    window := SmallChatLMChatWindow new.
+    self assert: window mcpStatusLabel notNil.
+    self assert: (window mcpStatusLabel label beginsWith: 'MCP: ')
+]
+
 { #category : 'tests-streaming' }
 SmallChatLMChatWindowTest >> testMessageBubbleGrowsToFitContent [
     "Each bubble's content widget propagates its natural height upward so the

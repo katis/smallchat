@@ -24,11 +24,21 @@ Class {
 		'presentersByMessage',
 		'pendingRequest',
 		'statusLabel',
-		'uiDeferrer'
+		'uiDeferrer',
+		'mcpStatusLabel'
 	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
 }
+
+{ #category : 'mcp status' }
+SmallChatLMChatWindow class >> labelForMCPState: aState [
+	"Three-state mapping for the header indicator. ASCII only (Pharo 13
+	 Tonel round-trips unicode as mojibake in compiled method source)."
+	aState running ifFalse: [ ^ 'MCP: offline' ].
+	aState clientCount > 0 ifTrue: [ ^ 'MCP: connected' ].
+	^ 'MCP: listening'
+]
 
 { #category : 'world menu' }
 SmallChatLMChatWindow class >> menuCommandOn: aBuilder [
@@ -157,6 +167,9 @@ SmallChatLMChatWindow >> initializePresenters [
     messagesPane := self newPresenter.
     messagesPane layout: (SpScrollableLayout with: messagesContent).
     statusLabel := self newLabel.
+    mcpStatusLabel := self newLabel
+        label: (self class labelForMCPState: SmallChatMCPTcpServer default currentState);
+        yourself.
     input := self newTextInput
         placeholder: 'message';
         yourself.
@@ -176,6 +189,11 @@ SmallChatLMChatWindow >> initializeWindow: aWindow [
 { #category : 'accessing' }
 SmallChatLMChatWindow >> input [
 	^ input
+]
+
+{ #category : 'accessing' }
+SmallChatLMChatWindow >> mcpStatusLabel [
+    ^ mcpStatusLabel
 ]
 
 { #category : 'accessing' }
