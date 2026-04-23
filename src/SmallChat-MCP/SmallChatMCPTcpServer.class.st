@@ -103,19 +103,14 @@ SmallChatMCPTcpServer >> currentState [
 
 { #category : 'listening' }
 SmallChatMCPTcpServer >> handleConnection: clientSocket [
-	"Run newline-delimited JSON-RPC on the given socket until the client
-	 disconnects. Each line is one MCP message; response is written back
-	 with a trailing LF. Per MCP spec, messages contain no embedded newlines."
-	| stream |
-	stream := SocketStream on: clientSocket.
-	stream timeout: 3600.
-	[
-		[ stream atEnd ] whileFalse: [ self serveOneMessage: stream ]
-	] on: Error do: [ :e |
-		SmallChatMCPServer logToFile: 'tcp handleConnection: ', e messageText ].
-	[ stream close ] on: Error do: [ :e | ].
-	[ clientSocket destroy ] on: Error do: [ :e | ].
-	SmallChatMCPServer logToFile: 'tcp: client closed'
+	"Register the client, run the JSON-RPC loop, then unregister on any exit
+	 path (normal EOF, internal error, or an exception that escapes the session
+	 body)."
+	self registerClient: clientSocket.
+	[ self runClientSessionOn: clientSocket ]
+		ensure: [
+			self unregisterClient: clientSocket.
+			SmallChatMCPServer logToFile: 'tcp: client closed' ]
 ]
 
 { #category : 'initialization' }
@@ -155,6 +150,21 @@ SmallChatMCPTcpServer >> removePortFile [
 	  file := Smalltalk vm imageFile parent / 'mcp.port'.
 	  file exists ifTrue: [ file delete ] ]
 		on: Error do: [ :e | ]
+]
+
+{ #category : 'private' }
+SmallChatMCPTcpServer >> runClientSessionOn: clientSocket [
+	"Serve JSON-RPC over the socket until EOF. Extracted from #handleConnection:
+	 so tests can substitute this step to simulate failure without a real socket."
+	| stream |
+	stream := SocketStream on: clientSocket.
+	stream timeout: 3600.
+	[
+		[ stream atEnd ] whileFalse: [ self serveOneMessage: stream ]
+	] on: Error do: [ :e |
+		SmallChatMCPServer logToFile: 'tcp handleConnection: ', e messageText ].
+	[ stream close ] on: Error do: [ :e | ].
+	[ clientSocket destroy ] on: Error do: [ :e | ]
 ]
 
 { #category : 'listening' }

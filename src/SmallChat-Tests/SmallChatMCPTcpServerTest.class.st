@@ -26,6 +26,45 @@ SmallChatMCPTcpServerTest >> testCurrentStateReflectsRunningAndCount [
 ]
 
 { #category : 'tests' }
+SmallChatMCPTcpServerTest >> testHandleConnectionRegistersAndUnregisters [
+    | server received |
+    server := SmallChatMCPTcpServer new.
+    received := OrderedCollection new.
+    server announcer
+        when: SmallChatMCPStateChanged
+        do: [ :ann | received add: ann ]
+        for: self.
+    [ server handleConnection: nil ]
+        ensure: [ server announcer unsubscribe: self ].
+    self assert: server activeClientCount equals: 0.
+    self assert: received size equals: 2.
+    self assert: received first clientCount equals: 1.
+    self assert: received last clientCount equals: 0
+]
+
+{ #category : 'tests' }
+SmallChatMCPTcpServerTest >> testHandleConnectionUnregistersOnSessionError [
+    "If runClientSessionOn: raises, the ensure: block must still unregister
+     and announce a disconnect. Uses SmallChatMCPTcpServerRaisingStub whose
+     runClientSessionOn: throws unconditionally."
+    | server received |
+    server := SmallChatMCPTcpServerRaisingStub new.
+    received := OrderedCollection new.
+    server announcer
+        when: SmallChatMCPStateChanged
+        do: [ :ann | received add: ann ]
+        for: self.
+    [
+        [ server handleConnection: nil ]
+            on: Error
+            do: [ :e | "expected: simulated-session-failure" ]
+    ] ensure: [ server announcer unsubscribe: self ].
+    self assert: server activeClientCount equals: 0.
+    self assert: received size equals: 2.
+    self assert: received last clientCount equals: 0
+]
+
+{ #category : 'tests' }
 SmallChatMCPTcpServerTest >> testRegisterAndUnregisterClient [
     | server marker |
     server := SmallChatMCPTcpServer new.
