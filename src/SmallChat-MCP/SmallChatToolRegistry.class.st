@@ -92,9 +92,10 @@ SmallChatToolRegistry >> run: toolNameString with: argsDictionary [
 	 otherwise have no visibility into debuggers left open by code outside the
 	 evaluator fork."
 	| tool rawResult contentDict reply stray |
-	tool := self toolNamed: toolNameString.
-	tool ifNil: [ ^ self errorResult: 'Unknown tool: ', toolNameString ].
 	stray := [ self debuggerWatch value ] on: Error do: [ :_ | #() ].
+	tool := self toolNamed: toolNameString.
+	tool ifNil: [
+		^ self decorateReply: (self errorResult: 'Unknown tool: ', toolNameString) withStray: stray ].
 	[
 		[ rawResult := tool run: (argsDictionary ifNil: [ Dictionary new ]) ]
 			on: Notification

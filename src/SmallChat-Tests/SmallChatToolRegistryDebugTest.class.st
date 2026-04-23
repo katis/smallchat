@@ -53,3 +53,15 @@ SmallChatToolRegistryDebugTest >> testPrependsWarningWhenStrayDebuggerPresent [
 	text := ((result at: 'content') first) at: 'text'.
 	self assert: (text beginsWith: '[smallchat:')
 ]
+
+{ #category : 'tests' }
+SmallChatToolRegistryDebugTest >> testWarningAttachedToErrorReply [
+	"Even when the tool lookup fails (error reply), stray-debugger warning still lands."
+	| registry result text |
+	registry := SmallChatToolRegistry new.
+	registry debuggerWatch: [ { Dictionary new at: 'modelClass' put: 'StDebugger'; yourself } ].
+	result := registry run: 'nonexistent-tool-xyz' with: Dictionary new.
+	self assert: (result at: 'isError') equals: true.
+	text := ((result at: 'content') first) at: 'text'.
+	self assert: (text beginsWith: '[smallchat:')
+]
