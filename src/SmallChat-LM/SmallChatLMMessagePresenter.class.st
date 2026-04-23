@@ -38,6 +38,11 @@ SmallChatLMMessagePresenter class >> on: aMessage [
 	^ self basicNew setMessage: aMessage; initialize; yourself
 ]
 
+{ #category : 'accessing' }
+SmallChatLMMessagePresenter >> contentText [
+    ^ contentText
+]
+
 { #category : 'layout' }
 SmallChatLMMessagePresenter >> defaultLayout [
 	| outer |
@@ -61,21 +66,23 @@ SmallChatLMMessagePresenter >> hasThinking [
 
 { #category : 'initialization' }
 SmallChatLMMessagePresenter >> initializePresenters [
-	thinkingVisible := false.
-	roleLabel := self newLabel label: (message role asString , ':').
-	contentText := self newText
-		beNotEditable;
-		text: (message content ifNil: ['']);
-		yourself.
-	self hasThinking ifTrue: [
-		toggleButton := self newButton
-			label: self toggleLabel;
-			action: [ self toggleThinking ];
-			yourself.
-		thinkingText := self newText
-			beNotEditable;
-			text: message thinking;
-			yourself ]
+    thinkingVisible := false.
+    roleLabel := self newLabel label: (message role asString , ':').
+    contentText := self newText
+        beNotEditable;
+        propagateNaturalHeight: true;
+        text: (message content ifNil: [ '' ]);
+        yourself.
+    self hasThinking ifTrue: [
+        toggleButton := self newButton
+            label: self toggleLabel;
+            action: [ self toggleThinking ];
+            yourself.
+        thinkingText := self newText
+            beNotEditable;
+            propagateNaturalHeight: true;
+            text: message thinking;
+            yourself ]
 ]
 
 { #category : 'accessing' }
@@ -105,6 +112,7 @@ SmallChatLMMessagePresenter >> refreshFromMessage [
             yourself.
         thinkingText := self newText
             beNotEditable;
+            propagateNaturalHeight: true;
             text: message thinking;
             yourself.
         (self respondsTo: #withWindowDo:) ifTrue: [

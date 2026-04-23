@@ -89,6 +89,26 @@ SmallChatLMChatWindowTest >> testErrorFromClientShowsErrorInStatusLabel [
 ]
 
 { #category : 'tests-streaming' }
+SmallChatLMChatWindowTest >> testMessageBubbleGrowsToFitContent [
+    "Each bubble's content widget propagates its natural height upward so the
+     parent layout sizes the bubble to the text. Without this, multi-line
+     replies clip into the small default text-widget height."
+    | session window contentText |
+    session := self stubSessionWithCannedReply: 'line one
+line two
+line three'.
+    window := SmallChatLMChatWindow new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    window input text: 'hi'.
+    window sendFromInput.
+    window waitForPending.
+    contentText := window messagePresenters last contentText.
+    self assert: contentText isPropagateNaturalHeight
+]
+
+{ #category : 'tests-streaming' }
 SmallChatLMChatWindowTest >> testMessagesPaneIsScrollable [
     "The transcript needs to scroll vertically when long replies push it past
      the window height."
