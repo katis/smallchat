@@ -45,17 +45,17 @@ SmallChatLMMessagePresenter >> contentText [
 
 { #category : 'layout' }
 SmallChatLMMessagePresenter >> defaultLayout [
-	| outer |
-	outer := SpBoxLayout newTopToBottom
-		spacing: 2;
-		add: roleLabel expand: false;
-		add: contentText expand: true;
-		yourself.
-	self hasThinking ifTrue: [
-		outer add: toggleButton expand: false.
-		self isThinkingVisible ifTrue: [
-			outer add: thinkingText expand: true ] ].
-	^ outer
+    | outer |
+    outer := SpBoxLayout newTopToBottom
+        spacing: 2;
+        add: roleLabel expand: false;
+        add: contentText expand: true;
+        yourself.
+    self hasThinking ifTrue: [
+        outer add: toggleButton expand: false.
+        self isThinkingVisible ifTrue: [
+            outer add: thinkingText expand: true ] ].
+    ^ outer
 ]
 
 { #category : 'accessing' }

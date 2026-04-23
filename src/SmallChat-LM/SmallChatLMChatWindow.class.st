@@ -20,6 +20,7 @@ Class {
 		'sendButton',
 		'session',
 		'messagesPane',
+		'messagesContent',
 		'presentersByMessage',
 		'pendingRequest',
 		'statusLabel',
@@ -145,8 +146,10 @@ SmallChatLMChatWindow >> initializePresenters [
     session isNil ifTrue: [ session := SmallChatLMSession new ].
     presentersByMessage := IdentityDictionary new.
     uiDeferrer := [ :aBlock | UIManager default defer: aBlock ].
+    messagesContent := self newPresenter.
+    messagesContent layout: SpBoxLayout newTopToBottom.
     messagesPane := self newPresenter.
-    messagesPane layout: (SpScrollableLayout with: SpBoxLayout newTopToBottom).
+    messagesPane layout: (SpScrollableLayout with: messagesContent).
     statusLabel := self newLabel.
     input := self newTextInput
         placeholder: 'message';
@@ -178,6 +181,11 @@ SmallChatLMChatWindow >> messagePresenters [
 ]
 
 { #category : 'accessing' }
+SmallChatLMChatWindow >> messagesContent [
+    ^ messagesContent
+]
+
+{ #category : 'accessing' }
 SmallChatLMChatWindow >> messagesPane [
     ^ messagesPane
 ]
@@ -199,7 +207,7 @@ SmallChatLMChatWindow >> refreshMessages [
     | inner |
     inner := SpBoxLayout newTopToBottom.
     self messagePresenters do: [ :p | inner add: p expand: false ].
-    messagesPane layout: (SpScrollableLayout with: inner)
+    messagesContent layout: inner
 ]
 
 { #category : 'accessing' }
