@@ -12,6 +12,16 @@ SmallChatDebuggerWatchTest >> testHeadlessWorldReturnsEmpty [
 ]
 
 { #category : 'tests' }
+SmallChatDebuggerWatchTest >> testIgnoresNonDebuggerWindows [
+	"A SystemWindow whose model class name does not contain Debugger must be ignored."
+	| plainWindow |
+	plainWindow := SystemWindow new
+		model: OrderedCollection new;
+		yourself.
+	self assert: (SmallChatDebuggerWatch openWindowsFromMorphs: { plainWindow }) equals: #()
+]
+
+{ #category : 'tests' }
 SmallChatDebuggerWatchTest >> testMatchesDebuggerWindows [
 	"Fake SystemWindow with a real StDebugger model (bare basicNew, no UI) produces one descriptor."
 	| fakeWindow result |

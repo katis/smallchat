@@ -5,10 +5,29 @@ Class {
 	#package : 'SmallChat-MCP'
 }
 
+{ #category : 'private' }
+SmallChatDebuggerWatch class >> descriptorFor: aMorph [
+	"Small {modelClass, title} Dictionary describing a stray debugger window."
+	^ Dictionary new
+		at: 'modelClass' put: aMorph model class name asString;
+		at: 'title' put: aMorph label asString;
+		yourself
+]
+
+{ #category : 'private' }
+SmallChatDebuggerWatch class >> isDebuggerMorph: aMorph [
+	"True if aMorph has a model whose class name contains 'Debugger'.
+	 Matches StDebugger, StMorphicDebugSession, and any future debugger-presenter class."
+	| name |
+	name := aMorph model class name asString.
+	^ name includesSubstring: 'Debugger'
+]
+
 { #category : 'querying' }
 SmallChatDebuggerWatch class >> openWindowsFromMorphs: aCollection [
-	"Filter seam over a collection of morphs; returns an Array of descriptors."
-	^ aCollection asArray
+	"Filter seam: return descriptors for morphs whose model class name contains 'Debugger'."
+	^ ((aCollection select: [ :m | self isDebuggerMorph: m ])
+		collect: [ :m | self descriptorFor: m ]) asArray
 ]
 
 { #category : 'querying' }
