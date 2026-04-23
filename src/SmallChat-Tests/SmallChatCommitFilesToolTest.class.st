@@ -6,6 +6,34 @@ Class {
 }
 
 { #category : 'tests' }
+SmallChatCommitFilesToolTest >> testGitAddFailureAbortsBeforeCommitAndResync [
+	| tool calls resyncCalled result json |
+	calls := OrderedCollection new.
+	resyncCalled := false.
+	tool := SmallChatCommitFilesTool new
+		gitRunner: [ :argv |
+			calls add: argv asArray.
+			Dictionary new
+				at: 'exitCode' put: 1;
+				at: 'stdout' put: '';
+				at: 'stderr' put: 'fatal: pathspec did not match any files';
+				yourself ];
+		resyncer: [ resyncCalled := true. 'SHOULD-NOT-BE-CALLED' ];
+		yourself.
+	result := tool run: (Dictionary new
+		at: 'paths' put: #('nope.txt');
+		at: 'message' put: 'x';
+		yourself).
+	json := STONJSON fromString: result.
+	self assert: (json at: 'error') isString.
+	self assert: ((json at: 'error') includesSubstring: 'git add').
+	self assert: ((json at: 'error') includesSubstring: 'fatal: pathspec').
+	self deny: resyncCalled.
+	self assert: calls size equals: 1.
+	self assert: calls first first equals: 'add'
+]
+
+{ #category : 'tests' }
 SmallChatCommitFilesToolTest >> testIsRegisteredAsCommitFiles [
 	| registry spec |
 	registry := SmallChatToolRegistry default.

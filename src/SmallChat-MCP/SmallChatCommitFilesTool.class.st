@@ -39,6 +39,19 @@ SmallChatCommitFilesTool class >> toolName [
 ]
 
 { #category : 'execution' }
+SmallChatCommitFilesTool >> describeProcessResult: aDict [
+	| parts stderr stdout |
+	parts := OrderedCollection new.
+	stderr := (aDict at: 'stderr' ifAbsent: [ '' ]) ifNil: [ '' ].
+	stdout := (aDict at: 'stdout' ifAbsent: [ '' ]) ifNil: [ '' ].
+	stderr isEmpty ifFalse: [ parts add: stderr trimBoth ].
+	stdout isEmpty ifFalse: [ parts add: stdout trimBoth ].
+	^ parts isEmpty
+		ifTrue: [ 'exit=' , (aDict at: 'exitCode') printString ]
+		ifFalse: [ String streamContents: [ :s | parts do: [ :p | s nextPutAll: p ] separatedBy: [ s << ' | ' ] ] ]
+]
+
+{ #category : 'execution' }
 SmallChatCommitFilesTool >> errorResult: aString [
 	^ STONJSON toString: (Dictionary new
 		at: 'error' put: aString;
@@ -57,7 +70,7 @@ SmallChatCommitFilesTool >> resyncer: aBlock [
 
 { #category : 'execution' }
 SmallChatCommitFilesTool >> run: args [
-	| paths message commitId |
+	| paths message commitId addRes commitRes |
 	paths := args at: 'paths' ifAbsent: [ ^ self errorResult: 'paths is required' ].
 	message := args at: 'message' ifAbsent: [ ^ self errorResult: 'message is required' ].
 	(paths isCollection and: [ paths isString not ]) ifFalse: [
@@ -68,8 +81,12 @@ SmallChatCommitFilesTool >> run: args [
 		^ self errorResult: 'paths must be a non-empty array of strings' ].
 	(message isString and: [ message isEmpty not ]) ifFalse: [
 		^ self errorResult: 'message must be a non-empty string' ].
-	gitRunner value: { 'add'. '--' } , paths asArray.
-	gitRunner value: { 'commit'. '-m'. message }.
+	addRes := gitRunner value: { 'add'. '--' } , paths asArray.
+	(addRes at: 'exitCode') = 0 ifFalse: [
+		^ self errorResult: 'git add failed: ' , (self describeProcessResult: addRes) ].
+	commitRes := gitRunner value: { 'commit'. '-m'. message }.
+	(commitRes at: 'exitCode') = 0 ifFalse: [
+		^ self errorResult: 'git commit failed: ' , (self describeProcessResult: commitRes) ].
 	commitId := resyncer value.
 	^ STONJSON toString: (Dictionary new
 		at: 'commitId' put: commitId;
