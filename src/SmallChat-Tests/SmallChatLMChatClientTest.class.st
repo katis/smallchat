@@ -26,6 +26,16 @@ SmallChatLMChatClientTest >> deltaChunkWithContent: aString [
 ]
 
 { #category : 'helpers' }
+SmallChatLMChatClientTest >> roleChunkWith: aRoleString [
+    "Helper: build a streaming-shaped frame whose delta carries only a role key
+     (mirrors the first chunk OpenAI/oMLX typically sends)."
+    | delta choice |
+    delta := Dictionary new at: 'role' put: aRoleString; yourself.
+    choice := Dictionary new at: 'delta' put: delta; yourself.
+    ^ Dictionary new at: 'choices' put: { choice }; yourself
+]
+
+{ #category : 'helpers' }
 SmallChatLMChatClientTest >> stubRespondingWith: aString [
 	^ SmallChatLMHttpStub new response: aString; yourself
 ]
@@ -68,6 +78,34 @@ SmallChatLMChatClientTest >> testCompleteOnDeltaSendsStreamTrueInBody [
     client complete: SmallChatLMConversation new onDelta: [ :_ | ].
     parsed := STONJSON fromString: stub lastBody.
     self assert: (parsed at: 'stream') equals: true
+]
+
+{ #category : 'tests-streaming' }
+SmallChatLMChatClientTest >> testCompleteOnDeltaToleratesEmptyContentDelta [
+    | client stub deltas reply emptyChunk realChunk |
+    emptyChunk := self deltaChunkWithContent: ''.
+    realChunk := self deltaChunkWithContent: 'hi'.
+    stub := SmallChatLMHttpStub new.
+    stub chunks: { emptyChunk . realChunk }.
+    client := self clientWithStub: stub.
+    deltas := OrderedCollection new.
+    reply := client complete: SmallChatLMConversation new onDelta: [ :d | deltas add: d ].
+    self assert: deltas asArray equals: #('hi').
+    self assert: reply content equals: 'hi'
+]
+
+{ #category : 'tests-streaming' }
+SmallChatLMChatClientTest >> testCompleteOnDeltaToleratesLeadingRoleOnlyDelta [
+    | client stub deltas reply roleChunk contentChunk |
+    roleChunk := self roleChunkWith: 'assistant'.
+    contentChunk := self deltaChunkWithContent: 'hi'.
+    stub := SmallChatLMHttpStub new.
+    stub chunks: { roleChunk . contentChunk }.
+    client := self clientWithStub: stub.
+    deltas := OrderedCollection new.
+    reply := client complete: SmallChatLMConversation new onDelta: [ :d | deltas add: d ].
+    self assert: deltas asArray equals: #('hi').
+    self assert: reply content equals: 'hi'
 ]
 
 { #category : 'tests' }
