@@ -6,6 +6,31 @@ Class {
 }
 
 { #category : 'tests - correlation' }
+SmallChatLSPClientTest >> testErrorResponseRaisesOnResult [
+	"When the server responds with error instead of result, #result raises
+	 SmallChatLSPServerError carrying the code and message."
+	| stub client pending ex |
+	stub := SmallChatLSPStubTransport new.
+	client := SmallChatLSPClient new transport: stub.
+	pending := client requestAsync: (Dictionary new at: 'method' put: 'x'; yourself).
+	stub enqueueServerMessage: (Dictionary new
+		at: 'jsonrpc' put: '2.0';
+		at: 'id' put: pending id;
+		at: 'error' put: (Dictionary new
+			at: 'code' put: -32603;
+			at: 'message' put: 'internal server error';
+			yourself);
+		yourself).
+	client pumpOneMessage.
+	ex := [ pending result. nil ]
+		on: SmallChatLSPServerError
+		do: [ :e | e ].
+	self assert: ex notNil.
+	self assert: ex code equals: -32603.
+	self assert: ex messageText equals: 'internal server error'
+]
+
+{ #category : 'tests - correlation' }
 SmallChatLSPClientTest >> testRequestAsyncWritesEnvelopeAndReturnsPending [
 	"requestAsync: assigns a numeric id, wraps the caller payload in the JSON-RPC 2.0
 	 envelope, writes it to the transport, and returns a SmallChatLSPPendingRequest

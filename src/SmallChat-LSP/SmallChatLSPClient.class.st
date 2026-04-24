@@ -20,9 +20,9 @@ SmallChatLSPClient >> initialize [
 { #category : 'dispatch' }
 SmallChatLSPClient >> pumpOneMessage [
 	"Read one message from the transport and dispatch it.
-	   - Response (has id + result/error): resolve the matching pending.
-	 Notifications and server-to-client requests arrive in later steps."
-	| msg id p |
+	 Responses (id + result) resolve the matching pending; error responses route
+	 through resolveWithError: so the caller's #result call raises."
+	| msg id p err e |
 	msg := transport readMessage.
 	msg ifNil: [ ^ self ].
 	id := msg at: 'id' ifAbsent: [ nil ].
@@ -30,7 +30,15 @@ SmallChatLSPClient >> pumpOneMessage [
 		p := pending removeKey: id ifAbsent: [ nil ].
 		p ifNotNil: [
 			(msg includesKey: 'result')
-				ifTrue: [ p resolveWith: (msg at: 'result') ] ] ]
+				ifTrue: [ p resolveWith: (msg at: 'result') ]
+				ifFalse: [
+					err := msg at: 'error' ifAbsent: [ nil ].
+					err ifNotNil: [
+						e := SmallChatLSPServerError new
+							messageText: (err at: 'message' ifAbsent: [ '' ]);
+							code: (err at: 'code' ifAbsent: [ 0 ]);
+							yourself.
+						p resolveWithError: e ] ] ] ]
 ]
 
 { #category : 'requests' }
