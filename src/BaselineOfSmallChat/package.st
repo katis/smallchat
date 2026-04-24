@@ -1,1 +1,1 @@
-Package { #name : #BaselineOfSmallChat }
+Package { #name : 'BaselineOfSmallChat' }
