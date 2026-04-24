@@ -134,3 +134,25 @@ SmallChatLSPClientTest >> testResultTimeoutRaisesTimeoutError [
 		do: [ :e | e ].
 	self assert: ex notNil
 ]
+
+{ #category : 'tests - correlation' }
+SmallChatLSPClientTest >> testServerRequestAutoRepliesWithEmptyResult [
+	"A frame with BOTH id and method is a server-to-client request (tsgo sends
+	 client/registerCapability this way). The framing/correlation layer must
+	 auto-reply with an empty result; without it, tsgo stalls waiting on us."
+	| stub client reply |
+	stub := SmallChatLSPStubTransport new.
+	client := SmallChatLSPClient new transport: stub.
+	stub enqueueServerMessage: (Dictionary new
+		at: 'jsonrpc' put: '2.0';
+		at: 'id' put: 99;
+		at: 'method' put: 'client/registerCapability';
+		at: 'params' put: (Dictionary new at: 'registrations' put: OrderedCollection new; yourself);
+		yourself).
+	client pumpOneMessage.
+	self assert: stub sentMessages size equals: 1.
+	reply := stub sentMessages first.
+	self assert: (reply at: 'jsonrpc') equals: '2.0'.
+	self assert: (reply at: 'id') equals: 99.
+	self assert: ((reply at: 'result') = Dictionary new)
+]

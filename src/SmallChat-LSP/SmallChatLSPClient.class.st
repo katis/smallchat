@@ -30,9 +30,10 @@ SmallChatLSPClient >> onNotification: aMethodName do: aBlock [
 { #category : 'dispatch' }
 SmallChatLSPClient >> pumpOneMessage [
 	"Read one message from the transport and dispatch it.
-	   - Response (id + result/error): resolve the matching pending.
+	   - Response (id + result/error, no method): resolve the matching pending.
 	   - Notification (method, no id): invoke registered handler if any.
-	 Server-to-client requests arrive in a later step."
+	   - Server-to-client request (id + method): auto-reply with empty result so
+	     the reader never stalls (e.g. tsgo's client/registerCapability burst)."
 	| msg id method p err e handler |
 	msg := transport readMessage.
 	msg ifNil: [ ^ self ].
@@ -55,6 +56,13 @@ SmallChatLSPClient >> pumpOneMessage [
 	(id isNil and: [ method notNil ]) ifTrue: [
 		handler := notificationHandlers at: method ifAbsent: [ nil ].
 		handler ifNotNil: [ handler value: (msg at: 'params' ifAbsent: [ nil ]) ].
+		^ self ].
+	(id notNil and: [ method notNil ]) ifTrue: [
+		transport writeMessage: (Dictionary new
+			at: 'jsonrpc' put: '2.0';
+			at: 'id' put: id;
+			at: 'result' put: Dictionary new;
+			yourself).
 		^ self ]
 ]
 
