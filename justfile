@@ -44,38 +44,14 @@ build:
     @echo "unimplemented: build -- reserved for the distributable-image recipe. Use \`just install\` or \`just rebuild-mcp\` instead." >&2
     @exit 1
 
-# Rebuild every arm64-darwin tree-sitter dylib under lib/tree-sitter/.
-# Clones each upstream at its pinned tag into $TS_WORK_DIR (default:
-# ~/Documents/tree-sitter-libraries, matching the Evref-BL binding's
-# auto-build location so existing clones are reused), runs `make`,
-# and copies the resulting dylibs into lib/tree-sitter/arm64-darwin/.
-# Not invoked by `install` or `rebuild*` -- those use the vendored
-# binaries. Run this only when bumping a pinned grammar.
+# Force-rebuild every tree-sitter shared library for the current
+# platform (arm64-darwin, x86_64-darwin, x86_64-linux, aarch64-linux).
+# Delegates to bin/build-dylibs with --force so sources/ and the
+# current-platform output dir are wiped first. install.sh auto-runs
+# the same script (without --force) when outputs are missing, so this
+# recipe is only needed after bumping a pinned grammar tag.
 rebuild-dylibs:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    WORK="${TS_WORK_DIR:-$HOME/Documents/tree-sitter-libraries}"
-    VENDOR="$(pwd)/lib/tree-sitter/arm64-darwin"
-    mkdir -p "$WORK" "$VENDOR"
-    clone_and_make() {
-        local name="$1" tag="$2" url="$3"
-        local dir="$WORK/$name"
-        if [ ! -d "$dir" ]; then
-            git clone --depth 1 --branch "$tag" "$url" "$dir"
-        fi
-        make -C "$dir"
-    }
-    clone_and_make tree-sitter            v0.26.8 https://github.com/tree-sitter/tree-sitter.git
-    clone_and_make tree-sitter-typescript v0.23.2 https://github.com/tree-sitter/tree-sitter-typescript.git
-    clone_and_make tree-sitter-css        v0.25.0 https://github.com/tree-sitter/tree-sitter-css.git
-    clone_and_make tree-sitter-javascript v0.25.0 https://github.com/tree-sitter/tree-sitter-javascript.git
-    cp "$WORK/tree-sitter/libtree-sitter.dylib"                              "$VENDOR/"
-    cp "$WORK/tree-sitter-typescript/typescript/libtree-sitter-typescript.dylib" "$VENDOR/"
-    cp "$WORK/tree-sitter-typescript/tsx/libtree-sitter-tsx.dylib"           "$VENDOR/"
-    cp "$WORK/tree-sitter-css/libtree-sitter-css.dylib"                      "$VENDOR/"
-    cp "$WORK/tree-sitter-javascript/libtree-sitter-javascript.dylib"        "$VENDOR/"
-    echo "==> Vendored dylibs (drift check: should all read 'arm64'):"
-    (cd "$VENDOR" && file *.dylib)
+    ./bin/build-dylibs --force
 
 # Run SUnit tests in every SmallChat-* package; exits non-zero on any failure or error.
 # Always rebuilds the verifier image first so the run reflects on-disk src/.

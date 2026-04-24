@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Build the vendored tree-sitter shared libraries for the current
+# platform.
+#
+# Each upstream is cloned at a pinned tag into lib/tree-sitter/sources/
+# (gitignored), built with `make`, and the resulting shared libraries
+# are copied into lib/tree-sitter/<platform>/ where <platform> derives
+# from `uname -s`/`uname -m`:
+#
+#   Darwin arm64   -> arm64-darwin   (*.dylib)
+#   Darwin x86_64  -> x86_64-darwin  (*.dylib)
+#   Linux  x86_64  -> x86_64-linux   (*.so)
+#   Linux  aarch64 -> aarch64-linux  (*.so)
+#
+# Invoked by install.sh when the current-platform outputs are missing,
+# and by `just rebuild-dylibs` unconditionally. Pass --force to wipe
+# sources/ and the current-platform output dir before building so a
+# bumped tag below actually takes effect.
+
+set -euo pipefail
+
+REPO="$(cd "$(dirname "$0")/.." && pwd -P)"
+TS_ROOT="$REPO/lib/tree-sitter"
+SOURCES="$TS_ROOT/sources"
+
+FORCE=0
+for arg in "$@"; do
+    case "$arg" in
+        --force) FORCE=1 ;;
+        -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
+        *) echo "Unknown arg: $arg" >&2; exit 1 ;;
+    esac
+done
+
+OS="$(uname -s)"
+ARCH="$(uname -m)"
+case "$OS-$ARCH" in
+    Darwin-arm64)  PLATFORM=arm64-darwin;  EXT=dylib ;;
+    Darwin-x86_64) PLATFORM=x86_64-darwin; EXT=dylib ;;
+    Linux-x86_64)  PLATFORM=x86_64-linux;  EXT=so ;;
+    Linux-aarch64) PLATFORM=aarch64-linux; EXT=so ;;
+    *) echo "Unsupported platform: $OS $ARCH" >&2; exit 1 ;;
+esac
+
+OUT="$TS_ROOT/$PLATFORM"
+
+if [ "$FORCE" -eq 1 ]; then
+    echo "==> --force: wiping $SOURCES and $OUT"
+    rm -rf "$SOURCES" "$OUT"
+fi
+mkdir -p "$SOURCES" "$OUT"
+
+# Pinned upstreams. Bump a tag here and rerun with --force to refresh.
+# Keep the table in lib/tree-sitter/README.md in sync (SHAs documented
+# there for drift-check).
+TS_CORE_TAG=v0.26.8
+TS_TYPESCRIPT_TAG=v0.23.2
+TS_CSS_TAG=v0.25.0
+TS_JAVASCRIPT_TAG=v0.25.0
+
+clone_and_make() {
+    local name="$1" tag="$2" url="$3"
+    local dir="$SOURCES/$name"
+    if [ ! -d "$dir" ]; then
+        git clone --depth 1 --branch "$tag" "$url" "$dir"
+    fi
+    make -C "$dir"
+}
+
+clone_and_make tree-sitter            "$TS_CORE_TAG"       https://github.com/tree-sitter/tree-sitter.git
+clone_and_make tree-sitter-typescript "$TS_TYPESCRIPT_TAG" https://github.com/tree-sitter/tree-sitter-typescript.git
+clone_and_make tree-sitter-css        "$TS_CSS_TAG"        https://github.com/tree-sitter/tree-sitter-css.git
+clone_and_make tree-sitter-javascript "$TS_JAVASCRIPT_TAG" https://github.com/tree-sitter/tree-sitter-javascript.git
+
+cp "$SOURCES/tree-sitter/libtree-sitter.$EXT"                                  "$OUT/"
+cp "$SOURCES/tree-sitter-typescript/typescript/libtree-sitter-typescript.$EXT" "$OUT/"
+cp "$SOURCES/tree-sitter-typescript/tsx/libtree-sitter-tsx.$EXT"               "$OUT/"
+cp "$SOURCES/tree-sitter-css/libtree-sitter-css.$EXT"                          "$OUT/"
+cp "$SOURCES/tree-sitter-javascript/libtree-sitter-javascript.$EXT"            "$OUT/"
+
+echo "==> Built tree-sitter libraries for $PLATFORM (drift check):"
+(cd "$OUT" && file *."$EXT")
