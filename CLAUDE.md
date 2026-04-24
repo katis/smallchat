@@ -133,6 +133,46 @@ Registry safety rails:
   up-front for long cycles.
 - `debug_terminate` always kills the parked process — never leak.
 
+### Stray UI debugger windows
+
+Exceptions raised *outside* the `SmallChatDebugEvaluator` fork — on
+the Morphic UI process, on user-spawned `[...] fork` blocks, inside
+`UIManager default defer: [...]`, or from Morphic step methods — are
+not captured. Pharo's default debug-request path opens an `StDebugger`
+window on the UI process, which sits there waiting on a human who
+isn't present. These windows are **invisible to `debug_sessions`**
+and cannot be inspected via the `debug_*` tools.
+
+`SmallChatToolRegistry` detects them and prepends a warning to every
+tool reply:
+
+    [smallchat: N stray Pharo UI debugger window(s) open -- these
+    block the dev image's UI process. Dismiss via:
+    SmallChatDebuggerWatch closeAll]
+
+When you see this prefix:
+
+1. **Don't ignore it.** Stray debuggers pile up, consume UI-process
+   cycles, and make `World imageForm` screenshots noisy or useless.
+2. **Inspect first if the underlying error matters.**
+   - `evaluate 'SmallChatDebuggerWatch openWindows'` — list descriptors
+     (`modelClass` / `presenterClass` / `title`).
+   - Screenshot `World imageForm` to read the stack from pixels.
+   - These debuggers are **not** on the `SmallChatDebugSessionRegistry`,
+     so `debug_stack` / `debug_frame` / `debug_evaluate` won't work on
+     them.
+3. **Reproduce under evaluator control** if you need a real debug
+   session. Identify the code path that raised, call it through
+   `evaluate` (not `fork`, not `UIManager defer:`), and the exception
+   will land in a captured session the `debug_*` tools can drive.
+4. **Dismiss** once you're done:
+   `evaluate 'SmallChatDebuggerWatch closeAll'`. Returns the number
+   of windows dismissed.
+
+The warning is the only channel — the MCP reader never blocks on the
+UI process, so without reading the prefix you'd never know debuggers
+accumulated.
+
 ## Development methodology: Red-Green TDD
 
 All behaviour changes follow strict Red-Green-Refactor TDD. No
