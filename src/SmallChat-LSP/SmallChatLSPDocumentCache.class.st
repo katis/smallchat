@@ -42,6 +42,15 @@ SmallChatLSPDocumentCache >> languageIdOf: aUri [
 	^ (entries at: aUri) at: 'languageId'
 ]
 
+{ #category : 'accessing' }
+SmallChatLSPDocumentCache >> mustBeOpen: aUri [
+	"Pre-flight check for anything that needs to consult cached text/version.
+	 Raises SmallChatLSPDocumentNotOpen otherwise."
+	(self isOpen: aUri) ifFalse: [
+		SmallChatLSPDocumentNotOpen signal: 'URI not open: ' , aUri ].
+	^ self
+]
+
 { #category : 'lifecycle' }
 SmallChatLSPDocumentCache >> openUri: aUri languageId: aLanguageId text: aString [
 	"Register aUri in the cache at version 1 with the given languageId/text.

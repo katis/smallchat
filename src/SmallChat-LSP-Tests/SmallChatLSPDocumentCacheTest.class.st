@@ -33,6 +33,17 @@ SmallChatLSPDocumentCacheTest >> testCloseUriRemovesEntry [
 ]
 
 { #category : 'tests - cache' }
+SmallChatLSPDocumentCacheTest >> testMustBeOpenRaisesForUnknownUri [
+	| cache |
+	cache := SmallChatLSPDocumentCache new.
+	self should: [ cache mustBeOpen: 'file:///missing.ts' ]
+		raise: SmallChatLSPDocumentNotOpen.
+	cache openUri: 'file:///ok.ts' languageId: 'typescript' text: ''.
+	"Must not raise for an open URI."
+	cache mustBeOpen: 'file:///ok.ts'
+]
+
+{ #category : 'tests - cache' }
 SmallChatLSPDocumentCacheTest >> testOpenUriRecordsVersionOneAndText [
 	"openUri:languageId:text: registers a new URI at version 1 with the given
 	 text and languageId."
