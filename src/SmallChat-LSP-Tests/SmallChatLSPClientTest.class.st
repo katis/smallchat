@@ -280,3 +280,23 @@ SmallChatLSPClientTest >> testServerRequestAutoRepliesWithEmptyResult [
 	self assert: (reply at: 'id') equals: 99.
 	self assert: ((reply at: 'result') = Dictionary new)
 ]
+
+{ #category : 'tests - lifecycle' }
+SmallChatLSPClientTest >> testShutdownHookTerminatesActiveTransports [
+	"SmallChatLSPClient class>>shutDown: walks the set of clients that have
+	 marked themselves active and asks each to shut down. The stub transport
+	 records whether its #shutdown was invoked."
+	| stub1 stub2 c1 c2 |
+	stub1 := SmallChatLSPStubTransport new.
+	stub2 := SmallChatLSPStubTransport new.
+	c1 := SmallChatLSPClient new transport: stub1.
+	c2 := SmallChatLSPClient new transport: stub2.
+	c1 markActive.
+	c2 markActive.
+	self assert: (SmallChatLSPClient activeClients includes: c1).
+	self assert: (SmallChatLSPClient activeClients includes: c2).
+	SmallChatLSPClient shutDown: true.
+	self assert: stub1 shutdownCalled.
+	self assert: stub2 shutdownCalled.
+	self assert: SmallChatLSPClient activeClients isEmpty
+]

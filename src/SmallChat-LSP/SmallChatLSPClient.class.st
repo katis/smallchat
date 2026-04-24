@@ -12,9 +12,37 @@ Class {
 		'running',
 		'readerProcess'
 	],
+	#classVars : [
+		'ActiveClients'
+	],
 	#category : 'SmallChat-LSP',
 	#package : 'SmallChat-LSP'
 }
+
+{ #category : 'lifecycle' }
+SmallChatLSPClient class >> activeClients [
+	"IdentitySet of clients that have marked themselves active. Lazily created."
+	^ ActiveClients ifNil: [ ActiveClients := IdentitySet new ]
+]
+
+{ #category : 'lifecycle' }
+SmallChatLSPClient class >> registerActive: aClient [
+	self activeClients add: aClient
+]
+
+{ #category : 'system startup' }
+SmallChatLSPClient class >> shutDown: isImageQuitting [
+	"SessionManager hook. Terminate every active client so their child
+	 processes do not leak across image quit/save."
+	ActiveClients ifNil: [ ^ self ].
+	ActiveClients copy do: [ :c |
+		[ c shutdown ] on: Error do: [ :_ | nil ] ]
+]
+
+{ #category : 'lifecycle' }
+SmallChatLSPClient class >> unregisterActive: aClient [
+	ActiveClients ifNotNil: [ ActiveClients remove: aClient ifAbsent: [ nil ] ]
+]
 
 { #category : 'safety' }
 SmallChatLSPClient >> assertNotOnUIProcess [
@@ -133,6 +161,19 @@ SmallChatLSPClient >> initialized [
 	^ initialized == true
 ]
 
+{ #category : 'lifecycle' }
+SmallChatLSPClient >> markActive [
+	"Register self so SessionManager>>shutDown: can tear us down on image exit."
+	self class registerActive: self.
+	^ self
+]
+
+{ #category : 'lifecycle' }
+SmallChatLSPClient >> markInactive [
+	self class unregisterActive: self.
+	^ self
+]
+
 { #category : 'dispatch' }
 SmallChatLSPClient >> onNotification: aMethodName do: aBlock [
 	"Register a handler for inbound notifications with the given method. The
@@ -213,6 +254,18 @@ SmallChatLSPClient >> sendNotification: aMethodName params: aParamsDictionary [
 { #category : 'accessing' }
 SmallChatLSPClient >> serverCapabilities [
 	^ serverCapabilities
+]
+
+{ #category : 'lifecycle' }
+SmallChatLSPClient >> shutdown [
+	"Stop the reader, shut down the transport (if it supports it), and drop
+	 out of the active-clients set. Safe to call multiple times."
+	[ self stopReader ] on: Error do: [ :_ | nil ].
+	transport ifNotNil: [
+		(transport respondsTo: #shutdown) ifTrue: [
+			[ transport shutdown ] on: Error do: [ :_ | nil ] ] ].
+	self markInactive.
+	^ self
 ]
 
 { #category : 'lifecycle' }

@@ -3,7 +3,8 @@ Class {
 	#superclass : 'Object',
 	#instVars : [
 		'incoming',
-		'sent'
+		'sent',
+		'shutdownCalled'
 	],
 	#category : 'SmallChat-LSP',
 	#package : 'SmallChat-LSP'
@@ -35,6 +36,18 @@ SmallChatLSPStubTransport >> readMessage [
 SmallChatLSPStubTransport >> sentMessages [
 	"Every message writeMessage: has seen, in write order."
 	^ sent
+]
+
+{ #category : 'lifecycle' }
+SmallChatLSPStubTransport >> shutdown [
+	"No-op apart from flipping a flag so tests can verify the SessionManager
+	 teardown hook reached here."
+	shutdownCalled := true
+]
+
+{ #category : 'accessing' }
+SmallChatLSPStubTransport >> shutdownCalled [
+	^ shutdownCalled == true
 ]
 
 { #category : 'writing' }
