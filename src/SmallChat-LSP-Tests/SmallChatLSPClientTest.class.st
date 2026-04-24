@@ -6,6 +6,26 @@ Class {
 }
 
 { #category : 'tests - correlation' }
+SmallChatLSPClientTest >> testCancelEmitsCancelNotificationAndRaises [
+	"pending cancel writes a $/cancelRequest notification to the transport
+	 and causes subsequent #result calls to raise SmallChatLSPCancelledError."
+	| stub client pending ex cancelMsg |
+	stub := SmallChatLSPStubTransport new.
+	client := SmallChatLSPClient new transport: stub.
+	pending := client requestAsync: (Dictionary new at: 'method' put: 'references'; yourself).
+	pending cancel.
+	"Two messages now on the wire: the original request and the cancel notification."
+	self assert: stub sentMessages size equals: 2.
+	cancelMsg := stub sentMessages second.
+	self assert: (cancelMsg at: 'method') equals: '$/cancelRequest'.
+	self assert: ((cancelMsg at: 'params') at: 'id') equals: pending id.
+	ex := [ pending result. nil ]
+		on: SmallChatLSPCancelledError
+		do: [ :e | e ].
+	self assert: ex notNil
+]
+
+{ #category : 'tests - correlation' }
 SmallChatLSPClientTest >> testErrorResponseRaisesOnResult [
 	"When the server responds with error instead of result, #result raises
 	 SmallChatLSPServerError carrying the code and message."

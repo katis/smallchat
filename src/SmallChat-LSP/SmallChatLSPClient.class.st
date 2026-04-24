@@ -11,6 +11,22 @@ Class {
 	#package : 'SmallChat-LSP'
 }
 
+{ #category : 'requests' }
+SmallChatLSPClient >> cancelPending: aPending [
+	"Emit $/cancelRequest for aPending's id and resolve the pending with a
+	 SmallChatLSPCancelledError. No-op if the pending has already resolved."
+	| id |
+	aPending isResolved ifTrue: [ ^ self ].
+	id := aPending id.
+	pending removeKey: id ifAbsent: [ nil ].
+	transport writeMessage: (Dictionary new
+		at: 'jsonrpc' put: '2.0';
+		at: 'method' put: '$/cancelRequest';
+		at: 'params' put: (Dictionary new at: 'id' put: id; yourself);
+		yourself).
+	aPending resolveWithError: (SmallChatLSPCancelledError new messageText: 'LSP request cancelled')
+]
+
 { #category : 'initialization' }
 SmallChatLSPClient >> initialize [
 	super initialize.
@@ -77,7 +93,7 @@ SmallChatLSPClient >> requestAsync: aRequestDictionary [
 		at: 'id' put: id;
 		yourself.
 	aRequestDictionary keysAndValuesDo: [ :k :v | envelope at: k put: v ].
-	p := SmallChatLSPPendingRequest new id: id.
+	p := SmallChatLSPPendingRequest new id: id; client: self; yourself.
 	pending at: id put: p.
 	transport writeMessage: envelope.
 	^ p

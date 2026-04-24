@@ -6,11 +6,26 @@ Class {
 		'semaphore',
 		'resolvedResult',
 		'resolved',
-		'resolvedError'
+		'resolvedError',
+		'client'
 	],
 	#category : 'SmallChat-LSP',
 	#package : 'SmallChat-LSP'
 }
+
+{ #category : 'resolution' }
+SmallChatLSPPendingRequest >> cancel [
+	"Ask the client to emit $/cancelRequest for this pending and resolve with a
+	 SmallChatLSPCancelledError. Safe to call after the pending has resolved
+	 (the client no-ops)."
+	client ifNotNil: [ client cancelPending: self ]
+]
+
+{ #category : 'accessing' }
+SmallChatLSPPendingRequest >> client: aClient [
+	client := aClient.
+	^ self
+]
 
 { #category : 'accessing' }
 SmallChatLSPPendingRequest >> id [
@@ -30,6 +45,11 @@ SmallChatLSPPendingRequest >> initialize [
 	resolved := false
 ]
 
+{ #category : 'accessing' }
+SmallChatLSPPendingRequest >> isResolved [
+	^ resolved == true
+]
+
 { #category : 'resolution' }
 SmallChatLSPPendingRequest >> resolveWith: aResult [
 	"Called by the client on the reader path when a matching response arrives.
@@ -41,8 +61,8 @@ SmallChatLSPPendingRequest >> resolveWith: aResult [
 
 { #category : 'resolution' }
 SmallChatLSPPendingRequest >> resolveWithError: aServerError [
-	"Called by the client when a response contains error instead of result.
-	 Stores the error; #result will raise it when the caller unblocks."
+	"Idempotent -- callers may race; the first completion wins."
+	resolved ifTrue: [ ^ self ].
 	resolvedError := aServerError.
 	resolved := true.
 	semaphore signal
