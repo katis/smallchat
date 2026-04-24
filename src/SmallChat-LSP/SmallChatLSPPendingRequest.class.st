@@ -7,7 +7,8 @@ Class {
 		'resolvedResult',
 		'resolved',
 		'resolvedError',
-		'client'
+		'client',
+		'onResolveBlock'
 	],
 	#category : 'SmallChat-LSP',
 	#package : 'SmallChat-LSP'
@@ -51,11 +52,23 @@ SmallChatLSPPendingRequest >> isResolved [
 ]
 
 { #category : 'resolution' }
+SmallChatLSPPendingRequest >> onResolve: aBlock [
+	"Invoke aBlock with the result when the pending resolves successfully.
+	 If already resolved, invokes synchronously. Errors/cancel do not fire the
+	 callback."
+	onResolveBlock := aBlock.
+	(resolved and: [ resolvedError isNil ]) ifTrue: [ aBlock value: resolvedResult ].
+	^ self
+]
+
+{ #category : 'resolution' }
 SmallChatLSPPendingRequest >> resolveWith: aResult [
-	"Called by the client on the reader path when a matching response arrives.
-	 Stores the response's result payload and unblocks any caller sitting on #result."
+	"Called by the client on the reader path when a matching success response
+	 arrives. Stores the result and unblocks any caller sitting on #result."
+	resolved ifTrue: [ ^ self ].
 	resolvedResult := aResult.
 	resolved := true.
+	onResolveBlock ifNotNil: [ onResolveBlock value: aResult ].
 	semaphore signal
 ]
 

@@ -6,7 +6,9 @@ Class {
 		'nextId',
 		'pending',
 		'notificationHandlers',
-		'documentCache'
+		'documentCache',
+		'initialized',
+		'serverCapabilities'
 	],
 	#category : 'SmallChat-LSP',
 	#package : 'SmallChat-LSP'
@@ -69,7 +71,30 @@ SmallChatLSPClient >> initialize [
 	nextId := 0.
 	pending := Dictionary new.
 	notificationHandlers := Dictionary new.
-	documentCache := SmallChatLSPDocumentCache new
+	documentCache := SmallChatLSPDocumentCache new.
+	initialized := false
+]
+
+{ #category : 'initialize' }
+SmallChatLSPClient >> initializeAsync: aParamsDictionary [
+	"Send an LSP initialize request. Returns the pending; the caller pumps
+	 until it resolves. On success, the client stores parsed capabilities and
+	 flips #initialized. The LSP-spec `initialized` notification is then sent."
+	| p |
+	p := self requestAsync: (Dictionary new
+		at: 'method' put: 'initialize';
+		at: 'params' put: aParamsDictionary;
+		yourself).
+	p onResolve: [ :result |
+		serverCapabilities := SmallChatLSPServerCapabilities fromInitializeResult: result.
+		initialized := true.
+		self sendNotification: 'initialized' params: Dictionary new ].
+	^ p
+]
+
+{ #category : 'accessing' }
+SmallChatLSPClient >> initialized [
+	^ initialized == true
 ]
 
 { #category : 'dispatch' }
@@ -175,6 +200,11 @@ SmallChatLSPClient >> sendNotification: aMethodName params: aParamsDictionary [
 		at: 'params' put: aParamsDictionary;
 		yourself).
 	^ self
+]
+
+{ #category : 'accessing' }
+SmallChatLSPClient >> serverCapabilities [
+	^ serverCapabilities
 ]
 
 { #category : 'accessing' }

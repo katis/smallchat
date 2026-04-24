@@ -73,6 +73,33 @@ SmallChatLSPClientTest >> testErrorResponseRaisesOnResult [
 	self assert: ex messageText equals: 'internal server error'
 ]
 
+{ #category : 'tests - initialize' }
+SmallChatLSPClientTest >> testInitializeRoundTripPopulatesCapabilities [
+	"initializeAsync: sends the initialize request, returns a pending, and
+	 transitions client state once the response arrives via pumpOneMessage."
+	| stub client initResult pending |
+	stub := SmallChatLSPStubTransport new.
+	client := SmallChatLSPClient new transport: stub.
+	self deny: client initialized.
+	self assert: client serverCapabilities isNil.
+	pending := client initializeAsync: (Dictionary new
+		at: 'rootUri' put: 'file:///tmp';
+		yourself).
+	initResult := Dictionary new
+		at: 'capabilities' put: (Dictionary new at: 'hoverProvider' put: true; yourself);
+		at: 'serverInfo' put: (Dictionary new at: 'name' put: 'tsgo'; yourself);
+		yourself.
+	stub enqueueServerMessage: (Dictionary new
+		at: 'jsonrpc' put: '2.0';
+		at: 'id' put: pending id;
+		at: 'result' put: initResult;
+		yourself).
+	client pumpOneMessage.
+	self assert: client initialized.
+	self assert: client serverCapabilities supportsHover.
+	self deny: client serverCapabilities supportsDefinition
+]
+
 { #category : 'tests - correlation' }
 SmallChatLSPClientTest >> testNotificationBeforeResponseStillResolvesPending [
 	"tsgo emits window/logMessage notifications before the initialize response.
