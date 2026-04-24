@@ -167,9 +167,6 @@ implementation pass — not a planning gate.
 
 ## Open questions
 
-- Exact FamixNG version and Pharo-13 compatibility. FamixNG moves
-  with Moose; we should pin a known-good Moose release and record
-  the pin in baseline. Resolve during the "load FamixNG" milestone.
 - Do we want a workspace/symbol-based whole-project index up
   front, or lazy file-by-file import? `workspace/symbol` is
   project-wide and fast once tsgo has indexed; use it once for
@@ -215,3 +212,72 @@ implementation pass — not a planning gate.
 - No reuse of fuhrmanator's `FamixTypeScriptImporter` /
   ts2famix. Our importer is the LSP.
 - No persistence across sessions (yet).
+
+## Spike S4 findings (2026-04-24)
+
+Pinned `moosetechnology/Famix` v1.2.0 (commit
+`e841ebfd10bb59a6b94e0d31e759486bf3cea911`, dated 2026-02-19) in
+`BaselineOfSmallChat`'s `dev` group, loading only the `Basic`
+baseline group. `just rebuild-mcp` against this pin completes
+cleanly in ~48 s on Pharo 13 and delivers a working
+`FamixMetamodelGenerator` DSL.
+
+- **Repo choice: Famix, not full Moose.** `moosetechnology/Famix`
+  carries the FamixNG generator DSL (`Famix-MetamodelGeneration`,
+  `Famix-MetamodelBuilder-Core`, `Moose-Core-Generator`,
+  `Famix-BasicInfrastructure`) without the visualisation stack
+  (Roassal / Mondrian). The `moosetechnology/Moose` superproject
+  pulls everything Famix does plus visualisation — rejected
+  because plan 03 §Non-goals already excludes dashboards. We can
+  always add the heavier baseline later if a refactoring ever
+  wants to render a model.
+- **Load group: `Basic`.** Baseline groups in `BaselineOfFamix`
+  (v1.2.0): `Core`, `Minimal`, `Basic`, `BasicTraits`,
+  `EntitiesJava`, `ModelJava`, `EntitiesSmalltalk`,
+  `ModelSmalltalk`, `Importers`, `TestModels`, `Tests`,
+  `TestsResources`. `Basic` is the narrowest group that contains
+  `Famix-MetamodelGeneration` and its builder — exactly what M2
+  needs. `BasicTraits` adds `Famix-Traits` (which carries
+  `FamixTFileAnchor` / `FamixTNamedEntity`); not loaded by
+  `Basic`, but our metamodel will likely need it — defer to M2
+  and widen the `loads:` then.
+- **Transitive deps that landed.** `Fame@development`
+  (`1c6ac4929707...`), `DeepTraverser v1.0.2`, `CollectionExtensions
+  v1.0.1`, `SingularizePluralize v1.1`, plus the Fame test chain
+  (Hashtable, StateSpecs, Ghost, Mocketry, Iterators, TreeQuery).
+  No version conflict with our existing `NeoJSON@master` or
+  `PharoBackwardCompatibility v1.14.0` (both already pulled by
+  TreeSitter). 44 `Famix*`/`Moose*` classes in the image after
+  rebuild.
+- **Generator DSL confirmed working.** Subclass
+  `FamixMetamodelGenerator`, declare entity-name iVars via
+  `addInstVarNamed:`, override class-side `packageName` and
+  `prefix` (prefix must be a valid Pharo identifier — using the
+  dashed package name breaks helper-class creation with
+  `InvalidGlobalName`). `defineClasses` uses
+  `builder newClassNamed: #EntityName`; `defineHierarchy` uses
+  `<iVar> --|> #TTraitName` (the trait must be resolvable in the
+  current metamodel or a loaded submetamodel — referring to
+  `#TNamedEntity` without the `Famix-Traits` submetamodel loaded
+  raises `FamixMetamodelGeneratorUnknownTrait`). A minimal
+  generator with one `newClassNamed: #DemoModule` emitted four
+  artifacts: the entity class, a metamodel-specific `Entity`
+  root (subclass of `MooseEntity`), a `Model` root (subclass of
+  `MooseModel` + `TEntityCreator` trait), and the trait itself.
+  `MooseEntity` / `MooseModel` globals are present.
+- **Known upstream rough edges noted for M2.**
+  - `TSFASTBuilder>>createMetamodelGeneratorClass` in TreeSitter-
+    FAST-Utils raises a `NewUndeclaredWarning` at load because
+    TreeSitter loads before Famix. `FamixMetamodelGenerator` is
+    present at runtime, so the late-binding path should work; if
+    it bites, recompile the method after Famix loads.
+  - `MooseModel>>detectEncodingOfAllFileAnchors` references
+    `FamixTFileAnchor` which isn't in the `Basic` load. Our
+    importer never walks that path; if it does later, widen to
+    `loads: #('Basic' 'BasicTraits')`.
+- **Pharo 13 ergonomics.** `'SmallChat-Scratch' asPackage` raises
+  `NotFound` in Pharo 13 when the package is absent; use
+  `PackageOrganizer default ensurePackage: 'X'` first. The
+  4-keyword `Object subclass:instanceVariableNames:...:package:`
+  is already known-gone per CLAUDE.md; use `addInstVarNamed:`
+  after `subclass:`.
