@@ -28,6 +28,26 @@ SmallChatLSPStdioTransportTest >> testReadDecodesSingleFrame [
 ]
 
 { #category : 'tests - framing' }
+SmallChatLSPStdioTransportTest >> testReadRaisesOnTruncatedFrame [
+	"A stream that EOFs in the middle of a frame is a protocol violation --
+	 readMessage must raise SmallChatLSPProtocolError so the reader loop can
+	 surface the condition rather than silently dropping a message."
+	| truncated transport |
+	truncated := 'Content-Length: 10' asByteArray.
+	transport := SmallChatLSPStdioTransport new input: (ReadStream on: truncated).
+	self should: [ transport readMessage ] raise: SmallChatLSPProtocolError
+]
+
+{ #category : 'tests - framing' }
+SmallChatLSPStdioTransportTest >> testReadReturnsNilOnCleanEof [
+	"readMessage on an empty/exhausted stream returns nil -- this signals
+	 end-of-stream between frames, distinct from a protocol error."
+	| transport |
+	transport := SmallChatLSPStdioTransport new input: (ReadStream on: #[]).
+	self assert: transport readMessage isNil
+]
+
+{ #category : 'tests - framing' }
 SmallChatLSPStdioTransportTest >> testReadTwoFramesReturnsBoth [
 	"Successive readMessage calls on a stream that holds two concatenated
 	 Content-Length frames each return the respective message."

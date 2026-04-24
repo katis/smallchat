@@ -22,22 +22,57 @@ SmallChatLSPStdioTransport >> output: aStream [
 ]
 
 { #category : 'reading' }
+SmallChatLSPStdioTransport >> parseContentLength: aHeaderString [
+	"Find the Content-Length header line (case-insensitive) and return its integer value."
+	| line |
+	line := aHeaderString lines detect: [ :l | l asLowercase trimBoth beginsWith: 'content-length:' ].
+	^ (line copyAfter: $:) trimBoth asInteger
+]
+
+{ #category : 'reading' }
+SmallChatLSPStdioTransport >> readBodyBytes: aLength [
+	"Read exactly aLength bytes from input; raise SmallChatLSPProtocolError if the
+	 stream EOFs before aLength bytes are delivered."
+	| body byte |
+	body := ByteArray new: aLength.
+	1 to: aLength do: [ :i |
+		byte := input next.
+		byte ifNil: [ SmallChatLSPProtocolError signal: 'EOF mid-body' ].
+		body at: i put: byte ].
+	^ body
+]
+
+{ #category : 'reading' }
+SmallChatLSPStdioTransport >> readHeaderBytes [
+	"Read bytes from input until \r\n\r\n. Returns the header bytes (including
+	 the terminator) as a ByteArray; returns nil if the stream EOFs before any
+	 byte was read (clean end-of-stream between frames); raises
+	 SmallChatLSPProtocolError if EOF arrives after one or more header bytes."
+	| buf byte |
+	buf := WriteStream on: (ByteArray new: 128).
+	[
+		byte := input next.
+		byte ifNil: [
+			^ buf position = 0
+				ifTrue: [ nil ]
+				ifFalse: [ SmallChatLSPProtocolError signal: 'EOF mid-header' ] ].
+		buf nextPut: byte.
+		(buf position >= 4
+			and: [ (buf originalContents copyFrom: buf position - 3 to: buf position) = #[13 10 13 10] ])
+	] whileFalse.
+	^ buf contents
+]
+
+{ #category : 'reading' }
 SmallChatLSPStdioTransport >> readMessage [
 	"Read one LSP-framed JSON-RPC message from input. Returns the parsed
-	 Dictionary. Assumes a well-formed frame and a stream that will not starve;
-	 EOF and partial-data handling arrive in later steps."
-	| buf byte contentLength body header lengthLine |
-	buf := WriteStream on: (ByteArray new: 128).
-	[ byte := input next.
-	  buf nextPut: byte.
-	  (buf position < 4) or: [
-		((buf originalContents copyFrom: buf position - 3 to: buf position) ~= #[13 10 13 10]) ] ]
-		whileTrue.
-	header := buf contents utf8Decoded.
-	lengthLine := header lines detect: [ :l | l asLowercase trimBoth beginsWith: 'content-length:' ].
-	contentLength := (lengthLine copyAfter: $:) trimBoth asInteger.
-	body := ByteArray new: contentLength.
-	1 to: contentLength do: [ :i | body at: i put: input next ].
+	 Dictionary, or nil on clean EOF between frames. Raises
+	 SmallChatLSPProtocolError if EOF arrives mid-header or mid-body."
+	| headerBytes contentLength body |
+	headerBytes := self readHeaderBytes.
+	headerBytes ifNil: [ ^ nil ].
+	contentLength := self parseContentLength: headerBytes utf8Decoded.
+	body := self readBodyBytes: contentLength.
 	^ STONJSON fromString: body utf8Decoded
 ]
 
