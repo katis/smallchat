@@ -7,6 +7,13 @@ PharoDebug.log
 # Fuel dumps from SUnit runs on failing tests
 *.fuel
 
+# tree-sitter vendored sources + per-platform shared libraries. Built
+# on demand by bin/build-dylibs; staged into the VM Plugins dir by
+# install.sh. Never committed.
+lib/tree-sitter/sources/
+lib/tree-sitter/*/*.dylib
+lib/tree-sitter/*/*.so
+
 # macOS
 .DS_Store
 

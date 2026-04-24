@@ -71,19 +71,37 @@ else
     echo "==> VM and seed image already present; skipping download"
 fi
 
-# Stage vendored tree-sitter dylibs into the VM's Plugins dir where
-# FFIMacLibraryFinder discovers them. Rerun-safe: overwrites existing.
+# Stage tree-sitter shared libraries into the VM's Plugins dir where
+# FFIMacLibraryFinder discovers them. Per-platform outputs live under
+# lib/tree-sitter/<platform>/ (gitignored); missing ones get built
+# on-demand by bin/build-dylibs. Rerun-safe: overwrites existing.
 # The dev image uses TreeSitter at FFI call time; the verifier image
 # doesn't load the binding but the copy is cheap and keeps the two
 # flavours in sync.
-DYLIB_SRC="$REPO/lib/tree-sitter/arm64-darwin"
-DYLIB_DST="$VM_DIR/Pharo.app/Contents/MacOS/Plugins"
-if [ -d "$DYLIB_SRC" ] && [ -d "$DYLIB_DST" ]; then
-    echo "==> Copying tree-sitter dylibs into $DYLIB_DST"
-    for dylib in "$DYLIB_SRC"/*.dylib; do
-        [ -f "$dylib" ] || continue
-        cp "$dylib" "$DYLIB_DST/"
-    done
+OS="$(uname -s)"; ARCH="$(uname -m)"
+case "$OS-$ARCH" in
+    Darwin-arm64)  TS_PLATFORM=arm64-darwin;  TS_EXT=dylib ;;
+    Darwin-x86_64) TS_PLATFORM=x86_64-darwin; TS_EXT=dylib ;;
+    Linux-x86_64)  TS_PLATFORM=x86_64-linux;  TS_EXT=so ;;
+    Linux-aarch64) TS_PLATFORM=aarch64-linux; TS_EXT=so ;;
+    *)             TS_PLATFORM=""; TS_EXT="" ;;
+esac
+if [ -n "$TS_PLATFORM" ]; then
+    TS_OUT="$REPO/lib/tree-sitter/$TS_PLATFORM"
+    mkdir -p "$TS_OUT"
+    present=$(find "$TS_OUT" -maxdepth 1 -name "*.$TS_EXT" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$present" -lt 5 ]; then
+        echo "==> Building tree-sitter libraries for $TS_PLATFORM ($present/5 present)"
+        "$REPO/bin/build-dylibs"
+    fi
+    DYLIB_DST="$VM_DIR/Pharo.app/Contents/MacOS/Plugins"
+    if [ -d "$DYLIB_DST" ]; then
+        echo "==> Copying tree-sitter libraries from $TS_OUT to $DYLIB_DST"
+        for lib in "$TS_OUT"/*."$TS_EXT"; do
+            [ -f "$lib" ] || continue
+            cp "$lib" "$DYLIB_DST/"
+        done
+    fi
 fi
 
 if [ "$REBUILD" -eq 1 ] || [ ! -f "$IMAGE" ]; then
