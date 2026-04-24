@@ -64,3 +64,18 @@ SmallChatLSPSmokeTest >> testInitializeHandshakeRoundTripsAgainstTsgo [
 		client ifNotNil: [ client stopReader ].
 		transport shutdown ]
 ]
+
+{ #category : 'tests - live' }
+SmallChatLSPSmokeTest >> testShutdownExitsTsgoCleanly [
+	"After #shutdown, the spawned tsgo process must be gone -- stdin-close is
+	 tsgo's clean-exit signal (Spike S1); if that failed, SIGTERM covers the
+	 tail. Verified via the original OSSubprocess handle's isRunning flag."
+	| root transport proc |
+	root := self class workspaceRootForTsgo.
+	transport := SmallChatLSPStdioTransport new launchTsgoAt: root.
+	proc := transport instVarNamed: 'process'.
+	self assert: proc isRunning.
+	transport shutdown.
+	self deny: proc isRunning.
+	self assert: (transport instVarNamed: 'process') isNil
+]
