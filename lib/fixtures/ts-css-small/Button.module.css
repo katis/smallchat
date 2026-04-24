@@ -1,0 +1,14 @@
+.primary {
+  background: royalblue;
+  color: white;
+}
+
+.secondary {
+  background: lightgray;
+  color: black;
+}
+
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

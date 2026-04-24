@@ -281,3 +281,157 @@ cleanly in ~48 s on Pharo 13 and delivers a working
   4-keyword `Object subclass:instanceVariableNames:...:package:`
   is already known-gone per CLAUDE.md; use `addInstVarNamed:`
   after `subclass:`.
+
+## Spike S6 findings (2026-04-24)
+
+Drove an end-to-end LSP -> Famix-shape dry-run against
+`/Users/katis/code/juba` (SolidJS 1.9 + TanStack Start + Tailwind
+v4, no CSS Modules). The CSS-Modules bridge ran separately against
+a 3-file synthetic fixture at `lib/fixtures/ts-css-small/`. Probe
+was scripted entirely via `evaluate` in a throwaway
+`SmallChat-Scratch-S6` package (torn down after the run — M2 ships
+the real `SmallChat-TreeSitter` / `SmallChat-LSP` surface).
+Feasibility confirmed; seven concrete adjustments fall out.
+
+- **Working set.** 141 files after filtering (`61 .ts` +
+  `80 .tsx`) from 169 total; skipped 2 `.d.ts`, 1 `.gen.ts`, 14
+  `.test.ts`, 11 `.test.tsx`. Roughly 3x the S6 spec's "~50 files"
+  target — doubled as a population stress test.
+- **tsgo handshake.** 22 ms from `initialize` send to response on
+  a warm juba project (tsgo already indexed). Direct binary path
+  `node_modules/.pnpm/@typescript+native-preview-darwin-arm64@.../
+  lib/tsgo` per S1 guidance; `npx` wrapper still breaks stdin.
+- **Reader must answer server-initiated requests, not just
+  notifications.** tsgo sends `client/registerCapability` as a
+  JSON-RPC request (has `id` *and* `method`) during startup and
+  **blocks all further server work** until the client responds. A
+  naive "anything with `method` is a notification" classifier
+  deadlocks everything — our first 5 `textDocument/documentSymbol`
+  calls all timed out at 15 s for this reason. **Plan 01
+  adjustment:** the framing/correlation layer must distinguish
+  (id + method) = server request, (method, no id) = notification,
+  (id, no method) = response. Auto-reply to unknown server
+  requests with an empty success `{ result: null }` so the reader
+  never wedges. Applies to `workspace/configuration`,
+  `window/workDoneProgress/create`, and `window/showMessageRequest`
+  as well.
+- **tsgo log volume is extreme.** 465 `window/logMessage`
+  notifications across the 605 LSP ops we issued (~3 per op).
+  Nothing else (no `publishDiagnostics` after the first batch, no
+  `$/progress`). **Plan 01 adjustment:** drop `window/logMessage`
+  at the transport layer unless a debug flag is set — do not
+  STONJSON-parse them, do not cons a Dictionary. A 1-line
+  substring match (`"method":"window/logMessage"`) before parse
+  saves 465 allocations per project open.
+- **documentSymbol latency and shape.** 141 files in 1.8 s total;
+  p50 13 ms, p95 22 ms, p99 37 ms, max 40 ms. Zero failed files.
+  Hierarchical `SymbolKind` distribution across the project:
+
+    Variable 2061 | Property 1415 | Function 754 | Method 141
+    Class 82     | Interface 45  | Constructor 6 | Namespace 1
+
+  The 13-class inventory maps 6 of these 8 kinds cleanly
+  (`Class` / `Interface` / `Function` / `Method` + `Constructor`
+  -> a method-with-flag, `Namespace` -> deferred / rare). **Two
+  gaps to decide in M2:**
+  - `Property` (1415). Fires on class fields, interface members,
+    object-literal keys, type-literal members. Fold into a new
+    `SmallChatFamixField` entity (or attach as trait on
+    `Class` / `Interface`). 14-class inventory, not 13.
+  - `Variable` (2061). `documentSymbol` lumps top-level
+    `const X = 5`, `const X = (...) => <jsx/>`, `let state`, and
+    every `for (const x of ...)` binding under one kind. Need a
+    tree-sitter post-filter on each Variable to split
+    `JSXComponent` from `ModuleConstant` from
+    `non-interesting-scoped-binding` — the Famix entity count
+    for Variables is **not** 2061 once filtered; the 37 const-
+    arrow components we detected independently are the real
+    signal (see JSX row). **Recommendation:** don't create Famix
+    entities from `SymbolKind=Variable`; use tree-sitter's top-
+    level `variable_declarator` walk as the authoritative source
+    for JSXComponent + a new (optional) `ModuleConstant` entity.
+- **Import resolution via `textDocument/definition`.** 464 imports
+  across 125 files resolved in 5.9 s; p50 12 ms, p95 16 ms, p99
+  18 ms, max 49 ms. Classification:
+  - `src/`-local: 248 (53%) — **100% of these used the `~/*`
+    tsconfig-paths alias; juba has zero relative `./…` imports
+    between src files.** tsgo resolves aliases via tsconfig
+    transparently; plan 03 assumption holds.
+  - `node_modules/`: 193 (42%).
+  - Other: 23 (5%) — all `cloudflare:workers` virtual-module
+    specifiers, resolved to `worker-configuration.d.ts` at the
+    project root (outside `src/`). Legitimate; importer should
+    add a fourth classification bucket `virtual-module` and not
+    treat project-root resolutions as errors.
+  - Unresolved: 0.
+- **`.ts` parses cleanly under the TSX grammar.** Confirmed on an
+  18 KB `.ts` file (`ChatRoom.ts`): 2605 nodes, zero ERROR nodes.
+  **Plan 02 resolution:** close the open question "use TSX for
+  `.jsx`?" — the TSX grammar is a strict superset of plain TS in
+  practice, so `.ts` / `.tsx` can share one parser instance. One
+  fewer grammar singleton to wire up in M2.
+- **JSX-component detection (Solid).** 91 components across 76 of
+  80 TSX files (95%), split 54 function declarations / 37 const-
+  arrow `variable_declarator`s / 0 method-returns-jsx. The
+  "function or const-arrow returning `jsx_element` /
+  `jsx_self_closing_element` / `jsx_fragment`" heuristic works
+  for plain Solid as-is — Solid's `<For>` / `<Show>` / `<Dynamic>`
+  tags parse as ordinary JSX elements, no framework-specific
+  AST. **Gap: TanStack Start route files** (3 files in juba)
+  declare components nested in a call argument:
+
+    export const Route = createFileRoute("/_authed")({
+      component: () => <Outlet />,  // missed
+    });
+
+  The arrow lives under `call_expression > arguments > object >
+  pair > arrow_function`, not at the top level. Widen M3's
+  component heuristic to also walk `pair` / `property` values
+  whose key is `component` and whose value is an arrow returning
+  JSX. One more file (`router.tsx`) has no JSX at all and is
+  correctly skipped — the factory `getRouter()` returns a router
+  config, not an element.
+- **CSS-Modules bridge (fixture).** 3 `CSSClass` from
+  `Button.module.css` (`primary`, `secondary`, `disabled`); 2
+  resolved `CSSClassReference` from `Button.tsx` and 1
+  unresolved-with-flag from `Bad.tsx`. Exact expected outcome.
+  Implementation walks `class_selector > class_name` nodes in
+  tree-sitter-css, matches the default-import binding name
+  (`styles`) against tree-sitter-tsx `member_expression` nodes
+  with `object` = binding name. Works for typo detection
+  (`styles.doesNotExist`) by design.
+- **Entity totals** (on the 14-class inventory, Property + the
+  13 above): Project 1, Module 141, Class 82, Interface 45,
+  Function 754, Method 147, Property 1415, Import 464,
+  JSXComponent 91, CSSModuleFile 1, CSSClass 3,
+  CSSClassReference 3 — **5148 entities** across 141 files +
+  fixture. Average ~36 entities/file. Pharo VM RSS during the
+  probe: 289 MB. tsgo RSS: 260 MB (independent).
+- **End-to-end wall time (single-threaded, cold juba project).**
+  ~7.8 s total: handshake 0.02 s + documentSymbol sweep 1.8 s +
+  definition sweep 5.9 s + tree-sitter JSX walk ~0.05 s + CSS
+  fixture ~0.01 s. Dominant cost is definition-per-import. Two
+  tunable levers for M3:
+  - Pipeline definitions: fan out N requests concurrently
+    against one tsgo process (LSP supports concurrent
+    outstanding requests by id). A 4-way pipeline should cut
+    the 5.9 s definition phase to ~1.5–2 s.
+  - Cache Import entities across regenerations — only re-
+    resolve on file change, not on every model refresh.
+- **Pre-implementation-spike decisions unlocked.**
+  - Feasibility confirmed (plan 03 §Feasibility spike status):
+    `documentSymbol` + `textDocument/definition` + tree-sitter
+    walk is sufficient for the v1 model.
+  - §Open questions: workspace/symbol-based initial fill is
+    **not** needed for ~150-file projects — per-file
+    `documentSymbol` is fast enough. Revisit only if wall-time
+    becomes an issue on larger codebases.
+  - §Open questions: `Namespace` is real (1 occurrence in juba)
+    but rare; skip in M2, add a `SmallChatFamixNamespace` entity
+    only when a refactoring asks for it.
+  - §Entity inventory: grow to 14 classes (add `Property` /
+    `Field`). `Variable` stays un-entitied except for the JSX-
+    returning subset routed to `JSXComponent`.
+  - Plan 02 one-parser simplification: drop separate TS vs TSX
+    grammar bindings in `SmallChat-TreeSitter`; ship only TSX +
+    CSS + (later) JavaScript.

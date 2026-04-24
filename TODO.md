@@ -116,11 +116,33 @@ Questions section, commit the update.
   snapshot not needed for M5; kept as a contingency if a
   SystemAnnouncer-bypassing change path ever appears. Full
   findings in `plans/04` *Spike S5 findings*.
-- [ ] **S6. Real-project LSP->Famix dry-run.** Pick a small TS
-  project (~50 files, React + CSS Modules). Script a one-off
-  Famix build end-to-end (imports resolved, CSS bridge). Measure
-  time, identify gaps. **Updates:** `plans/03` (feasibility
-  confirmed or problems identified).
+- [x] **S6. Real-project LSP->Famix dry-run.** (2026-04-24)
+  Scripted end-to-end against `/Users/katis/code/juba` (SolidJS
+  1.9 + TanStack Start, 141 working `.ts` / `.tsx` files) plus a
+  3-file synthetic `lib/fixtures/ts-css-small/` for the CSS-
+  Modules bridge. Wall time ~7.8 s single-threaded:
+  documentSymbol sweep 1.8 s (p50 13 ms / p95 22 ms / max 40 ms),
+  464 `textDocument/definition` calls 5.9 s (p50 12 ms / p95 16
+  ms). Zero unresolved imports; `~/*` tsconfig-paths aliases
+  resolved cleanly (248/248 src-local imports are aliased — juba
+  uses zero relative cross-file imports). 91 JSX components
+  detected across 76 TSX files; Cloudflare `cloudflare:workers`
+  virtual module resolves to a project-root `.d.ts`. CSS bridge
+  on the fixture produced the expected 3 classes + 2 resolved +
+  1 unresolved references. **Adjustments that fall out:**
+  documentSymbol `Property` (1415 in juba) needs a home —
+  recommend 14-class inventory with a new `Field` entity;
+  `Variable` (2061) should not produce Famix entities by itself,
+  route via tree-sitter to `JSXComponent` only. Widen JSX
+  heuristic to include TanStack `createFileRoute(...)({ component
+  : () => <JSX/> })` (3 files missed). Tsgo sends
+  `client/registerCapability` as a request (id + method) not a
+  notification — plan 01's framer must distinguish or the reader
+  deadlocks. tsgo emits ~3 `window/logMessage` notifications per
+  op; the transport should drop them pre-parse. TSX grammar
+  parses `.ts` cleanly (2605 nodes, zero ERROR on an 18 KB
+  file); drop separate TS vs TSX parser singletons from plan 02.
+  Full findings in `plans/03` *Spike S6 findings*.
 
 ---
 
