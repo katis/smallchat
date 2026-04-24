@@ -168,12 +168,12 @@ the matching plan.
 
 See `plans/01`. Depends on: M0 (OSSubprocess).
 
-- [ ] Stdio transport + `Content-Length` framing.
-- [ ] JSON-RPC correlation + notifications.
-- [ ] Document sync (`didOpen`/`didChange`/`didClose`).
-- [ ] Capability value object.
-- [ ] Reader process hardening + logging.
-- [ ] Stub transport for tests.
+- [x] Stdio transport + `Content-Length` framing. (2026-04-24)
+- [x] JSON-RPC correlation + notifications. (2026-04-24)
+- [x] Document sync (`didOpen`/`didChange`/`didClose`). (2026-04-24)
+- [x] Capability value object. (2026-04-24)
+- [x] Reader process hardening + logging. (2026-04-24)
+- [x] Stub transport for tests. (2026-04-24)
 
 ### M2 - Tree-sitter adapter + Famix metamodel
 
@@ -260,9 +260,9 @@ layers, neither is optional:
   native transport must relocate its tool-call dispatch off the
   UI process as part of the capability-registry migration.
 
-- [ ] Unit test: calling `SmallChatLSPClient #request:` from
+- [x] Unit test: calling `SmallChatLSPClient #request:` from
   `UIManager default uiProcess` raises. Regression guard against
-  future accidental wiring.
+  future accidental wiring. (2026-04-24)
 - [ ] Unit test: closing the LM chat window cancels in-flight
   capability workers and their pending LSP requests.
 
