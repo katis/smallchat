@@ -27,3 +27,21 @@ SmallChatLSPClientTest >> testRequestAsyncWritesEnvelopeAndReturnsPending [
 	self assert: (sent first at: 'method') equals: 'initialize'.
 	self assert: ((sent first at: 'params') = Dictionary new)
 ]
+
+{ #category : 'tests - correlation' }
+SmallChatLSPClientTest >> testResponseCompletesPending [
+	"When pumpOneMessage reads a server response matching a pending id, that
+	 pending becomes resolved and #result returns the response's result dict."
+	| stub client pending expected |
+	stub := SmallChatLSPStubTransport new.
+	client := SmallChatLSPClient new transport: stub.
+	pending := client requestAsync: (Dictionary new at: 'method' put: 'initialize'; yourself).
+	expected := Dictionary new at: 'capabilities' put: Dictionary new; yourself.
+	stub enqueueServerMessage: (Dictionary new
+		at: 'jsonrpc' put: '2.0';
+		at: 'id' put: pending id;
+		at: 'result' put: expected;
+		yourself).
+	client pumpOneMessage.
+	self assert: pending result equals: expected
+]
