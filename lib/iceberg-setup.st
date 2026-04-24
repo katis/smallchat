@@ -66,7 +66,7 @@ existing ifNotNil: [
  Iceberg's empty initial diff index."
 orgClass := Smalltalk globals at: #PackageOrganizer.
 org := orgClass default.
-packageNames := #('BaselineOfSmallChat' 'SmallChat' 'SmallChat-Tests' 'SmallChat-MCP').
+packageNames := #('BaselineOfSmallChat' 'SmallChat' 'SmallChat-Tests' 'SmallChat-MCP' 'SmallChat-LSP' 'SmallChat-LSP-Tests').
 packageNames do: [ :pkgName |
 	(org packageNamed: pkgName ifAbsent: [ nil ]) ifNotNil: [ :pkg |
 		[ repo workingCopy basicAddPackage: pkg ] on: Error do: [ :_ | ] ] ].
