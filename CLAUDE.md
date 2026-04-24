@@ -367,6 +367,75 @@ not flushed to Tonel. Two safeguards:
   — it opens a modal chooser that deadlocks the MCP reader. Use
   sparingly (~80 KB per shot); end of a feature, not every Green.
 
+## Subprocesses from `evaluate`
+
+**`evaluate` has no timeout. A blocking call inside it hangs the
+tool, and an abort (user cancel) can take the MCP reader with it.**
+Every pattern below exists because it was learned the hard way.
+When interacting with `OSSubprocess` or anything else that does
+blocking I/O, read this section first.
+
+- **Stdout defaults to a NON-BLOCKING pipe.** `proc stdoutStream
+  next` returns `nil` **immediately** when no bytes are buffered —
+  it does **not** mean EOF. Naive read-until-nil treats "no data
+  yet" as end-of-stream and bails before the child has spoken.
+- **Switching to a blocking pipe is worse unless you know the child
+  will write.** `proc defaultWriteStreamCreationBlock: [ proc
+  systemAccessor makeBlockingPipe ]` makes `next` block on an empty
+  pipe — if the child never writes, `evaluate` hangs forever.
+  Silent child + blocking read = the canonical deadlock.
+- **Always poll with an absolute deadline AND check `isRunning`.**
+  Distinguish three cases: got-a-char, timeout-expired, child-died.
+
+      | readOneChar |
+      readOneChar := [ :deadlineMs | | c |
+        c := nil.
+        [ c := proc stdoutStream next.
+          c notNil ] whileFalse: [
+            Time millisecondClockValue > deadlineMs
+              ifTrue: [ ^ #timeout ].
+            proc isRunning ifFalse: [ ^ #eof ].
+            (Delay forMilliseconds: 20) wait ].
+        c ].
+
+  Short per-char deadline (~3-5s) keeps `evaluate` responsive even
+  when the child wedges.
+- **Wrap every subprocess in an `ensure:` teardown.**
+
+      proc := OSSUnixSubprocess new command: …; run.
+      [ "…protocol code…" ] ensure: [
+        proc isRunning ifTrue: [
+          proc stdinStream close.  "let the child exit cleanly"
+          (Delay forMilliseconds: 200) wait.
+          proc isRunning ifTrue: [ proc terminate ] ] ].
+
+  Without this, an unhandled exception (or a canceled `evaluate`)
+  leaves the child alive and holding its stdin. `OSSubprocess
+  child watcher` auto-reaps *exited* children, but a child blocked
+  on stdin never exits — that's the real leak hazard.
+- **PATH is not inherited from your shell.** fnm / volta / asdf /
+  pnpm shims that live under `~/Library/Caches/...` or
+  `~/.local/share/...` are invisible to the subprocess. Pass
+  absolute binary paths or set `proc envVariables:
+  (Dictionary new at: 'PATH' put: '...'; …)`.
+- **Don't launch long-lived servers inside `evaluate`.** One-shot
+  probes are fine (LSP handshake, version check). For anything
+  that stays alive across tool calls (LSP client, watcher
+  processes), own the subprocess on a dedicated Pharo Process,
+  register it in a class-side registry, and expose
+  lifecycle/teardown selectors — the same model `SmallChatMCP
+  TcpServer` uses.
+- **Recovery when `evaluate` hangs.**
+  1. From a shell, `pkill` the stuck child (`pkill -9 -f
+     '<command-fragment>'`). That often unblocks the evaluate.
+  2. If the evaluate is already canceled but the child persists:
+     `ps aux | grep <cmd>` to confirm, then `pkill`. Don't trust
+     OSSubprocess to clean up abandoned children.
+  3. If the MCP session dies outright, `/mcp` reconnects — the
+     Pharo image survived, only the reader's stdin died. Run
+     `ps aux | grep Pharo` to confirm the VM is still up before
+     reaching for `just rebuild-mcp`.
+
 ## MCP server hard constraints (inherited from akkuna)
 
 Non-negotiable for code in `SmallChat-MCP/` — hard-won from akkuna:
