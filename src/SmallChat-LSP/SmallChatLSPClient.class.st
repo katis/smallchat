@@ -39,6 +39,25 @@ SmallChatLSPClient >> cancelPending: aPending [
 	aPending resolveWithError: (SmallChatLSPCancelledError new messageText: 'LSP request cancelled')
 ]
 
+{ #category : 'document sync' }
+SmallChatLSPClient >> changeDocumentUri: aUri text: aString [
+	"Bump the cache's version and send textDocument/didChange with
+	 whole-document contentChanges."
+	| version |
+	documentCache changeUri: aUri text: aString.
+	version := documentCache versionOf: aUri.
+	self sendNotification: 'textDocument/didChange' params: (Dictionary new
+		at: 'textDocument' put: (Dictionary new
+			at: 'uri' put: aUri;
+			at: 'version' put: version;
+			yourself);
+		at: 'contentChanges' put: (Array with: (Dictionary new
+			at: 'text' put: aString;
+			yourself));
+		yourself).
+	^ self
+]
+
 { #category : 'accessing' }
 SmallChatLSPClient >> documentCache [
 	^ documentCache

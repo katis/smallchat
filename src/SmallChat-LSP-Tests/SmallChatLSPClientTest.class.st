@@ -25,6 +25,29 @@ SmallChatLSPClientTest >> testCancelEmitsCancelNotificationAndRaises [
 	self assert: ex notNil
 ]
 
+{ #category : 'tests - document sync' }
+SmallChatLSPClientTest >> testChangeDocumentEmitsDidChangeAndBumpsCache [
+	"changeDocumentUri:text: bumps the cache and sends textDocument/didChange
+	 with the new version and whole-document contentChanges."
+	| stub client uri notif params td changes |
+	stub := SmallChatLSPStubTransport new.
+	client := SmallChatLSPClient new transport: stub.
+	uri := 'file:///tmp/x.ts'.
+	client openDocumentUri: uri languageId: 'typescript' text: 'v1'.
+	client changeDocumentUri: uri text: 'v2'.
+	self assert: stub sentMessages size equals: 2.
+	notif := stub sentMessages second.
+	self assert: (notif at: 'method') equals: 'textDocument/didChange'.
+	params := notif at: 'params'.
+	td := params at: 'textDocument'.
+	self assert: (td at: 'uri') equals: uri.
+	self assert: (td at: 'version') equals: 2.
+	changes := params at: 'contentChanges'.
+	self assert: changes size equals: 1.
+	self assert: (changes first at: 'text') equals: 'v2'.
+	self assert: (client documentCache textOf: uri) equals: 'v2'
+]
+
 { #category : 'tests - correlation' }
 SmallChatLSPClientTest >> testErrorResponseRaisesOnResult [
 	"When the server responds with error instead of result, #result raises
