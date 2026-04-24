@@ -31,6 +31,34 @@ SmallChatLSPClientTest >> testErrorResponseRaisesOnResult [
 ]
 
 { #category : 'tests - correlation' }
+SmallChatLSPClientTest >> testNotificationBeforeResponseStillResolvesPending [
+	"tsgo emits window/logMessage notifications before the initialize response.
+	 A naive 'read one frame, treat as response' breaks immediately; the dispatch
+	 must process the notification first and still resolve the pending when the
+	 response arrives."
+	| stub client pending logged |
+	stub := SmallChatLSPStubTransport new.
+	client := SmallChatLSPClient new transport: stub.
+	logged := OrderedCollection new.
+	client onNotification: 'window/logMessage' do: [ :params | logged add: params ].
+	pending := client requestAsync: (Dictionary new at: 'method' put: 'initialize'; yourself).
+	stub enqueueServerMessage: (Dictionary new
+		at: 'jsonrpc' put: '2.0';
+		at: 'method' put: 'window/logMessage';
+		at: 'params' put: (Dictionary new at: 'message' put: 'starting'; yourself);
+		yourself).
+	stub enqueueServerMessage: (Dictionary new
+		at: 'jsonrpc' put: '2.0';
+		at: 'id' put: pending id;
+		at: 'result' put: (Dictionary new at: 'capabilities' put: Dictionary new; yourself);
+		yourself).
+	client pumpOneMessage.
+	client pumpOneMessage.
+	self assert: logged size equals: 1.
+	self assert: (pending result at: 'capabilities') equals: Dictionary new
+]
+
+{ #category : 'tests - correlation' }
 SmallChatLSPClientTest >> testNotificationInvokesRegisteredHandler [
 	"A server notification (method, no id) dispatches to the handler registered
 	 via #onNotification:do: with the params dict. Pending requests are untouched."
