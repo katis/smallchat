@@ -70,3 +70,17 @@ SmallChatLSPClientTest >> testResponseCompletesPending [
 	client pumpOneMessage.
 	self assert: pending result equals: expected
 ]
+
+{ #category : 'tests - correlation' }
+SmallChatLSPClientTest >> testResultTimeoutRaisesTimeoutError [
+	"Calling #resultTimeout: without any matching response raises a timeout.
+	 50 ms is long enough to be non-flaky but short enough to keep the test fast."
+	| stub client pending ex |
+	stub := SmallChatLSPStubTransport new.
+	client := SmallChatLSPClient new transport: stub.
+	pending := client requestAsync: (Dictionary new at: 'method' put: 'x'; yourself).
+	ex := [ pending resultTimeout: 50. nil ]
+		on: SmallChatLSPTimeoutError
+		do: [ :e | e ].
+	self assert: ex notNil
+]

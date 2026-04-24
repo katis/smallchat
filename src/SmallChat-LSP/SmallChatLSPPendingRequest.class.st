@@ -56,3 +56,17 @@ SmallChatLSPPendingRequest >> result [
 	resolvedError ifNotNil: [ resolvedError signal ].
 	^ resolvedResult
 ]
+
+{ #category : 'resolution' }
+SmallChatLSPPendingRequest >> resultTimeout: milliseconds [
+	"Block up to milliseconds for the pending to resolve. On timeout, raise
+	 SmallChatLSPTimeoutError. On success, behave like #result (return the
+	 resolved result or raise the server error)."
+	| timedOut |
+	resolved ifFalse: [
+		timedOut := semaphore waitTimeoutMSecs: milliseconds.
+		timedOut ifTrue: [
+			SmallChatLSPTimeoutError signal: 'LSP request timed out' ] ].
+	resolvedError ifNotNil: [ resolvedError signal ].
+	^ resolvedResult
+]
