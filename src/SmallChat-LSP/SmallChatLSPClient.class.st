@@ -5,7 +5,8 @@ Class {
 		'transport',
 		'nextId',
 		'pending',
-		'notificationHandlers'
+		'notificationHandlers',
+		'documentCache'
 	],
 	#category : 'SmallChat-LSP',
 	#package : 'SmallChat-LSP'
@@ -38,12 +39,18 @@ SmallChatLSPClient >> cancelPending: aPending [
 	aPending resolveWithError: (SmallChatLSPCancelledError new messageText: 'LSP request cancelled')
 ]
 
+{ #category : 'accessing' }
+SmallChatLSPClient >> documentCache [
+	^ documentCache
+]
+
 { #category : 'initialization' }
 SmallChatLSPClient >> initialize [
 	super initialize.
 	nextId := 0.
 	pending := Dictionary new.
-	notificationHandlers := Dictionary new
+	notificationHandlers := Dictionary new.
+	documentCache := SmallChatLSPDocumentCache new
 ]
 
 { #category : 'dispatch' }
@@ -51,6 +58,21 @@ SmallChatLSPClient >> onNotification: aMethodName do: aBlock [
 	"Register a handler for inbound notifications with the given method. The
 	 handler receives the notification's params dict (or nil if absent)."
 	notificationHandlers at: aMethodName put: aBlock.
+	^ self
+]
+
+{ #category : 'document sync' }
+SmallChatLSPClient >> openDocumentUri: aUri languageId: aLanguageId text: aString [
+	"Cache the document at version 1 and send textDocument/didOpen to the server."
+	documentCache openUri: aUri languageId: aLanguageId text: aString.
+	self sendNotification: 'textDocument/didOpen' params: (Dictionary new
+		at: 'textDocument' put: (Dictionary new
+			at: 'uri' put: aUri;
+			at: 'languageId' put: aLanguageId;
+			at: 'version' put: 1;
+			at: 'text' put: aString;
+			yourself);
+		yourself).
 	^ self
 ]
 
@@ -115,6 +137,17 @@ SmallChatLSPClient >> requestAsync: aRequestDictionary [
 	pending at: id put: p.
 	transport writeMessage: envelope.
 	^ p
+]
+
+{ #category : 'notifications' }
+SmallChatLSPClient >> sendNotification: aMethodName params: aParamsDictionary [
+	"Write a JSON-RPC notification (no id) to the transport."
+	transport writeMessage: (Dictionary new
+		at: 'jsonrpc' put: '2.0';
+		at: 'method' put: aMethodName;
+		at: 'params' put: aParamsDictionary;
+		yourself).
+	^ self
 ]
 
 { #category : 'accessing' }

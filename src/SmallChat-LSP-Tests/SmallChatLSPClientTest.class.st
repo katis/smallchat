@@ -100,6 +100,29 @@ SmallChatLSPClientTest >> testNotificationInvokesRegisteredHandler [
 	self assert: (received at: 'message') equals: 'hi'
 ]
 
+{ #category : 'tests - document sync' }
+SmallChatLSPClientTest >> testOpenDocumentEmitsDidOpenAndCaches [
+	"Client facade sends a textDocument/didOpen notification (no id) with the
+	 full document payload and records the URI in its document cache."
+	| stub client uri notif params td |
+	stub := SmallChatLSPStubTransport new.
+	client := SmallChatLSPClient new transport: stub.
+	uri := 'file:///tmp/x.ts'.
+	client openDocumentUri: uri languageId: 'typescript' text: 'let a = 1;'.
+	self assert: stub sentMessages size equals: 1.
+	notif := stub sentMessages first.
+	self assert: (notif at: 'jsonrpc') equals: '2.0'.
+	self assert: (notif at: 'method') equals: 'textDocument/didOpen'.
+	self deny: (notif includesKey: 'id').
+	params := notif at: 'params'.
+	td := params at: 'textDocument'.
+	self assert: (td at: 'uri') equals: uri.
+	self assert: (td at: 'languageId') equals: 'typescript'.
+	self assert: (td at: 'version') equals: 1.
+	self assert: (td at: 'text') equals: 'let a = 1;'.
+	self assert: (client documentCache isOpen: uri)
+]
+
 { #category : 'tests - correlation' }
 SmallChatLSPClientTest >> testRequestAsyncWritesEnvelopeAndReturnsPending [
 	"requestAsync: assigns a numeric id, wraps the caller payload in the JSON-RPC 2.0
