@@ -62,7 +62,8 @@ mcpMode ifTrue: [
 	Transcript show: 'Wiring SmallChat-MCP into SessionManager.'; cr.
 	SessionManager default
 		registerUserClassNamed: 'SmallChatMCPServer';
-		registerUserClassNamed: 'SmallChatMCPTcpServer'.
+		registerUserClassNamed: 'SmallChatMCPTcpServer';
+		registerUserClassNamed: 'SmallChatLSPClient'.
 
 	Transcript show: 'Running lib/iceberg-setup.st.'; cr.
 	OpalCompiler new evaluate:
