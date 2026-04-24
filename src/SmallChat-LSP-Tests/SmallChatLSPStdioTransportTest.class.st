@@ -28,6 +28,28 @@ SmallChatLSPStdioTransportTest >> testReadDecodesSingleFrame [
 ]
 
 { #category : 'tests - framing' }
+SmallChatLSPStdioTransportTest >> testReadTwoFramesReturnsBoth [
+	"Successive readMessage calls on a stream that holds two concatenated
+	 Content-Length frames each return the respective message."
+	| encodeFrame first second source transport |
+	encodeFrame := [ :aDictionary |
+		| body header |
+		body := (STONJSON toString: aDictionary) utf8Encoded.
+		header := String streamContents: [ :s |
+			s nextPutAll: 'Content-Length: '.
+			body size printOn: s.
+			s nextPut: Character cr; nextPut: Character lf.
+			s nextPut: Character cr; nextPut: Character lf ].
+		header asByteArray , body ].
+	first := Dictionary new at: 'jsonrpc' put: '2.0'; at: 'id' put: 1; at: 'method' put: 'initialize'; yourself.
+	second := Dictionary new at: 'jsonrpc' put: '2.0'; at: 'id' put: 2; at: 'method' put: 'shutdown'; yourself.
+	source := ReadStream on: ((encodeFrame value: first) , (encodeFrame value: second)).
+	transport := SmallChatLSPStdioTransport new input: source.
+	self assert: transport readMessage equals: first.
+	self assert: transport readMessage equals: second
+]
+
+{ #category : 'tests - framing' }
 SmallChatLSPStdioTransportTest >> testWriteEncodesContentLengthFrame [
 	"Writing a JSON-RPC message must emit a LSP-style header plus body:
 	   Content-Length: N\r\n\r\n<utf8-json>
