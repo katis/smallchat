@@ -72,12 +72,18 @@ Questions section, commit the update.
   `OSSubprocess child watcher` Process; live children still need an
   explicit teardown on image save/quit. Full findings in `plans/01`
   *Spike S1 findings*.
-- [ ] **S2. Pharo-Tree-Sitter binding surface.** Load
-  `Evref-BL/Pharo-Tree-Sitter` v1.1.1 into dev image. Verify:
-  does the `TreeSitter-Typescript` package expose both
-  `tree_sitter_typescript` and `tree_sitter_tsx` symbols, or
-  only one? Parse a TSX fixture either way. **Updates:**
-  `plans/02` Open Questions.
+- [x] **S2. Pharo-Tree-Sitter binding surface.** (2026-04-24)
+  Evref-BL v.1.1.1 pinned to `e621baf6c...` in baseline `dev`
+  group, loaded with `default typescript css` groups. Binding
+  ships `TSTypescriptLibrary` with only `tree_sitter_typescript`
+  — no `tsx`. TS grammar silently mis-parses TSX (three ERROR
+  nodes on `lib/fixtures/ts-small/Button.tsx`); TSX grammar
+  parses the same fixture cleanly once we add the ~5-method
+  `TSTsxLibrary` delta (recipe in `plans/02`). Auto-build works
+  on macOS arm64; tsx dylib is a by-product of the same `make`
+  but the binding doesn't copy it to `<vm>/Plugins/` — manual
+  copy for S2; S3 vendors both. Full findings in `plans/02`
+  *Spike S2 findings*.
 - [ ] **S3. arm64-darwin dylibs.** Build or acquire
   `libtree-sitter-typescript.dylib`, `libtree-sitter-javascript
   .dylib`, `libtree-sitter-css.dylib` for arm64. Document the
@@ -108,8 +114,8 @@ the matching plan.
 ### M0 - Foundations (no external deps on other milestones)
 
 - [ ] Add `OSSubprocess` to `BaselineOfSmallChat` `dev` group.
-- [ ] Add `TreeSitter` (Evref-BL) to `BaselineOfSmallChat` `dev`
-  group. `default` / verifier group stays lean.
+- [x] Add `TreeSitter` (Evref-BL) to `BaselineOfSmallChat` `dev`
+  group. `default` / verifier group stays lean. (2026-04-24, S2)
 - [ ] Vendor arm64 dylibs under `lib/tree-sitter/arm64-darwin/`.
   Add a dylib-presence self-check at startup (loud warning on
   missing).
