@@ -104,8 +104,8 @@ inside the image, commands are first-class.
    via the same applier.
 3. **Pharo-native** (Smalltalk refactorings). Command wraps a
    `RBRefactoring` / `ReRefactoring` subclass; apply runs the
-   refactoring's `#execute`; rollback uses Epicea or an in-image
-   snapshot (needs spike, see open questions).
+   refactoring's `#execute`; rollback inverts Epicea events since
+   a boundary captured pre-apply (see Spike S5 findings below).
 
 **Cross-language refactorings (the CSS-module bridge).** A
 `RenameCSSClass` command takes a `SmallChatFamixCSSClass` and
@@ -149,9 +149,6 @@ allSubclasses` reflectively, same pattern as the existing
 
 ## Open questions
 
-- Rollback for Smalltalk refactorings: Epicea is the obvious
-  path; does Epicea's event log survive across `evaluate` calls
-  reliably? If not, snapshot the compiled methods manually.
 - Do we expose fine-grained command primitives (rename symbol,
   extract function, move to file) or higher-level task commands
   (generate React component, split file)? Start low; add
@@ -183,7 +180,8 @@ allSubclasses` reflectively, same pattern as the existing
 3. First LSP-backed command: `RenameSymbol` (TS/JS). End-to-end:
    resolve Famix entity to position, LSP rename, apply, verify.
 4. First Smalltalk-side command: `ReRenameMethod` wrapped.
-   Rollback via Epicea or snapshot.
+   Rollback via Epicea event inversion (boundary captured before
+   `#execute`, inverses applied head-first on failure).
 5. First tree-sitter-backed command: `RenameCSSClass`
    (single-file, CSS only).
 6. First cross-language command: `RenameCSSClass` with TS/JS
@@ -203,3 +201,136 @@ allSubclasses` reflectively, same pattern as the existing
 - No cross-workspace refactorings.
 - No commit-on-apply. Commits are a separate capability (the
   existing MCP `commit` tool, extended).
+
+## Spike S5 findings (2026-04-24)
+
+**Recommendation.** Use Epicea event inversion as the rollback
+primitive for Smalltalk-native refactorings. Manual compiled-method
+snapshot is not required; keep it as a contingency for change paths
+that bypass `SystemAnnouncer` (none identified in-scope for M5).
+
+**Surface confirmed present.** Pharo 13's dev image loads 109 `Ep*`
+classes. `EpMonitor current isEnabled -> true`; `log` is a singleton
+`EpLog` shared across `evaluate` calls (log count is monotonic within
+the session and entries from earlier calls remain readable from later
+calls). Key primitives:
+
+- `EpCodeChange` abstract (subclasses include `EpMethodAddition`,
+  `EpMethodModification`, `EpMethodRemoval`, `EpProtocolAddition`,
+  `EpProtocolRemoval`, `EpClassAddition`, `EpClassModification`,
+  `EpClassRemoval`, `EpBehaviorNameChange`,
+  `EpBehaviorCommentChange`, `EpBehaviorRepackagedChange`,
+  `EpPackageAddition`, `EpPackageRemoval`, `EpPackageRename`,
+  `EpPackageTagAddition`, `EpPackageTagRemoval`, `EpPackageTagRename`,
+  `EpTraitAddition`, `EpTraitModification`, `EpTraitRemoval`).
+- `EpCodeChange>>asRevertedCodeChange` (accept `EpInverseVisitor`
+  new) returns a new code-change whose `#applyCodeChange` undoes
+  the original.
+- `EpCodeChange>>applyCodeChange` (accept `EpApplyVisitor` new)
+  applies a change via the compiler and package organiser.
+- Canonical recipe is in `EpLogBrowserOperationFactory>>
+  revertCodeChanges`: `entries reverseDo: [ :each | each content
+  asRevertedCodeChange applyCodeChange ]`. The factory's
+  `logBrowserModel` / `newRevertEvent` wrappers are optional — we
+  can skip them for headless use.
+
+**`EpRefactoring` events are orthogonal, not required for rollback.**
+The `EpRefactoring` hierarchy (`EpRenameMethodRefactoring`,
+`EpRenameClassRefactoring`, `EpCompositeRefactoring`, ...) is a
+*higher-level* marker distinct from `EpCodeChange`. Experimentally,
+`ReRenameMethodRefactoring #execute` and `ReRenameClassRefactoring
+#execute` emit **only raw `EpCodeChange` events** — no refactoring
+wrapper. That's exactly what we want: the agent-visible refactoring
+executes, raw code changes are logged, and inversion works on the
+raw events. (The `EpRefactoring` wrappers are emitted elsewhere —
+from Pharo's refactoring UI when `RefactoringManager`-style
+transactions are used — and their `asRBRefactoring` produces a
+replayable RB command, not an inverse. Not relevant here.)
+
+**Method rename** (`ReRenameMethodRefactoring` on a unary selector)
+emitted `EpMethodAddition(Cls>>newSel)` + `EpMethodRemoval(Cls>>
+oldSel)`. Reverting both via `asRevertedCodeChange applyCodeChange`
+restored the selector set exactly.
+
+**Class rename** (`ReRenameClassRefactoring rename: #Old to: #New`)
+emitted a single `EpBehaviorNameChange(oldName: #Old newName: #New
+behavior: <cls>)`. Inverting swaps `oldName`/`newName` and applies
+via `Behavior>>rename:`; `Smalltalk globals at: #Old` returned the
+class afterwards.
+
+**Scope-aware inversion.** A real-world rename can have large blast
+radius: renaming `#alpha` on a scratch class cascaded through the
+image and emitted 82 events (`Color>>alpha`, `AlphaBlendingCanvas>>
+alpha`, a `Form>>dimmed:` modification that referenced `alpha`, etc.)
+plus a subsequent class rename yielded 83 total events. Inverting
+all 83 in head-first order returned zero errors and restored every
+touched method. **The rollback primitive scales to whatever the
+refactoring actually did, without pre-enumerating the scope.**
+
+**Failure-mid-refactor is well-behaved.** When
+`ReRenameMethodRefactoring` fails during `generateChanges` (e.g. the
+early experiment with `permutation: nil` raised
+`MessageNotUnderstood` inside `modifyImplementorParseTree:in:`), no
+system mutations had occurred yet, so the log saw zero new
+entries. `#execute` splits cleanly between `generateChanges`
+(in-memory RB change objects, may throw before touching the system)
+and `performChanges` (applies changes and emits `EpCodeChange`s).
+If `performChanges` fails mid-way — not reproduced in this spike but
+structurally possible — partial events land in the log; the
+boundary-based inversion still undoes whatever was applied.
+
+**Headless viability.** The Pharo-standard revert path
+(`EpLogBrowserOperationFactory`) carries a `logBrowserModel`
+(`EpLogBrowserPresenter`, a Spec2 presenter) for UI integration, but
+its `handleErrorDuring:` currently just evaluates the block (the
+`on: Error do:` is commented out) and `trigger:with:` only adds an
+`EpUndo` audit marker. For the refactoring command we use the
+primitives directly:
+
+```
+boundary := EpMonitor current log entriesCount.
+[ refactoring execute ] on: Error do: [ :err |
+    "rollback" self revertSinceBoundary: boundary. err pass ].
+"...commit-or-rollback decision point..."
+
+revertSinceBoundary: aCount
+    | entries |
+    entries := OrderedCollection new.
+    EpMonitor current log priorEntriesFromHeadDo: [ :e |
+        entries size < (EpMonitor current log entriesCount - aCount)
+            ifTrue: [ entries add: e ] ].
+    entries do: [ :entry |
+        entry content asRevertedCodeChange applyCodeChange ]
+```
+
+Notes for M5 implementation: (a) wrap with a per-entry `on: Error do:`
+collector so one broken inverse doesn't abort the rest of the
+rollback — the agent decides what to do with the residual; (b)
+capture the boundary via `log entriesCount` (the canonical stable
+reference) — don't hold the `OmReference` directly across
+intermediate log writes; (c) filter entries to `EpCodeChange`
+kind before inverting, to skip any `EpRefactoring` /
+`EpExpressionEvaluation` / session markers that may end up
+interleaved; (d) the rollback itself emits inverse `EpCodeChange`s
+(so the log remains a faithful trace) — callers asking "how far did
+we rewind?" should consult the boundary, not the current log head.
+
+**Manual snapshot fallback (not required, documented for
+completeness).** If a future refactoring path proves to bypass
+`SystemAnnouncer` (e.g. direct `CompiledMethod` hacks, or a macro
+that touches reflective state without going through the compiler),
+the manual fallback is: before `#execute`, walk the target class
+closure and capture `{ className, definitionString,
+classComment, packageName, instanceSide: { sel -> { source,
+protocol } }, classSide: { sel -> { source, protocol } } }`;
+restore by redefining each class and recompiling each method,
+plus removing any selectors not in the snapshot. Not implemented
+in the spike because Epicea covers every `ReRefactoring`
+path observed.
+
+**Log-size hygiene note.** `EpMonitor current log` is monotonic and
+image-wide. A long-running dev image accumulates events (our
+scratch run alone landed 192). No impact on correctness; for
+inversion performance, bound the scan via `priorEntriesFromHeadDo:`
+with a counter (as in the snippet above) so we only read back as
+far as our boundary.

@@ -103,10 +103,19 @@ Questions section, commit the update.
   Traverser, CollectionExtensions, SingularizePluralize and
   their transitives. Full findings in `plans/03` *Spike S4
   findings*.
-- [ ] **S5. Epicea-backed Smalltalk rollback.** Can we replay or
-  invert an Epicea event log to roll back a `ReRefactoring
-  #execute`? If not, snapshot compiled methods and class state
-  manually. **Updates:** `plans/04` Open Questions.
+- [x] **S5. Epicea-backed Smalltalk rollback.** (2026-04-24)
+  Epicea is enabled in the dev image with a shared `EpMonitor
+  current log` across `evaluate` calls. `ReRefactoring #execute`
+  emits only raw `EpCodeChange` events (no `EpRefactoring`
+  wrapper); every event has an invertible counterpart via
+  `asRevertedCodeChange applyCodeChange`. Boundary-based inversion
+  (capture `log entriesCount` pre-apply, walk head-first on
+  rollback) scales to the refactoring's real blast radius without
+  pre-enumerating scope — validated with an 83-event method+class
+  rename that reverted with zero errors. Manual compiled-method
+  snapshot not needed for M5; kept as a contingency if a
+  SystemAnnouncer-bypassing change path ever appears. Full
+  findings in `plans/04` *Spike S5 findings*.
 - [ ] **S6. Real-project LSP->Famix dry-run.** Pick a small TS
   project (~50 files, React + CSS Modules). Script a one-off
   Famix build end-to-end (imports resolved, CSS bridge). Measure
