@@ -14,6 +14,17 @@ SmallChatLSPServerCapabilities class >> fromInitializeResult: aResultDictionary 
 	^ self new capabilities: (aResultDictionary at: 'capabilities' ifAbsent: [ Dictionary new ])
 ]
 
+{ #category : 'querying' }
+SmallChatLSPServerCapabilities >> advertisedCodeActionKinds [
+	"Return the list of kinds the codeAction provider advertises; empty if
+	 codeAction is unsupported or didn't declare specific kinds."
+	| provider |
+	provider := capabilities at: 'codeActionProvider' ifAbsent: [ ^ #() ].
+	provider == false ifTrue: [ ^ #() ].
+	(provider isKindOf: Dictionary) ifFalse: [ ^ #() ].
+	^ provider at: 'codeActionKinds' ifAbsent: [ #() ]
+]
+
 { #category : 'accessing' }
 SmallChatLSPServerCapabilities >> capabilities [
 	^ capabilities
@@ -33,6 +44,18 @@ SmallChatLSPServerCapabilities >> isEnabled: aKey [
 	v := capabilities at: aKey ifAbsent: [ ^ false ].
 	v == false ifTrue: [ ^ false ].
 	^ v notNil
+]
+
+{ #category : 'querying' }
+SmallChatLSPServerCapabilities >> supportsCodeActionKind: aKindString [
+	"A server supports aKindString if any advertised kind is a dotted prefix
+	 of it. 'refactor.extract.function' matches advertised 'refactor.extract'
+	 because the server exposes the broader family."
+	| kinds |
+	kinds := self advertisedCodeActionKinds.
+	^ kinds anySatisfy: [ :advertised |
+		advertised = aKindString
+			or: [ aKindString beginsWith: advertised , '.' ] ]
 ]
 
 { #category : 'querying' }

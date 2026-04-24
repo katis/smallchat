@@ -40,3 +40,22 @@ SmallChatLSPServerCapabilitiesTest >> testMissingCapabilityIsUnsupported [
 	self deny: caps supportsRename.
 	self deny: caps supportsDefinition
 ]
+
+{ #category : 'tests' }
+SmallChatLSPServerCapabilitiesTest >> testSupportsCodeActionKindPrefixMatch [
+	"LSP codeAction kinds form a dotted hierarchy. A server advertising
+	 refactor.extract supports any more-specific kind below it."
+	| caps |
+	caps := SmallChatLSPServerCapabilities fromInitializeResult: (Dictionary new
+		at: 'capabilities' put: (Dictionary new
+			at: 'codeActionProvider' put: (Dictionary new
+				at: 'codeActionKinds' put: #('quickfix' 'refactor.extract');
+				yourself);
+			yourself);
+		yourself).
+	self assert: (caps supportsCodeActionKind: 'refactor.extract').
+	self assert: (caps supportsCodeActionKind: 'refactor.extract.function').
+	self assert: (caps supportsCodeActionKind: 'quickfix').
+	self deny: (caps supportsCodeActionKind: 'refactor.rewrite').
+	self deny: (caps supportsCodeActionKind: 'source')
+]
