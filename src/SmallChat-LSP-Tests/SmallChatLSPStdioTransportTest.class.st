@@ -48,6 +48,37 @@ SmallChatLSPStdioTransportTest >> testReadReturnsNilOnCleanEof [
 ]
 
 { #category : 'tests - framing' }
+SmallChatLSPStdioTransportTest >> testReadToleratesNilPollsBeforeBodyComplete [
+	"A stream that returns nil transiently (data not yet available) while still
+	 not atEnd must NOT be treated as EOF. The transport calls its waitStrategy
+	 and keeps reading once bytes arrive."
+	| message body header frame source calls transport |
+	message := Dictionary new
+		at: 'jsonrpc' put: '2.0';
+		at: 'id' put: 11;
+		at: 'method' put: 'ping';
+		yourself.
+	body := (STONJSON toString: message) utf8Encoded.
+	header := String streamContents: [ :s |
+		s nextPutAll: 'Content-Length: '.
+		body size printOn: s.
+		s nextPut: Character cr; nextPut: Character lf.
+		s nextPut: Character cr; nextPut: Character lf ].
+	frame := header asByteArray , body.
+	source := SmallChatLSPTestIntermittentStream new
+		nilStride: 2;
+		contents: frame;
+		yourself.
+	calls := 0.
+	transport := SmallChatLSPStdioTransport new
+		input: source;
+		waitStrategy: [ calls := calls + 1 ];
+		yourself.
+	self assert: transport readMessage equals: message.
+	self assert: calls > 0
+]
+
+{ #category : 'tests - framing' }
 SmallChatLSPStdioTransportTest >> testReadTwoFramesReturnsBoth [
 	"Successive readMessage calls on a stream that holds two concatenated
 	 Content-Length frames each return the respective message."

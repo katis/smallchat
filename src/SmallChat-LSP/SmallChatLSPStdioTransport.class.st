@@ -3,11 +3,18 @@ Class {
 	#superclass : 'Object',
 	#instVars : [
 		'output',
-		'input'
+		'input',
+		'waitStrategy'
 	],
 	#category : 'SmallChat-LSP',
 	#package : 'SmallChat-LSP'
 }
+
+{ #category : 'initialization' }
+SmallChatLSPStdioTransport >> initialize [
+	super initialize.
+	waitStrategy := [ Processor yield ]
+]
 
 { #category : 'accessing' }
 SmallChatLSPStdioTransport >> input: aStream [
@@ -31,14 +38,22 @@ SmallChatLSPStdioTransport >> parseContentLength: aHeaderString [
 
 { #category : 'reading' }
 SmallChatLSPStdioTransport >> readBodyBytes: aLength [
-	"Read exactly aLength bytes from input; raise SmallChatLSPProtocolError if the
-	 stream EOFs before aLength bytes are delivered."
-	| body byte |
+	"Read exactly aLength bytes from input; raise SmallChatLSPProtocolError if
+	 the stream EOFs before aLength bytes are delivered. Transient nil returns
+	 while input is not atEnd trigger waitStrategy and retry."
+	| body byte i |
 	body := ByteArray new: aLength.
-	1 to: aLength do: [ :i |
+	i := 1.
+	[ i > aLength ] whileFalse: [
 		byte := input next.
-		byte ifNil: [ SmallChatLSPProtocolError signal: 'EOF mid-body' ].
-		body at: i put: byte ].
+		byte
+			ifNil: [
+				input atEnd
+					ifTrue: [ SmallChatLSPProtocolError signal: 'EOF mid-body' ]
+					ifFalse: [ waitStrategy value ] ]
+			ifNotNil: [
+				body at: i put: byte.
+				i := i + 1 ] ].
 	^ body
 ]
 
@@ -47,20 +62,27 @@ SmallChatLSPStdioTransport >> readHeaderBytes [
 	"Read bytes from input until \r\n\r\n. Returns the header bytes (including
 	 the terminator) as a ByteArray; returns nil if the stream EOFs before any
 	 byte was read (clean end-of-stream between frames); raises
-	 SmallChatLSPProtocolError if EOF arrives after one or more header bytes."
+	 SmallChatLSPProtocolError if EOF arrives after one or more header bytes.
+	 When input next returns nil while not atEnd (data not yet available),
+	 invokes waitStrategy and retries."
 	| buf byte |
 	buf := WriteStream on: (ByteArray new: 128).
 	[
 		byte := input next.
-		byte ifNil: [
-			^ buf position = 0
-				ifTrue: [ nil ]
-				ifFalse: [ SmallChatLSPProtocolError signal: 'EOF mid-header' ] ].
-		buf nextPut: byte.
-		(buf position >= 4
-			and: [ (buf originalContents copyFrom: buf position - 3 to: buf position) = #[13 10 13 10] ])
-	] whileFalse.
-	^ buf contents
+		byte
+			ifNil: [
+				input atEnd
+					ifTrue: [
+						^ buf position = 0
+							ifTrue: [ nil ]
+							ifFalse: [ SmallChatLSPProtocolError signal: 'EOF mid-header' ] ]
+					ifFalse: [ waitStrategy value ] ]
+			ifNotNil: [
+				buf nextPut: byte.
+				(buf position >= 4
+					and: [ (buf originalContents copyFrom: buf position - 3 to: buf position) = #[13 10 13 10] ])
+					ifTrue: [ ^ buf contents ] ]
+	] repeat
 ]
 
 { #category : 'reading' }
@@ -74,6 +96,15 @@ SmallChatLSPStdioTransport >> readMessage [
 	contentLength := self parseContentLength: headerBytes utf8Decoded.
 	body := self readBodyBytes: contentLength.
 	^ STONJSON fromString: body utf8Decoded
+]
+
+{ #category : 'accessing' }
+SmallChatLSPStdioTransport >> waitStrategy: aBlock [
+	"Block invoked when input next returns nil but input is not atEnd -- the
+	 live tsgo pipe is non-blocking, so transient starvation is normal. Tests
+	 pass a no-op block; production yields or polls with a short delay."
+	waitStrategy := aBlock.
+	^ self
 ]
 
 { #category : 'writing' }
