@@ -169,6 +169,22 @@ SmallChatLSPClientTest >> testRequestAsyncWritesEnvelopeAndReturnsPending [
 	self assert: ((sent first at: 'params') = Dictionary new)
 ]
 
+{ #category : 'tests - document sync' }
+SmallChatLSPClientTest >> testRequestOnUnopenedUriRaises [
+	"Issuing a request against a URI the client has not yet opened is a
+	 caller-side error; the pre-flight raises before any transport write."
+	| stub client |
+	stub := SmallChatLSPStubTransport new.
+	client := SmallChatLSPClient new transport: stub.
+	self should: [
+		client
+			request: (Dictionary new at: 'method' put: 'textDocument/definition'; yourself)
+			onDocumentUri: 'file:///nope.ts' ]
+		raise: SmallChatLSPDocumentNotOpen.
+	"No envelope should have been written."
+	self assert: stub sentMessages isEmpty
+]
+
 { #category : 'tests - correlation' }
 SmallChatLSPClientTest >> testRequestRaisesWhenCalledFromUIProcess [
 	"The blocking #request: entry point asserts it is NOT running on the UI

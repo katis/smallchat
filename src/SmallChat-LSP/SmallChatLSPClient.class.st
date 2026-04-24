@@ -142,6 +142,14 @@ SmallChatLSPClient >> request: aRequestDictionary [
 ]
 
 { #category : 'requests' }
+SmallChatLSPClient >> request: aRequestDictionary onDocumentUri: aUri [
+	"Blocking request with a pre-flight that refuses unknown URIs so
+	 textDocument/* methods can't race ahead of the didOpen handshake."
+	documentCache mustBeOpen: aUri.
+	^ self request: aRequestDictionary
+]
+
+{ #category : 'requests' }
 SmallChatLSPClient >> requestAsync: aRequestDictionary [
 	"Assign a monotonic id, build a JSON-RPC 2.0 envelope, register the pending
 	 keyed by id, write the envelope, and return the pending."
