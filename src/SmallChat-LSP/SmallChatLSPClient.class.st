@@ -8,7 +8,9 @@ Class {
 		'notificationHandlers',
 		'documentCache',
 		'initialized',
-		'serverCapabilities'
+		'serverCapabilities',
+		'running',
+		'readerProcess'
 	],
 	#category : 'SmallChat-LSP',
 	#package : 'SmallChat-LSP'
@@ -58,6 +60,40 @@ SmallChatLSPClient >> changeDocumentUri: aUri text: aString [
 			yourself));
 		yourself).
 	^ self
+]
+
+{ #category : 'dispatch' }
+SmallChatLSPClient >> dispatchMessage: msg [
+	"Route a parsed message to the appropriate handler. Called from the
+	 reader path as well as synchronous pumpOneMessage."
+	| id method p err e handler |
+	id := msg at: 'id' ifAbsent: [ nil ].
+	method := msg at: 'method' ifAbsent: [ nil ].
+	(id notNil and: [ method isNil ]) ifTrue: [
+		p := pending removeKey: id ifAbsent: [ nil ].
+		p ifNotNil: [
+			(msg includesKey: 'result')
+				ifTrue: [ p resolveWith: (msg at: 'result') ]
+				ifFalse: [
+					err := msg at: 'error' ifAbsent: [ nil ].
+					err ifNotNil: [
+						e := SmallChatLSPServerError new
+							messageText: (err at: 'message' ifAbsent: [ '' ]);
+							code: (err at: 'code' ifAbsent: [ 0 ]);
+							yourself.
+						p resolveWithError: e ] ] ].
+		^ self ].
+	(id isNil and: [ method notNil ]) ifTrue: [
+		handler := notificationHandlers at: method ifAbsent: [ nil ].
+		handler ifNotNil: [ handler value: (msg at: 'params' ifAbsent: [ nil ]) ].
+		^ self ].
+	(id notNil and: [ method notNil ]) ifTrue: [
+		transport writeMessage: (Dictionary new
+			at: 'jsonrpc' put: '2.0';
+			at: 'id' put: id;
+			at: 'result' put: Dictionary new;
+			yourself).
+		^ self ]
 ]
 
 { #category : 'accessing' }
@@ -122,41 +158,13 @@ SmallChatLSPClient >> openDocumentUri: aUri languageId: aLanguageId text: aStrin
 
 { #category : 'dispatch' }
 SmallChatLSPClient >> pumpOneMessage [
-	"Read one message from the transport and dispatch it.
-	   - Response (id + result/error, no method): resolve the matching pending.
-	   - Notification (method, no id): invoke registered handler if any.
-	   - Server-to-client request (id + method): auto-reply with empty result so
-	     the reader never stalls (e.g. tsgo's client/registerCapability burst)."
-	| msg id method p err e handler |
+	"Read one message from the transport and dispatch it. Returns the parsed
+	 message (or nil on EOF) so callers (tests, the reader fork) can detect
+	 end-of-stream."
+	| msg |
 	msg := transport readMessage.
-	msg ifNil: [ ^ self ].
-	id := msg at: 'id' ifAbsent: [ nil ].
-	method := msg at: 'method' ifAbsent: [ nil ].
-	(id notNil and: [ method isNil ]) ifTrue: [
-		p := pending removeKey: id ifAbsent: [ nil ].
-		p ifNotNil: [
-			(msg includesKey: 'result')
-				ifTrue: [ p resolveWith: (msg at: 'result') ]
-				ifFalse: [
-					err := msg at: 'error' ifAbsent: [ nil ].
-					err ifNotNil: [
-						e := SmallChatLSPServerError new
-							messageText: (err at: 'message' ifAbsent: [ '' ]);
-							code: (err at: 'code' ifAbsent: [ 0 ]);
-							yourself.
-						p resolveWithError: e ] ] ].
-		^ self ].
-	(id isNil and: [ method notNil ]) ifTrue: [
-		handler := notificationHandlers at: method ifAbsent: [ nil ].
-		handler ifNotNil: [ handler value: (msg at: 'params' ifAbsent: [ nil ]) ].
-		^ self ].
-	(id notNil and: [ method notNil ]) ifTrue: [
-		transport writeMessage: (Dictionary new
-			at: 'jsonrpc' put: '2.0';
-			at: 'id' put: id;
-			at: 'result' put: Dictionary new;
-			yourself).
-		^ self ]
+	msg ifNotNil: [ self dispatchMessage: msg ].
+	^ msg
 ]
 
 { #category : 'requests' }
@@ -205,6 +213,37 @@ SmallChatLSPClient >> sendNotification: aMethodName params: aParamsDictionary [
 { #category : 'accessing' }
 SmallChatLSPClient >> serverCapabilities [
 	^ serverCapabilities
+]
+
+{ #category : 'lifecycle' }
+SmallChatLSPClient >> startReader [
+	"Fork a reader process at lowIOPriority that pumps messages until the
+	 transport EOFs or #stopReader runs."
+	running := true.
+	readerProcess := [
+		[ running == true ] whileTrue: [
+			[ | msg |
+				msg := transport readMessage.
+				msg
+					ifNil: [ running := false ]
+					ifNotNil: [ self dispatchMessage: msg ] ]
+				on: Error
+				do: [ :e |
+					SmallChatLSPStdioTransport logToFile:
+						'reader error: ' , e class name , ' - ' , (e messageText ifNil: [ '' ]) ] ]
+		] forkAt: Processor lowIOPriority
+		  named: 'SmallChat LSP Reader'.
+	^ self
+]
+
+{ #category : 'lifecycle' }
+SmallChatLSPClient >> stopReader [
+	"Signal the reader loop to exit and terminate the process if it's still parked."
+	running := false.
+	readerProcess ifNotNil: [ :p |
+		[ p terminate ] on: Error do: [ :_ | ].
+		readerProcess := nil ].
+	^ self
 ]
 
 { #category : 'accessing' }

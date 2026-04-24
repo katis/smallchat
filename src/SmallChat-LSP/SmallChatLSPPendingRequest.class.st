@@ -97,7 +97,7 @@ SmallChatLSPPendingRequest >> resultTimeout: milliseconds [
 	 resolved result or raise the server error)."
 	| timedOut |
 	resolved ifFalse: [
-		timedOut := semaphore waitTimeoutMSecs: milliseconds.
+		timedOut := semaphore waitTimeoutMilliseconds: milliseconds.
 		timedOut ifTrue: [
 			SmallChatLSPTimeoutError signal: 'LSP request timed out' ] ].
 	resolvedError ifNotNil: [ resolvedError signal ].
