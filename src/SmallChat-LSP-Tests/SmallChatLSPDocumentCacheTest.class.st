@@ -6,6 +6,21 @@ Class {
 }
 
 { #category : 'tests - cache' }
+SmallChatLSPDocumentCacheTest >> testChangeUriIncrementsVersionAndReplacesText [
+	"changeUri:text: on an open URI bumps its version and replaces the text."
+	| cache uri |
+	cache := SmallChatLSPDocumentCache new.
+	uri := 'file:///tmp/x.ts'.
+	cache openUri: uri languageId: 'typescript' text: 'v1'.
+	cache changeUri: uri text: 'v2'.
+	self assert: (cache versionOf: uri) equals: 2.
+	self assert: (cache textOf: uri) equals: 'v2'.
+	cache changeUri: uri text: 'v3'.
+	self assert: (cache versionOf: uri) equals: 3.
+	self assert: (cache textOf: uri) equals: 'v3'
+]
+
+{ #category : 'tests - cache' }
 SmallChatLSPDocumentCacheTest >> testOpenUriRecordsVersionOneAndText [
 	"openUri:languageId:text: registers a new URI at version 1 with the given
 	 text and languageId."

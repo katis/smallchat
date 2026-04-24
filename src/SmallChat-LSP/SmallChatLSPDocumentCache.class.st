@@ -8,6 +8,17 @@ Class {
 	#package : 'SmallChat-LSP'
 }
 
+{ #category : 'lifecycle' }
+SmallChatLSPDocumentCache >> changeUri: aUri text: aString [
+	"Bump the version and replace the text for aUri. Whole-document sync --
+	 incremental-range sync may arrive later when tsgo coverage justifies it."
+	| entry |
+	entry := entries at: aUri.
+	entry at: 'version' put: (entry at: 'version') + 1.
+	entry at: 'text' put: aString.
+	^ self
+]
+
 { #category : 'initialization' }
 SmallChatLSPDocumentCache >> initialize [
 	super initialize.
