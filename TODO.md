@@ -155,7 +155,8 @@ the matching plan.
 
 ### M0 - Foundations (no external deps on other milestones)
 
-- [ ] Add `OSSubprocess` to `BaselineOfSmallChat` `dev` group.
+- [x] Add `OSSubprocess` to `BaselineOfSmallChat` `dev` group.
+  (2026-04-24, S1; exercised end-to-end in S6)
 - [x] Add `TreeSitter` (Evref-BL) to `BaselineOfSmallChat` `dev`
   group. `default` / verifier group stays lean. (2026-04-24, S2)
 - [x] Vendor arm64 dylibs under `lib/tree-sitter/arm64-darwin/`.
