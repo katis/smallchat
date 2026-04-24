@@ -15,7 +15,11 @@ BaselineOfSmallChat >> baseline: spec [
 			baseline: 'TreeSitter' with: [
 				spec
 					loads: #('default' 'typescript' 'css');
-					repository: 'github://Evref-BL/Pharo-Tree-Sitter:e621baf6cf9d33289289098f04e92326d3f6716c/src' ].
+					repository: 'github://Evref-BL/Pharo-Tree-Sitter:e621baf6cf9d33289289098f04e92326d3f6716c/src' ];
+			baseline: 'Famix' with: [
+				spec
+					loads: #('Basic');
+					repository: 'github://moosetechnology/Famix:e841ebfd10bb59a6b94e0d31e759486bf3cea911/src' ].
 		spec
 			package: 'SmallChat';
 			package: 'SmallChat-MCP'   with: [ spec requires: #('SmallChat') ];
@@ -26,5 +30,5 @@ BaselineOfSmallChat >> baseline: spec [
 			group: 'core'    with: #('SmallChat' 'SmallChat-LM');
 			group: 'tests'   with: #('SmallChat-Tests');
 			group: 'mcp'     with: #('SmallChat' 'SmallChat-LM' 'SmallChat-MCP');
-			group: 'dev'     with: #('SmallChat' 'SmallChat-LM' 'SmallChat-Tests' 'SmallChat-MCP' 'OSSubprocess' 'TreeSitter') ]
+			group: 'dev'     with: #('SmallChat' 'SmallChat-LM' 'SmallChat-Tests' 'SmallChat-MCP' 'OSSubprocess' 'TreeSitter' 'Famix') ]
 ]
