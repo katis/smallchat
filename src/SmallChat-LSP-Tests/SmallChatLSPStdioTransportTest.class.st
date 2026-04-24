@@ -5,6 +5,20 @@ Class {
 	#package : 'SmallChat-LSP-Tests'
 }
 
+{ #category : 'tests - path resolution' }
+SmallChatLSPStdioTransportTest >> testDefaultTsgoPathForResolvesUnderNativePreview [
+	"The stdio transport knows where tsgo lives relative to a workspace root:
+	   <root>/node_modules/@typescript/native-preview-darwin-arm64/lib/tsgo
+	 M1 pins darwin-arm64; platform detection can follow when needed."
+	| root path |
+	root := '/home/example/code/juba' asFileReference.
+	path := SmallChatLSPStdioTransport defaultTsgoPathFor: root.
+	self assert: (path isKindOf: FileReference).
+	self assert: (path pathString endsWith: 'node_modules/@typescript/native-preview-darwin-arm64/lib/tsgo').
+	self assert: path parent basename equals: 'lib'.
+	self assert: path parent parent basename equals: 'native-preview-darwin-arm64'
+]
+
 { #category : 'tests - framing' }
 SmallChatLSPStdioTransportTest >> testReadDecodesSingleFrame [
 	"readMessage parses a single well-formed Content-Length frame and returns the

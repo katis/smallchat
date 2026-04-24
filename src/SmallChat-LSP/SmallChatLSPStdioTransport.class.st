@@ -10,6 +10,16 @@ Class {
 	#package : 'SmallChat-LSP'
 }
 
+{ #category : 'instance creation' }
+SmallChatLSPStdioTransport class >> defaultTsgoPathFor: aWorkspaceRoot [
+	"Expected tsgo binary location when @typescript/native-preview is installed in
+	 aWorkspaceRoot's node_modules. M1 hard-codes darwin-arm64 per S3 dylib
+	 vendoring; platform detection can follow when another arch needs support."
+	^ aWorkspaceRoot asFileReference
+		/ 'node_modules' / '@typescript' / 'native-preview-darwin-arm64'
+		/ 'lib' / 'tsgo'
+]
+
 { #category : 'initialization' }
 SmallChatLSPStdioTransport >> initialize [
 	super initialize.
