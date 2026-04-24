@@ -4,7 +4,8 @@ Class {
 	#instVars : [
 		'transport',
 		'nextId',
-		'pending'
+		'pending',
+		'notificationHandlers'
 	],
 	#category : 'SmallChat-LSP',
 	#package : 'SmallChat-LSP'
@@ -14,19 +15,30 @@ Class {
 SmallChatLSPClient >> initialize [
 	super initialize.
 	nextId := 0.
-	pending := Dictionary new
+	pending := Dictionary new.
+	notificationHandlers := Dictionary new
+]
+
+{ #category : 'dispatch' }
+SmallChatLSPClient >> onNotification: aMethodName do: aBlock [
+	"Register a handler for inbound notifications with the given method. The
+	 handler receives the notification's params dict (or nil if absent)."
+	notificationHandlers at: aMethodName put: aBlock.
+	^ self
 ]
 
 { #category : 'dispatch' }
 SmallChatLSPClient >> pumpOneMessage [
 	"Read one message from the transport and dispatch it.
-	 Responses (id + result) resolve the matching pending; error responses route
-	 through resolveWithError: so the caller's #result call raises."
-	| msg id p err e |
+	   - Response (id + result/error): resolve the matching pending.
+	   - Notification (method, no id): invoke registered handler if any.
+	 Server-to-client requests arrive in a later step."
+	| msg id method p err e handler |
 	msg := transport readMessage.
 	msg ifNil: [ ^ self ].
 	id := msg at: 'id' ifAbsent: [ nil ].
-	id ifNotNil: [
+	method := msg at: 'method' ifAbsent: [ nil ].
+	(id notNil and: [ method isNil ]) ifTrue: [
 		p := pending removeKey: id ifAbsent: [ nil ].
 		p ifNotNil: [
 			(msg includesKey: 'result')
@@ -38,7 +50,12 @@ SmallChatLSPClient >> pumpOneMessage [
 							messageText: (err at: 'message' ifAbsent: [ '' ]);
 							code: (err at: 'code' ifAbsent: [ 0 ]);
 							yourself.
-						p resolveWithError: e ] ] ] ]
+						p resolveWithError: e ] ] ].
+		^ self ].
+	(id isNil and: [ method notNil ]) ifTrue: [
+		handler := notificationHandlers at: method ifAbsent: [ nil ].
+		handler ifNotNil: [ handler value: (msg at: 'params' ifAbsent: [ nil ]) ].
+		^ self ]
 ]
 
 { #category : 'requests' }

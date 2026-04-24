@@ -31,6 +31,28 @@ SmallChatLSPClientTest >> testErrorResponseRaisesOnResult [
 ]
 
 { #category : 'tests - correlation' }
+SmallChatLSPClientTest >> testNotificationInvokesRegisteredHandler [
+	"A server notification (method, no id) dispatches to the handler registered
+	 via #onNotification:do: with the params dict. Pending requests are untouched."
+	| stub client received |
+	stub := SmallChatLSPStubTransport new.
+	client := SmallChatLSPClient new transport: stub.
+	received := nil.
+	client onNotification: 'window/logMessage' do: [ :params | received := params ].
+	stub enqueueServerMessage: (Dictionary new
+		at: 'jsonrpc' put: '2.0';
+		at: 'method' put: 'window/logMessage';
+		at: 'params' put: (Dictionary new
+			at: 'type' put: 3;
+			at: 'message' put: 'hi';
+			yourself);
+		yourself).
+	client pumpOneMessage.
+	self assert: received notNil.
+	self assert: (received at: 'message') equals: 'hi'
+]
+
+{ #category : 'tests - correlation' }
 SmallChatLSPClientTest >> testRequestAsyncWritesEnvelopeAndReturnsPending [
 	"requestAsync: assigns a numeric id, wraps the caller payload in the JSON-RPC 2.0
 	 envelope, writes it to the transport, and returns a SmallChatLSPPendingRequest
