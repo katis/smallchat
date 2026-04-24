@@ -93,10 +93,16 @@ Questions section, commit the update.
   `just rebuild-dylibs`. `file *.dylib` pinned to arm64 in both
   docs. Includes `SmallChatTreeSitterHealth` class-side
   presence-check wired into `lib/load-packages.st` (dev branch).
-- [ ] **S4. FamixNG / Moose pin.** Pick a specific Moose release
-  that loads cleanly on Pharo 13 and provides FamixNG generator
-  traits. Pin in baseline. **Updates:** `plans/03` Open
-  Questions.
+- [x] **S4. FamixNG / Moose pin.** (2026-04-24) Pinned
+  `moosetechnology/Famix` v1.2.0 (`e841ebfd...`) in baseline
+  `dev` group with `loads: 'Basic'` — the narrowest group that
+  carries `Famix-MetamodelGeneration` without the visualisation
+  stack. Rebuild on Pharo 13 is clean in ~48 s; generator DSL
+  (`FamixMetamodelGenerator` subclass + `builder newClassNamed:`
+  + `--|>` trait wiring) works end-to-end. Pulls Fame, Deep-
+  Traverser, CollectionExtensions, SingularizePluralize and
+  their transitives. Full findings in `plans/03` *Spike S4
+  findings*.
 - [ ] **S5. Epicea-backed Smalltalk rollback.** Can we replay or
   invert an Epicea event log to roll back a `ReRefactoring
   #execute`? If not, snapshot compiled methods and class state
@@ -124,7 +130,7 @@ the matching plan.
 - [x] Vendor arm64 dylibs under `lib/tree-sitter/arm64-darwin/`.
   Add a dylib-presence self-check at startup (loud warning on
   missing). (2026-04-24, S3)
-- [ ] FamixNG load into `dev` group (after S4).
+- [x] FamixNG load into `dev` group. (2026-04-24, S4)
 
 ### M1 - LSP client
 
