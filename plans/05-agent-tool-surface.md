@@ -110,6 +110,35 @@ suppression, stray-debugger warning, uncaught-exception formatting
 transport. Transport-specific concerns (MCP framing, OpenAI
 tool-call envelope parsing) stay in the transport adapters.
 
+**Capability invocation never runs on the UI process.** This is
+a hard rule that complements plan 01's LSP UI-isolation
+assertion: even for non-LSP capabilities (evaluate, run_tests,
+status, a Smalltalk refactoring), the registry's `#run:with:`
+entry point asserts it is not running on Morphic and fails loudly
+if it is. Rationale: any capability may indirectly call the LSP
+client (a Famix query that misses the cache, a refactoring that
+verifies diagnostics), and once UI isolation is transport-level
+we get one consistent contract rather than per-capability care.
+
+- **MCP transport:** already satisfies this for free — the MCP
+  reader runs on a forked process, so capability dispatch is off
+  the UI process by construction. No change from today.
+- **LM native transport:** the chat window lives on Morphic.
+  `SmallChatLMSession`'s tool-call loop must dispatch each
+  capability on a fresh worker process (`[...] fork`). The
+  current `toolFor:` code is called inline from the chat loop
+  (which may itself run on Morphic for the non-streaming path
+  and on a network process for the streaming path) — migration
+  must relocate dispatch to a worker and post the result back
+  via `UIManager default defer:` to update the conversation
+  view. One worker per in-flight tool call; held in the session
+  so it can be cancelled if the user closes the window.
+- **Cancellation propagation:** when the session holds a worker
+  for an in-flight capability, cancelling the worker propagates
+  through to any LSP pending request via the cancel mechanism
+  in plan 01. Closing the chat window cancels every in-flight
+  capability for that session.
+
 **Capability kinds and naming conventions.** To keep a large
 registry navigable, capabilities are grouped by prefix in their
 `#name`:

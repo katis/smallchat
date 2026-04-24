@@ -186,6 +186,30 @@ See `plans/06`. Depends on: M4, M5.
 
 ## Cross-cutting concerns
 
+### UI non-blocking (hard rule)
+
+LSP requests can take seconds (references over a large project,
+diagnostics settle-wait after an edit, codeActions that fan out).
+The UI process (Morphic) must never wait on one. Enforced at two
+layers, neither is optional:
+
+- **Plan 01** — every blocking LSP entry point asserts
+  `Processor activeProcess ~~ UIManager default uiProcess` and
+  fails loudly. An async `#requestAsync:` surface is provided for
+  UI-originated calls; those fork a worker and post results back
+  via `UIManager default defer:`. Cancellation via LSP
+  `$/cancelRequest` is wired in from day one.
+- **Plan 05** — capability `#run:with:` asserts the same at the
+  registry boundary. MCP transport is on a fork already; the LM
+  native transport must relocate its tool-call dispatch off the
+  UI process as part of the capability-registry migration.
+
+- [ ] Unit test: calling `SmallChatLSPClient #request:` from
+  `UIManager default uiProcess` raises. Regression guard against
+  future accidental wiring.
+- [ ] Unit test: closing the LM chat window cancels in-flight
+  capability workers and their pending LSP requests.
+
 ### Testing
 
 - [ ] Each new package gets a `SmallChat-*-Tests` package. `just

@@ -96,6 +96,46 @@ MCP reader pattern, so the deadlock discipline carries over (never
 open Morphic from the reader; wrap notifications with
 `on: Notification do: [:n | n resume]`).
 
+**Concurrency and UI isolation (hard rule).** LSP requests can
+take seconds — tsgo's `references` over a large project, a
+`codeAction` that fans out, a diagnostics settle-wait after an
+edit. The UI process (Morphic) must never be the process that
+waits on an LSP pending request. Two mechanisms enforce this:
+
+1. **Assertion at every blocking entry point.** Every public
+   selector on `SmallChatLSPClient` that blocks on a
+   `SmallChatLSPPendingRequest` — `#request:`, `#initialize`,
+   `#shutdown`, and the blocking variants on the document-sync
+   facade — starts with an assertion that
+   `Processor activeProcess ~~ UIManager default uiProcess`.
+   Violations raise immediately with a clear error; this is a
+   programming error, not an expected condition.
+2. **Async API as the primary surface.** The client also exposes
+   `#requestAsync:` returning a `SmallChatLSPPendingRequest`
+   handle directly. Callers that can't meaningfully block (UI
+   event handlers, Morphic step methods) take this path and
+   arrange their own wait — typically by forking a worker and
+   posting back via `UIManager default defer:`. The blocking
+   `#request:` is sugar for "I know I'm on a worker process".
+
+The reader process itself publishes notifications to handlers
+registered by higher layers (diagnostics updates, progress
+tokens, server-requested configuration). Those handlers run on
+the reader process; if they touch the UI, they **must** use
+`UIManager default defer:` and never block. A handler that needs
+to call back into the LSP (rare) must fork a worker and call
+from there — calling back synchronously from the reader process
+deadlocks the client.
+
+**Cancellation.** LSP `$/cancelRequest` is the escape hatch when
+the UI navigates away from a long operation or the user cancels.
+`SmallChatLSPPendingRequest` exposes `#cancel`; the client emits
+the cancel notification to the server and completes the pending
+request locally with a cancelled error. Capabilities that trigger
+LSP work from a UI context (the native chat harness, plan 05)
+hold pending-request handles so they can cancel on window close
+or conversation abandonment.
+
 **Logging to file, not stdout.** Borrow `SmallChatMCPServer
 logToFile:` style. The MCP reader cohabits stdout with MCP framing;
 the LSP client must never corrupt stdout either.
