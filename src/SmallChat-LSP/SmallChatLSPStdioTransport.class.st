@@ -6,7 +6,9 @@ Class {
 		'input',
 		'waitStrategy',
 		'process',
-		'isInputAliveBlock'
+		'isInputAliveBlock',
+		'stderrReaderProcess',
+		'stderrRunning'
 	],
 	#category : 'SmallChat-LSP',
 	#package : 'SmallChat-LSP'
@@ -62,8 +64,9 @@ SmallChatLSPStdioTransport >> isInputAliveBlock: aBlock [
 
 { #category : 'lifecycle' }
 SmallChatLSPStdioTransport >> launchTsgoAt: aWorkspaceRoot [
-	"Spawn tsgo --lsp --stdio under aWorkspaceRoot and wire input/output to the
-	 child's stdout/stdin. Raises on missing binary or missing OSSubprocess."
+	"Spawn tsgo --lsp --stdio under aWorkspaceRoot, wire stdin/stdout for the
+	 framing layer, and fork a stderr reader that forwards each line to the
+	 shared log file. Raises on missing binary or missing OSSubprocess."
 	| path procClass proc |
 	procClass := Smalltalk globals at: #OSSUnixSubprocess ifAbsent: [
 		^ self error: 'OSSubprocess is not loaded; launch the dev image' ].
@@ -83,6 +86,7 @@ SmallChatLSPStdioTransport >> launchTsgoAt: aWorkspaceRoot [
 	output := proc stdinStream.
 	isInputAliveBlock := [ process isNotNil and: [ process isRunning ] ].
 	self class logToFile: 'launchTsgoAt: pid=' , ([ proc pid printString ] on: Error do: [ :_ | '<?>' ]).
+	self startStderrReader.
 	^ self
 ]
 
@@ -98,6 +102,33 @@ SmallChatLSPStdioTransport >> parseContentLength: aHeaderString [
 	| line |
 	line := aHeaderString lines detect: [ :l | l asLowercase trimBoth beginsWith: 'content-length:' ].
 	^ (line copyAfter: $:) trimBoth asInteger
+]
+
+{ #category : 'reading stderr' }
+SmallChatLSPStdioTransport >> pumpStderrFrom: aStream while: aliveBlock [
+	"Read aStream a byte at a time; flush one line to the shared log file on
+	 each LF. Stops when aliveBlock returns false after a nil-read (drain-safe:
+	 we call aliveBlock only when the stream has transiently no bytes). On stop,
+	 any buffered partial-line bytes are flushed."
+	| buf byte v |
+	buf := WriteStream on: (ByteArray new: 256).
+	[ true ] whileTrue: [
+		byte := [ aStream next ] on: Error do: [ :_ | nil ].
+		byte
+			ifNotNil: [
+				v := byte isInteger ifTrue: [ byte ] ifFalse: [ byte asInteger ].
+				v = 10
+					ifTrue: [
+						self class logToFile: 'stderr: ' , buf contents utf8Decoded.
+						buf := WriteStream on: (ByteArray new: 256) ]
+					ifFalse: [ v = 13 ifFalse: [ buf nextPut: v ] ] ]
+			ifNil: [
+				aliveBlock value
+					ifTrue: [ (Delay forMilliseconds: 25) wait ]
+					ifFalse: [
+						buf position > 0 ifTrue: [
+							self class logToFile: 'stderr: ' , buf contents utf8Decoded ].
+						^ self ] ] ]
 ]
 
 { #category : 'reading' }
@@ -165,10 +196,11 @@ SmallChatLSPStdioTransport >> readMessage [
 
 { #category : 'lifecycle' }
 SmallChatLSPStdioTransport >> shutdown [
-	"Close child stdin to request clean exit (tsgo ignores LSP shutdown/exit;
-	 closing stdin is the reliable signal per Spike S1). If still alive after
-	 a short grace period, SIGTERM."
-	| deadline |
+	"Close child stdin to request clean exit (Spike S1: closing stdin is tsgo's
+	 reliable shutdown signal). If still alive after the grace window, SIGTERM.
+	 Wait briefly for the stderr forwarder to drain so last-gasp diagnostics
+	 reach the log."
+	| deadline stderrDeadline |
 	process ifNil: [ ^ self ].
 	[ process stdinStream close ] on: Error do: [ :_ | ].
 	deadline := Time millisecondClockValue + 2000.
@@ -176,7 +208,40 @@ SmallChatLSPStdioTransport >> shutdown [
 		(Delay forMilliseconds: 20) wait ].
 	process isRunning ifTrue: [
 		[ process terminate ] on: Error do: [ :_ | ] ].
+	"Give the stderr reader its drain window before hard-stopping it."
+	stderrDeadline := Time millisecondClockValue + 500.
+	[ stderrRunning == true and: [ Time millisecondClockValue < stderrDeadline ] ] whileTrue: [
+		(Delay forMilliseconds: 25) wait ].
+	stderrRunning := false.
+	stderrReaderProcess ifNotNil: [ :p |
+		[ p terminate ] on: Error do: [ :_ | ].
+		stderrReaderProcess := nil ].
 	process := nil.
+	^ self
+]
+
+{ #category : 'lifecycle' }
+SmallChatLSPStdioTransport >> startStderrReader [
+	"Fork a low-priority reader that forwards each stderr line from the child
+	 to the shared log file. After the child exits, keeps reading for a short
+	 drain window so trailing bytes are not lost."
+	| stream alive exitDrainDeadline |
+	stream := process stderrStream.
+	stream ifNil: [ ^ self ].
+	stderrRunning := true.
+	alive := [
+		stderrRunning == true and: [
+			| procRef |
+			procRef := process.
+			(procRef isNotNil and: [ procRef isRunning ])
+				ifTrue: [ exitDrainDeadline := nil. true ]
+				ifFalse: [
+					exitDrainDeadline ifNil: [
+						exitDrainDeadline := Time millisecondClockValue + 300 ].
+					Time millisecondClockValue < exitDrainDeadline ] ] ].
+	stderrReaderProcess := [ self pumpStderrFrom: stream while: alive ]
+		forkAt: Processor lowIOPriority
+		named: 'SmallChat LSP Stderr'.
 	^ self
 ]
 
