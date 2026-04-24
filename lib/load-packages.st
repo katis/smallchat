@@ -68,6 +68,7 @@ mcpMode ifTrue: [
 	OpalCompiler new evaluate:
 		(repoDir / 'lib' / 'iceberg-setup.st') readStream upToEnd.
 
-	SmallChatTreeSitterHealth reportOn: Transcript ].
+	(Smalltalk globals at: #SmallChatTreeSitterHealth ifAbsent: [ nil ])
+		ifNotNil: [ :cls | cls reportOn: Transcript ] ].
 
 Transcript show: 'smallchat baseline loaded.'; cr.
