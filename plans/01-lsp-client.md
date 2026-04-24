@@ -151,22 +151,61 @@ the LSP client must never corrupt stdout either.
 - **Plan 03 (Famix model)** — population pipeline calls the LSP.
 - **Plan 04 (refactoring API)** — command objects call the LSP.
 
+## Spike S1 findings (2026-04-24)
+
+Probed OSSubprocess bringup end-to-end against tsgo. Answers folded
+into design decisions above; recording here for posterity.
+
+- **Launch the tsgo binary directly, not `npx`.** The package is
+  `@typescript/native-preview` (the binary name is `tsgo`; the shell
+  form is `npx --package=@typescript/native-preview tsgo`, *not*
+  `npx tsgo`). Going through `npx`/npm-exec introduces a node
+  wrapper that does not forward stdin to the child, so the LSP
+  handshake never arrives. Resolve the binary via
+  `node_modules/@typescript/native-preview-<platform-arch>/lib/tsgo`
+  and launch that directly. `bin/smallchat-tsgo` (future) should
+  own this path-resolution + caching.
+- **OSSubprocess does not inherit the shell's dynamic PATH** —
+  fnm/volta/asdf shims are invisible. Pass absolute paths or set
+  the environment explicitly (`envVariables`).
+- **Stdout default is a non-blocking pipe.** `proc stdoutStream
+  next` returns `nil` immediately when no bytes are available —
+  naive blocking-style reads misinterpret this as EOF. Either poll
+  with `(Delay forMilliseconds: N) wait` + deadline, or switch to
+  `proc defaultWriteStreamCreationBlock: [ proc systemAccessor
+  makeBlockingPipe ]`. The client must use polled reads anyway so
+  the reader process can honour `$/cancelRequest` and image
+  shutdown.
+- **tsgo sends a `window/logMessage` notification BEFORE the
+  `initialize` response.** Any client that reads "one frame and
+  parse it as the response" breaks immediately. The request-
+  correlation layer must dispatch notifications first and only
+  resolve the pending request when it sees a matching `id`.
+- **tsgo ignores the LSP `shutdown`+`exit` shutdown sequence** in
+  at least version `7.0.0-dev.20260423.1` — the process stays
+  running. **Closing stdin exits the process cleanly (status 0).**
+  Prefer the stdin-close path; keep `terminate` as the SIGTERM
+  escape hatch.
+- **stderr is the structured error channel.** A malformed frame
+  produced `jsonrpc: invalid header: "..."` on stderr and caused
+  tsgo to exit. Happy-path stderr is genuinely empty. Surface
+  stderr to the log and to startup-error bubble-up (missing binary,
+  broken install), but do not expect routine noise there.
+- **OSSubprocess auto-reaps via a background child-watcher
+  Process** (seen as `NNN: the OSSubprocess child watcher`). Exited
+  children are not zombies in the kernel sense. What *does* leak is
+  **live children we never told to exit** (tsgo sitting on stdin).
+  Every `OSSUnixSubprocess` needs a defined teardown path, and the
+  image-save/quit hook must fire it for every active server.
+- Probed on `Pharo-13.1.0+SNAPSHOT.build.731`. OSSubprocess pinned
+  to `pharo-contributions/OSSubprocess@01754067` (master tip
+  2025-09-26). Loads clean; no follow-up patches needed for the
+  bringup path.
+
 ## Open questions
 
-- How do we bring up tsgo reliably as a subprocess on macOS? The
-  smallchat MCP launcher already documents the `open -n` / BSD `nc`
-  dance for the MCP image; tsgo is a normal `npx` child process,
-  so OSSubprocess *should* be straightforward, but we should spike
-  stdin/stdout EOF behaviour explicitly (tsgo writing large JSON
-  payloads, backpressure, zombie child cleanup on image quit).
-- Pharo 13 `OSSubprocess` stability. The library historically had
-  zombie-reaping issues on macOS; need to verify current state and
-  whether we need a periodic waitpid loop.
 - Does tsgo honour `workspace/didChangeConfiguration` or require a
   restart when `tsconfig.json` changes? Test before relying.
-- How do we surface tsgo stderr? Log it, but also bubble up fatal
-  startup errors (missing `npx`, missing node_modules) as
-  actionable errors to the agent, not as raw stderr dumps.
 - Multi-workspace handling: for the self-hosting case (editing
   smallchat's own Pharo code alongside an external TS project), we
   might have zero or one TS server running — no real multi-server

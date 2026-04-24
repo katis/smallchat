@@ -60,11 +60,18 @@ These are small, scoped verifications whose answers will change
 how we implement. Run each, update the relevant plan's Open
 Questions section, commit the update.
 
-- [ ] **S1. OSSubprocess load and tsgo launch.** Add OSSubprocess
-  to the dev baseline. Launch tsgo via `npx tsgo --lsp --stdio`,
-  write `initialize` bytes, read bytes back. Confirm: stdin EOF
-  behaviour, zombie cleanup on image quit, stderr visibility.
-  **Updates:** `plans/01` Open Questions.
+- [x] **S1. OSSubprocess load and tsgo launch.** (2026-04-24)
+  OSSubprocess pinned to `pharo-contributions/OSSubprocess@01754067`,
+  added to `dev` group. Launch the tsgo binary *directly* — the
+  `npx`/node-exec wrapper does not forward stdin. Package is
+  `@typescript/native-preview`, binary is `tsgo`. LSP handshake
+  round-trips; tsgo emits a `window/logMessage` notification before
+  the `initialize` response (client must dispatch notifications
+  first). tsgo ignores LSP `shutdown`+`exit` — closing stdin is the
+  reliable clean-exit path. Auto-reaping works via the background
+  `OSSubprocess child watcher` Process; live children still need an
+  explicit teardown on image save/quit. Full findings in `plans/01`
+  *Spike S1 findings*.
 - [ ] **S2. Pharo-Tree-Sitter binding surface.** Load
   `Evref-BL/Pharo-Tree-Sitter` v1.1.1 into dev image. Verify:
   does the `TreeSitter-Typescript` package expose both
