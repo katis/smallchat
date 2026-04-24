@@ -204,13 +204,73 @@ posterity.
   notes). Use `FFILibrary subclass: #Foo` + `'Pkg' asPackage
   addClass: cls`. Relevant for M2 wiring.
 
+## Spike S3 findings (2026-04-24)
+
+Vendored the five dylibs the binding loads via FFI into
+`lib/tree-sitter/arm64-darwin/`; `install.sh` copies them into
+`pharo/vm/Pharo.app/Contents/MacOS/Plugins/` on every run (idempotent).
+Rebuilds go through `just rebuild-dylibs` (a new justfile recipe)
+so `install.sh` itself never shells out to a compiler.
+
+- **Five dylibs, five upstreams.** `TSLibrary>>macLibraryName`
+  (core), `TSTypescriptLibrary`, `TSCSSLibrary`, plus the
+  `TSTsxLibrary` delta (M2) and a future `TSJavascriptLibrary`
+  each search for a distinct dylib name via
+  `FFIMacLibraryFinder findAnyLibrary:`. Vendored set:
+
+  | Dylib                             | Upstream                                            | Tag      | Commit     |
+  | --------------------------------- | --------------------------------------------------- | -------- | ---------- |
+  | `libtree-sitter.dylib`            | `github.com/tree-sitter/tree-sitter`                | `v0.26.8`| `cd5b087c` |
+  | `libtree-sitter-typescript.dylib` | `github.com/tree-sitter/tree-sitter-typescript`     | `v0.23.2`| `f975a621` |
+  | `libtree-sitter-tsx.dylib`        | (same repo, `tsx/` subdir)                          | `v0.23.2`| `f975a621` |
+  | `libtree-sitter-css.dylib`        | `github.com/tree-sitter/tree-sitter-css`            | `v0.25.0`| `dda5cfc5` |
+  | `libtree-sitter-javascript.dylib` | `github.com/tree-sitter/tree-sitter-javascript`     | `v0.25.0`| `44c892e0` |
+
+  Total footprint ~3.8 MB; plain git, no LFS.
+- **Build recipe.** `git clone --depth 1 --branch <tag> <url>`
+  then `make` in the clone root (typescript's make builds both
+  `typescript/` and `tsx/` subdir dylibs in one pass). No
+  configure step, no external deps beyond Apple clang. Captured
+  in the `just rebuild-dylibs` recipe and in
+  `lib/tree-sitter/arm64-darwin/README.md`.
+- **`file` output (drift-check pin).** All five read
+  `Mach-O 64-bit dynamically linked shared library arm64`. The
+  dylib README carries the same line so a future `file *.dylib`
+  diff surfaces any arch regression.
+- **Distribution path: VM Plugins copy.** Pharo's
+  `FFIMacLibraryFinder` searches the VM's Plugins dir plus
+  `DYLD_LIBRARY_PATH`, with no documented hook to register a
+  custom search path from inside the image. `install.sh` copies
+  `lib/tree-sitter/arm64-darwin/*.dylib` into
+  `pharo/vm/Pharo.app/Contents/MacOS/Plugins/` after the VM is
+  materialised. Rejected alternatives: setting
+  `DYLD_LIBRARY_PATH` in the `bin/smallchat*` launchers (fragile
+  under macOS SIP, invisible to direct VM launches); adding an
+  FFI search path from inside the image (no API).
+- **Startup health check.** `SmallChatTreeSitterHealth` (in the
+  `SmallChat` package) exposes class-side `check`, `checkDylibs:`,
+  and `reportOn:` that probe each expected dylib name via
+  `FFIMacLibraryFinder findAnyLibrary:` (same lookup the binding
+  uses). `lib/load-packages.st` calls `reportOn: Transcript` in
+  the `mcpMode` branch so a missing dylib surfaces loudly at
+  image-build time, before the first lazy FFI-call failure. The
+  check runs in the verifier image too (tests exercise it) but
+  is not wired into the verifier's load path — verifier is
+  disposable and doesn't load `TreeSitter`.
+- **`TSTsxLibrary` / `TSJavascriptLibrary` are still M2.** Dylibs
+  are vendored but the FFI wrapper classes (the ~5-method
+  `TSTsxLibrary` delta documented in the S2 findings, and the
+  mirror `TSJavascriptLibrary`) land in M2 alongside
+  `SmallChatTSParser`.
+
 ## Dependencies
 
 - External: `Evref-BL/Pharo-Tree-Sitter` pinned at commit
   `e621baf6...` (tag `v.1.1.1`) via Metacello.
-- External: tree-sitter dylibs built for arm64-darwin. Building is
-  offline; shipping them via git-LFS or a `lib/tree-sitter/`
-  check-in is a cross-cutting decision (see TODO).
+- External: arm64-darwin tree-sitter dylibs vendored at
+  `lib/tree-sitter/arm64-darwin/` (S3). Staged into the VM's
+  Plugins directory by `install.sh`. Rebuild via
+  `just rebuild-dylibs`.
 - Internal: Plan 03 (Famix) consumes ranges. Plan 04 (refactoring)
   composes tree-sitter edits with LSP edits for CSS and the
   CSS-module bridge.
@@ -220,12 +280,6 @@ posterity.
 - Do we need `TSQuery` for CSS class-name extraction, or does a
   walk-all-named-children-of-type-`class_selector` pass suffice?
   Spike while building the CSS side of plan 03.
-- Dylib distribution. Build on the dev machine, vendor into
-  `lib/tree-sitter/`, document how to rebuild. Or: build as part
-  of `just install` by detecting missing dylibs and invoking
-  tree-sitter CLI. The second is nicer but assumes `tree-sitter`
-  CLI is on PATH, which not every machine will have. Defer until
-  we feel the pain.
 - Tree-sitter-javascript wrapper. Upstream `typescript` grammar
   covers most of what we'd want from `javascript`, and TS-in-JS
   files is a common pattern (JSDoc typed). We can probably start
@@ -241,9 +295,11 @@ posterity.
 
 1. Load the Evref-BL binding into the dev image via Metacello.
    Confirm `TSParser` class appears; parse a trivial TS snippet
-   and print the root node.
+   and print the root node. (Done, S2.)
 2. Build or verify arm64-darwin dylibs for `typescript`, `tsx`,
-   `javascript`, `css`. Land them in `lib/tree-sitter/`.
+   `javascript`, `css`, plus the `libtree-sitter` core. Vendored
+   under `lib/tree-sitter/arm64-darwin/`; staged into VM Plugins
+   by `install.sh`. (Done, S3.)
 3. `SmallChatTSParser` + grammar singletons. Able to parse a file
    from disk and return a root `TSNode` in Pharo.
 4. Range helpers: byte range <-> UTF-16 LSP position, line/column.

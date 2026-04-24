@@ -66,6 +66,8 @@ mcpMode ifTrue: [
 
 	Transcript show: 'Running lib/iceberg-setup.st.'; cr.
 	OpalCompiler new evaluate:
-		(repoDir / 'lib' / 'iceberg-setup.st') readStream upToEnd ].
+		(repoDir / 'lib' / 'iceberg-setup.st') readStream upToEnd.
+
+	SmallChatTreeSitterHealth reportOn: Transcript ].
 
 Transcript show: 'smallchat baseline loaded.'; cr.

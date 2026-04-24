@@ -84,10 +84,15 @@ Questions section, commit the update.
   but the binding doesn't copy it to `<vm>/Plugins/` — manual
   copy for S2; S3 vendors both. Full findings in `plans/02`
   *Spike S2 findings*.
-- [ ] **S3. arm64-darwin dylibs.** Build or acquire
-  `libtree-sitter-typescript.dylib`, `libtree-sitter-javascript
-  .dylib`, `libtree-sitter-css.dylib` for arm64. Document the
-  build recipe in `plans/02`. `file` output pinned.
+- [x] **S3. arm64-darwin dylibs.** (2026-04-24) Vendored five
+  dylibs (`libtree-sitter`, `-typescript`, `-tsx`, `-css`,
+  `-javascript`) under `lib/tree-sitter/arm64-darwin/`; `install
+  .sh` stages them into the VM's Plugins dir. Build recipe and
+  pinned SHAs live in `lib/tree-sitter/arm64-darwin/README.md`
+  and `plans/02` *Spike S3 findings*; rebuild with
+  `just rebuild-dylibs`. `file *.dylib` pinned to arm64 in both
+  docs. Includes `SmallChatTreeSitterHealth` class-side
+  presence-check wired into `lib/load-packages.st` (dev branch).
 - [ ] **S4. FamixNG / Moose pin.** Pick a specific Moose release
   that loads cleanly on Pharo 13 and provides FamixNG generator
   traits. Pin in baseline. **Updates:** `plans/03` Open
@@ -116,9 +121,9 @@ the matching plan.
 - [ ] Add `OSSubprocess` to `BaselineOfSmallChat` `dev` group.
 - [x] Add `TreeSitter` (Evref-BL) to `BaselineOfSmallChat` `dev`
   group. `default` / verifier group stays lean. (2026-04-24, S2)
-- [ ] Vendor arm64 dylibs under `lib/tree-sitter/arm64-darwin/`.
+- [x] Vendor arm64 dylibs under `lib/tree-sitter/arm64-darwin/`.
   Add a dylib-presence self-check at startup (loud warning on
-  missing).
+  missing). (2026-04-24, S3)
 - [ ] FamixNG load into `dev` group (after S4).
 
 ### M1 - LSP client

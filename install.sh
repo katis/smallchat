@@ -71,6 +71,21 @@ else
     echo "==> VM and seed image already present; skipping download"
 fi
 
+# Stage vendored tree-sitter dylibs into the VM's Plugins dir where
+# FFIMacLibraryFinder discovers them. Rerun-safe: overwrites existing.
+# The dev image uses TreeSitter at FFI call time; the verifier image
+# doesn't load the binding but the copy is cheap and keeps the two
+# flavours in sync.
+DYLIB_SRC="$REPO/lib/tree-sitter/arm64-darwin"
+DYLIB_DST="$VM_DIR/Pharo.app/Contents/MacOS/Plugins"
+if [ -d "$DYLIB_SRC" ] && [ -d "$DYLIB_DST" ]; then
+    echo "==> Copying tree-sitter dylibs into $DYLIB_DST"
+    for dylib in "$DYLIB_SRC"/*.dylib; do
+        [ -f "$dylib" ] || continue
+        cp "$dylib" "$DYLIB_DST/"
+    done
+fi
+
 if [ "$REBUILD" -eq 1 ] || [ ! -f "$IMAGE" ]; then
     echo "==> Materialising working image from seed"
     cp "$SEED_DIR/Pharo.image"   "$IMAGE"
