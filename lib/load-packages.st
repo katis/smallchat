@@ -69,6 +69,9 @@ mcpMode ifTrue: [
 		(repoDir / 'lib' / 'iceberg-setup.st') readStream upToEnd.
 
 	(Smalltalk globals at: #SmallChatTreeSitterHealth ifAbsent: [ nil ])
+		ifNotNil: [ :cls | cls reportOn: Transcript ].
+
+	(Smalltalk globals at: #SmallChatLSPHealth ifAbsent: [ nil ])
 		ifNotNil: [ :cls | cls reportOn: Transcript ] ].
 
 Transcript show: 'smallchat baseline loaded.'; cr.
