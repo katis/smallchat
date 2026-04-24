@@ -124,6 +124,21 @@ SmallChatLSPClientTest >> testRequestAsyncWritesEnvelopeAndReturnsPending [
 ]
 
 { #category : 'tests - correlation' }
+SmallChatLSPClientTest >> testRequestRaisesWhenCalledFromUIProcess [
+	"The blocking #request: entry point asserts it is NOT running on the UI
+	 process. The hook is overridable so tests can force the condition; in
+	 production it resolves to UIManager default uiProcess."
+	| stub client subclass |
+	stub := SmallChatLSPStubTransport new.
+	"Use an anonymous subclass that reports the currently active process as the UI process."
+	subclass := SmallChatLSPClient newAnonymousSubclass.
+	subclass compile: 'uiProcess ^ Processor activeProcess'.
+	client := subclass new transport: stub.
+	self should: [ client request: (Dictionary new at: 'method' put: 'x'; yourself) ]
+		raise: SmallChatLSPUIProcessBlocked
+]
+
+{ #category : 'tests - correlation' }
 SmallChatLSPClientTest >> testResponseCompletesPending [
 	"When pumpOneMessage reads a server response matching a pending id, that
 	 pending becomes resolved and #result returns the response's result dict."

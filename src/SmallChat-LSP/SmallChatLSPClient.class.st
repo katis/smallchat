@@ -11,6 +11,17 @@ Class {
 	#package : 'SmallChat-LSP'
 }
 
+{ #category : 'safety' }
+SmallChatLSPClient >> assertNotOnUIProcess [
+	"Blocking LSP calls must never sit on the UI process -- tsgo references
+	 over a big project can take seconds, which would freeze Morphic. Async
+	 callers use #requestAsync: instead. This is a programming error, not a
+	 runtime condition."
+	Processor activeProcess == self uiProcess ifTrue: [
+		SmallChatLSPUIProcessBlocked signal:
+			'Blocking LSP request on the UI process -- use requestAsync: from UI code' ]
+]
+
 { #category : 'requests' }
 SmallChatLSPClient >> cancelPending: aPending [
 	"Emit $/cancelRequest for aPending's id and resolve the pending with a
@@ -83,6 +94,13 @@ SmallChatLSPClient >> pumpOneMessage [
 ]
 
 { #category : 'requests' }
+SmallChatLSPClient >> request: aRequestDictionary [
+	"Blocking sugar: requestAsync + result. Refuses to run on the UI process."
+	self assertNotOnUIProcess.
+	^ (self requestAsync: aRequestDictionary) result
+]
+
+{ #category : 'requests' }
 SmallChatLSPClient >> requestAsync: aRequestDictionary [
 	"Assign a monotonic id, build a JSON-RPC 2.0 envelope, register the pending
 	 keyed by id, write the envelope, and return the pending."
@@ -103,4 +121,11 @@ SmallChatLSPClient >> requestAsync: aRequestDictionary [
 SmallChatLSPClient >> transport: aTransport [
 	transport := aTransport.
 	^ self
+]
+
+{ #category : 'safety' }
+SmallChatLSPClient >> uiProcess [
+	"Hook: which Pharo Process counts as the UI process. Tests override.
+	 Production asks UIManager."
+	^ UIManager default uiProcess
 ]
