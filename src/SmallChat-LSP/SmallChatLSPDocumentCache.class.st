@@ -19,10 +19,22 @@ SmallChatLSPDocumentCache >> changeUri: aUri text: aString [
 	^ self
 ]
 
+{ #category : 'lifecycle' }
+SmallChatLSPDocumentCache >> closeUri: aUri [
+	"Drop aUri from the cache. No-op if the URI is not open."
+	entries removeKey: aUri ifAbsent: [ nil ].
+	^ self
+]
+
 { #category : 'initialization' }
 SmallChatLSPDocumentCache >> initialize [
 	super initialize.
 	entries := Dictionary new
+]
+
+{ #category : 'accessing' }
+SmallChatLSPDocumentCache >> isOpen: aUri [
+	^ entries includesKey: aUri
 ]
 
 { #category : 'accessing' }

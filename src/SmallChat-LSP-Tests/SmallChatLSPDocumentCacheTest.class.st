@@ -21,6 +21,18 @@ SmallChatLSPDocumentCacheTest >> testChangeUriIncrementsVersionAndReplacesText [
 ]
 
 { #category : 'tests - cache' }
+SmallChatLSPDocumentCacheTest >> testCloseUriRemovesEntry [
+	"closeUri: drops the URI from the cache; querying it afterwards should
+	 behave the same as a URI that was never opened."
+	| cache uri |
+	cache := SmallChatLSPDocumentCache new.
+	uri := 'file:///tmp/x.ts'.
+	cache openUri: uri languageId: 'typescript' text: 'hi'.
+	cache closeUri: uri.
+	self assert: (cache isOpen: uri) equals: false
+]
+
+{ #category : 'tests - cache' }
 SmallChatLSPDocumentCacheTest >> testOpenUriRecordsVersionOneAndText [
 	"openUri:languageId:text: registers a new URI at version 1 with the given
 	 text and languageId."
