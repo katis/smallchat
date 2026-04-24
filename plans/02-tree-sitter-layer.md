@@ -226,22 +226,42 @@ so `install.sh` itself never shells out to a compiler.
   | `libtree-sitter-css.dylib`        | `github.com/tree-sitter/tree-sitter-css`            | `v0.25.0`| `dda5cfc5` |
   | `libtree-sitter-javascript.dylib` | `github.com/tree-sitter/tree-sitter-javascript`     | `v0.25.0`| `44c892e0` |
 
-  Total footprint ~3.8 MB; plain git, no LFS.
+  Not committed as binaries: build on demand from pinned upstreams
+  (see "Build on install" below).
 - **Build recipe.** `git clone --depth 1 --branch <tag> <url>`
   then `make` in the clone root (typescript's make builds both
-  `typescript/` and `tsx/` subdir dylibs in one pass). No
-  configure step, no external deps beyond Apple clang. Captured
-  in the `just rebuild-dylibs` recipe and in
-  `lib/tree-sitter/arm64-darwin/README.md`.
-- **`file` output (drift-check pin).** All five read
-  `Mach-O 64-bit dynamically linked shared library arm64`. The
-  dylib README carries the same line so a future `file *.dylib`
-  diff surfaces any arch regression.
+  `typescript/` and `tsx/` subdir libraries in one pass). No
+  configure step, no external deps beyond the host C toolchain.
+  Extracted into `bin/build-dylibs` — single source of truth,
+  shared by `install.sh` (conditional) and `just rebuild-dylibs`
+  (unconditional with `--force`). Pinned tags live at the top of
+  the script.
+- **Build on install.** Binaries never land in git; `install.sh`
+  invokes `bin/build-dylibs` when fewer than five libraries are
+  present under `lib/tree-sitter/<platform>/`. Rejected
+  alternative (S3 v1): commit the five arm64-darwin dylibs
+  (~3.8 MB). Prebuilt vendoring simplified first-run but
+  blocked the x86_64-darwin / linux matrices and made tag bumps
+  a binary-diff review. Build-on-install also resolves a latent
+  cross-platform hazard: the previous flow hard-coded
+  `arm64-darwin` in both `install.sh` and the justfile recipe.
+- **Platform detection.** `uname -s` / `uname -m` -> one of
+  `arm64-darwin`, `x86_64-darwin`, `x86_64-linux`,
+  `aarch64-linux`. Shared-library extension follows (`.dylib` on
+  Darwin, `.so` on Linux). Only arm64-darwin is exercised today;
+  x86_64-darwin should work as-is, Linux needs a Pharo VM path
+  plus a matching `FFIUnix64LibraryFinder` hook in
+  `SmallChatTreeSitterHealth` before the full flow is useful.
+- **`file` output (drift-check pin).** All five arm64-darwin
+  libraries read `Mach-O 64-bit dynamically linked shared library
+  arm64`. `bin/build-dylibs` prints the block on every run and
+  `lib/tree-sitter/README.md` pins the expected lines for drift
+  comparison.
 - **Distribution path: VM Plugins copy.** Pharo's
   `FFIMacLibraryFinder` searches the VM's Plugins dir plus
   `DYLD_LIBRARY_PATH`, with no documented hook to register a
   custom search path from inside the image. `install.sh` copies
-  `lib/tree-sitter/arm64-darwin/*.dylib` into
+  `lib/tree-sitter/<platform>/*` into
   `pharo/vm/Pharo.app/Contents/MacOS/Plugins/` after the VM is
   materialised. Rejected alternatives: setting
   `DYLD_LIBRARY_PATH` in the `bin/smallchat*` launchers (fragile
@@ -257,20 +277,28 @@ so `install.sh` itself never shells out to a compiler.
   check runs in the verifier image too (tests exercise it) but
   is not wired into the verifier's load path — verifier is
   disposable and doesn't load `TreeSitter`.
-- **`TSTsxLibrary` / `TSJavascriptLibrary` are still M2.** Dylibs
-  are vendored but the FFI wrapper classes (the ~5-method
-  `TSTsxLibrary` delta documented in the S2 findings, and the
-  mirror `TSJavascriptLibrary`) land in M2 alongside
+- **`TSTsxLibrary` / `TSJavascriptLibrary` are still M2.** The
+  libraries build on install but the FFI wrapper classes (the
+  ~5-method `TSTsxLibrary` delta documented in the S2 findings,
+  and the mirror `TSJavascriptLibrary`) land in M2 alongside
   `SmallChatTSParser`.
+- **CI matrix shape.** `lib/tree-sitter/<platform>/` is the slot
+  a future release-tarball job drops per-platform libraries into.
+  A per-platform release bundle is `{VM, image, .changes,
+  .sources, lib/tree-sitter/<platform>/}` zipped with a manifest;
+  build-on-install stays as the local-clone fallback for anyone
+  not consuming the tarball.
 
 ## Dependencies
 
 - External: `Evref-BL/Pharo-Tree-Sitter` pinned at commit
   `e621baf6...` (tag `v.1.1.1`) via Metacello.
-- External: arm64-darwin tree-sitter dylibs vendored at
-  `lib/tree-sitter/arm64-darwin/` (S3). Staged into the VM's
-  Plugins directory by `install.sh`. Rebuild via
-  `just rebuild-dylibs`.
+- External: tree-sitter shared libraries under
+  `lib/tree-sitter/<platform>/` (S3). Not tracked in git; built
+  by `bin/build-dylibs` when `install.sh` sees fewer than five
+  files present. Staged into the VM's Plugins dir after the VM
+  is materialised. Force-rebuild via `just rebuild-dylibs` after
+  bumping a pinned tag.
 - Internal: Plan 03 (Famix) consumes ranges. Plan 04 (refactoring)
   composes tree-sitter edits with LSP edits for CSS and the
   CSS-module bridge.
@@ -296,10 +324,10 @@ so `install.sh` itself never shells out to a compiler.
 1. Load the Evref-BL binding into the dev image via Metacello.
    Confirm `TSParser` class appears; parse a trivial TS snippet
    and print the root node. (Done, S2.)
-2. Build or verify arm64-darwin dylibs for `typescript`, `tsx`,
-   `javascript`, `css`, plus the `libtree-sitter` core. Vendored
-   under `lib/tree-sitter/arm64-darwin/`; staged into VM Plugins
-   by `install.sh`. (Done, S3.)
+2. Build or verify arm64-darwin libraries for `typescript`, `tsx`,
+   `javascript`, `css`, plus the `libtree-sitter` core. Built on
+   demand by `bin/build-dylibs` into `lib/tree-sitter/<platform>/`
+   and staged into VM Plugins by `install.sh`. (Done, S3.)
 3. `SmallChatTSParser` + grammar singletons. Able to parse a file
    from disk and return a root `TSNode` in Pharo.
 4. Range helpers: byte range <-> UTF-16 LSP position, line/column.
