@@ -34,3 +34,16 @@ SmallChatCapabilityRegistry >> capabilityNamed: aString [
 	 surface that as an error or fall through to a legacy registry."
 	^ self allCapabilities detect: [ :c | c capabilityName = aString ] ifNone: [ nil ]
 ]
+
+{ #category : 'execution' }
+SmallChatCapabilityRegistry >> run: aName with: aCall [
+	"Dispatch aCall to the capability registered under aName. Returns nil
+	 if no capability matches; transports decide whether to surface as an
+	 error or fall through. Phase 3 layers the universal cross-cutting
+	 wrap (UI-process assertion, Notification suppression, exception
+	 capture) on top of this bare path."
+	| cap |
+	cap := self capabilityNamed: aName.
+	cap ifNil: [ ^ nil ].
+	^ cap run: aCall
+]
