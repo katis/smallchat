@@ -14,6 +14,23 @@ SmallChatFamixImporterRegenerationTest >> newImporterOn: aModel [
     walker: SmallChatTSNodeWalker new
 ]
 
+{ #category : 'helpers' }
+SmallChatFamixImporterRegenerationTest >> preimportTsImportUri: aTsUri specifier: aSpecifier resolvedTo: aResolvedUri into: aModel [
+  "Pre-populate a SmallChatFamixImport as if S2 had already resolved it.
+   sourceAnchor.fileUri identifies the TS file; resolvedUri points at
+   the CSS file so the bridge can find the CSSModuleFile."
+  | imp |
+  imp := aModel newImport.
+  imp name: aSpecifier.
+  imp sourceAnchor: (SmallChatFamixSourceAnchor
+    fileUri: aTsUri
+    startByte: 0
+    endByte: 0).
+  imp resolvedUri: aResolvedUri.
+  imp classification: #srcLocal.
+  ^ imp
+]
+
 { #category : 'tests - drop' }
 SmallChatFamixImporterRegenerationTest >> testDropEntitiesForUriRemovesAllAnchoredAtThatUri [
   "dropEntitiesForUri: removes every entity (Module, Class, Method, Field,
@@ -83,4 +100,42 @@ SmallChatFamixImporterRegenerationTest >> testReimportSingleCssFileReplacesItsEn
   classes := model allWithType: SmallChatFamixCSSClass.
   self assert: classes size equals: 2.
   self assert: (classes collect: [ :c | c name ]) asSet equals: #('A' 'C') asSet
+]
+
+{ #category : 'tests - reimport' }
+SmallChatFamixImporterRegenerationTest >> testRelinkCssReferencesForUrisRefreshesAfterCssChange [
+  "After a CSS module is re-imported (classes added / removed / renamed),
+   relinkCssReferencesForUris: aDictTsUriToText drops stale CSSClassReference
+   entities at each TS URI in the dict and re-runs the bridge against the
+   current model state. References to renamed/removed classes flip to
+   unresolved; surviving classes re-resolve to the new CSSClass entities."
+  | model importer cssUri tsUri tsText cssText1 cssText2 refs newPrimary refX refY |
+  model := SmallChatFamixModel new.
+  importer := self newImporterOn: model.
+  cssUri := 'file:///t/Foo.module.css'.
+  tsUri := 'file:///t/Foo.tsx'.
+  cssText1 := '.x { color: red }
+.y { color: blue }'.
+  cssText2 := '.x { color: red }
+.z { color: green }'.
+  tsText := 'import styles from "./Foo.module.css";
+const a = styles.x;
+const b = styles.y;'.
+  importer importCssFileUri: cssUri text: cssText1.
+  self preimportTsImportUri: tsUri specifier: './Foo.module.css' resolvedTo: cssUri into: model.
+  importer linkCssReferencesInTsUri: tsUri text: tsText.
+  refs := model allWithType: SmallChatFamixCSSClassReference.
+  self assert: refs size equals: 2.
+  self assert: (refs allSatisfy: [ :r | r referent notNil ]).
+  importer reimportUris: (Dictionary new at: cssUri put: cssText2; yourself).
+  importer relinkCssReferencesForUris: (Dictionary new at: tsUri put: tsText; yourself).
+  refs := model allWithType: SmallChatFamixCSSClassReference.
+  self assert: refs size equals: 2.
+  refX := refs detect: [ :r | r name = 'x' ].
+  refY := refs detect: [ :r | r name = 'y' ].
+  newPrimary := (model allWithType: SmallChatFamixCSSClass) detect: [ :c | c name = 'x' ].
+  self assert: refX referent identicalTo: newPrimary.
+  self deny: refX unresolved.
+  self assert: refY referent equals: nil.
+  self assert: refY unresolved
 ]

@@ -65,6 +65,19 @@ SmallChatFamixImporter >> client [ ^ client
 ]
 
 { #category : 'regeneration' }
+SmallChatFamixImporter >> dropCssReferencesAt: aUri [
+  "Remove all SmallChatFamixCSSClassReference entities whose sourceAnchor
+   fileUri equals aUri. Used by the bridge to make link idempotent and by
+   relinkCssReferencesForUris: to flush stale referents after a CSS file
+   change."
+  | doomed |
+  doomed := (model allWithType: SmallChatFamixCSSClassReference)
+    select: [ :r | r sourceAnchor notNil
+      and: [ r sourceAnchor fileUri = aUri ] ].
+  model removeAll: doomed
+]
+
+{ #category : 'regeneration' }
 SmallChatFamixImporter >> dropEntitiesForUri: aUri [
   "Remove every entity from the model whose sourceAnchor fileUri equals
    aUri. Entities without a sourceAnchor (Project) are left alone."
@@ -237,9 +250,10 @@ SmallChatFamixImporter >> linkCssReferencesInTsUri: aUri text: aText [
    SmallChatFamixCSSClassReference per `bindingName.X` member_expression.
    Resolved references back-point to the matching SmallChatFamixCSSClass;
    unresolved (typo) references carry referent = nil and unresolved = true.
-   Caller is responsible for pre-running CSS import + TS import resolution
-   so the model state is in place."
+   Idempotent: drops existing CSSClassReference entities at aUri before
+   re-walking, so repeated calls produce a single set of references."
   | tree root specs cssImports |
+  self dropCssReferencesAt: aUri.
   tree := parser parseTsxString: aText.
   root := tree rootNode.
   specs := walker importSpecifiersIn: root source: aText.
@@ -369,6 +383,18 @@ SmallChatFamixImporter >> reimportUris: aDictUriToText [
       ifFalse: [ ((uri endsWith: '.ts') or: [ (uri endsWith: '.tsx')
         or: [ (uri endsWith: '.js') or: [ uri endsWith: '.jsx' ] ] ])
           ifTrue: [ self importTsFileUri: uri text: text ] ] ]
+]
+
+{ #category : 'regeneration' }
+SmallChatFamixImporter >> relinkCssReferencesForUris: aDictTsUriToText [
+  "For each TS URI in aDictTsUriToText, drop existing CSSClassReference
+   entities at that URI and re-run linkCssReferencesInTsUri:text: against
+   the supplied text. Use this after re-importing a CSS module that other
+   TS files depend on -- the per-CSS-class entities have new identities,
+   so any references holding the old entities need to be regenerated.
+   Tree-sitter only; no LSP."
+  aDictTsUriToText keysAndValuesDo: [ :tsUri :tsText |
+    self linkCssReferencesInTsUri: tsUri text: tsText ]
 ]
 
 { #category : 'resolution' }
