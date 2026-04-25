@@ -65,6 +65,31 @@ SmallChatMCPCapabilityTransportTest >> testDispatchImageResultBase64sBytes [
 ]
 
 { #category : 'tests' }
+SmallChatMCPCapabilityTransportTest >> testDispatchOmitsStrayWarningWhenWatchReturnsEmpty [
+	"Empty descriptors -> no warning prefix; the original text passes through."
+	| transport reply text |
+	transport := SmallChatMCPCapabilityTransport new.
+	transport debuggerWatch: [ #() ].
+	reply := transport dispatch: 'test.fake.status' with: Dictionary new.
+	text := (reply at: 'content') first at: 'text'.
+	self assert: text equals: 'ok'
+]
+
+{ #category : 'tests' }
+SmallChatMCPCapabilityTransportTest >> testDispatchPrependsStrayDebuggerWarningWhenWatchReturnsDescriptors [
+	"When debuggerWatch returns non-empty descriptors, the transport prepends
+	 a single-line warning to the first content text item -- byte-identical
+	 to today's SmallChatToolRegistry>>decorateReply:withStray:."
+	| transport reply text |
+	transport := SmallChatMCPCapabilityTransport new.
+	transport debuggerWatch: [ { #stubA. #stubB } ].
+	reply := transport dispatch: 'test.fake.status' with: Dictionary new.
+	text := (reply at: 'content') first at: 'text'.
+	self assert: (text beginsWith: '[smallchat: 2 stray Pharo UI debugger window(s) open').
+	self assert: (text endsWith: 'ok')
+]
+
+{ #category : 'tests' }
 SmallChatMCPCapabilityTransportTest >> testDispatchResolvesAliasToCapability [
 	"Aliases let the transport accept a legacy bare name and route to its
 	 prefixed capability successor. Each migrated tool earns one alias

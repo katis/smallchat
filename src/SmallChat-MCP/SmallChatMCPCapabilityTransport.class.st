@@ -2,7 +2,8 @@ Class {
 	#name : 'SmallChatMCPCapabilityTransport',
 	#superclass : 'Object',
 	#instVars : [
-		'aliases'
+		'aliases',
+		'debuggerWatch'
 	],
 	#category : 'SmallChat-MCP',
 	#package : 'SmallChat-MCP'
@@ -21,20 +22,54 @@ SmallChatMCPCapabilityTransport >> aliases [
 	^ aliases ifNil: [ aliases := Dictionary new ]
 ]
 
+{ #category : 'stray-debugger' }
+SmallChatMCPCapabilityTransport >> debuggerWatch [
+	"Block returning Array of stray-debugger descriptors. Defaults to the
+	 live-world query; tests inject their own via #debuggerWatch:."
+	^ debuggerWatch ifNil: [ debuggerWatch := [ SmallChatDebuggerWatch openWindows ] ]
+]
+
+{ #category : 'stray-debugger' }
+SmallChatMCPCapabilityTransport >> debuggerWatch: aBlock [
+	debuggerWatch := aBlock
+]
+
+{ #category : 'stray-debugger' }
+SmallChatMCPCapabilityTransport >> decorateReply: aReplyDict withStray: descriptors [
+	"Prepend a single-line warning about stray debugger windows to the first
+	 content text item. No-op when descriptors is empty. Mirrors today's
+	 SmallChatToolRegistry>>decorateReply:withStray: byte-for-byte."
+	| prefix content first text |
+	descriptors isEmpty ifTrue: [ ^ aReplyDict ].
+	prefix := '[smallchat: ' , descriptors size asString ,
+		' stray Pharo UI debugger window(s) open -- these block the dev image''s UI process. ',
+		'Dismiss via: SmallChatDebuggerWatch closeAll]' , String lf , String lf.
+	content := aReplyDict at: 'content' ifAbsent: [ ^ aReplyDict ].
+	content isEmpty ifTrue: [ ^ aReplyDict ].
+	first := content first.
+	(first at: 'type' ifAbsent: [ nil ]) = 'text' ifFalse: [ ^ aReplyDict ].
+	text := first at: 'text' ifAbsent: [ '' ].
+	first at: 'text' put: prefix , text.
+	^ aReplyDict
+]
+
 { #category : 'dispatching' }
 SmallChatMCPCapabilityTransport >> dispatch: aName with: anArgsDict [
-	"Look up aName (after alias resolution) in the capability registry,
-	 run, and translate the result to the MCP tools/call reply shape.
-	 Falls through to the legacy SmallChatToolRegistry while the 16 tools
-	 migrate one at a time."
-	| resolved call result |
+	"Resolve aliases, dispatch via the capability registry, translate the
+	 result to MCP shape, decorate with stray-debugger warning. Falls
+	 through to the legacy SmallChatToolRegistry while migration is in
+	 progress."
+	| resolved call result reply stray |
+	stray := [ self debuggerWatch value ] on: Error do: [ :_ | #() ].
 	resolved := self resolveAlias: aName.
 	call := SmallChatCapabilityCall
 		name: resolved
 		argumentsJson: (STONJSON toString: anArgsDict).
 	result := SmallChatCapabilityRegistry default run: resolved with: call.
-	result ifNotNil: [ ^ self mcpReplyFor: result ].
-	^ SmallChatToolRegistry default run: aName with: anArgsDict
+	result ifNotNil: [
+		^ self decorateReply: (self mcpReplyFor: result) withStray: stray ].
+	reply := SmallChatToolRegistry default run: aName with: anArgsDict.
+	^ self decorateReply: reply withStray: stray
 ]
 
 { #category : 'private' }
