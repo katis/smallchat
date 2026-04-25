@@ -30,6 +30,18 @@ SmallChatMCPCapabilityTransport >> aliasFor: aLegacyName put: aCapabilityName [
 	^ self
 ]
 
+{ #category : 'tools-list' }
+SmallChatMCPCapabilityTransport >> aliasSpecDictFor: aCapability aliasName: aBareName [
+	"Spec for one bare-name alias. Same schema as the canonical capability;
+	 description suffixed with `` (alias for vcs.status)`` so new agents see
+	 the canonical name."
+	^ Dictionary new
+		at: 'name' put: aBareName;
+		at: 'description' put: aCapability description , ' (alias for ' , aCapability capabilityName , ')';
+		at: 'inputSchema' put: aCapability schema asJsonSchema;
+		yourself
+]
+
 { #category : 'aliases' }
 SmallChatMCPCapabilityTransport >> aliases [
 	"Lazily-initialised dict from legacy bare name -> prefixed capability name.
@@ -168,17 +180,20 @@ SmallChatMCPCapabilityTransport >> specDictForCapability: aCapability [
 { #category : 'tools-list' }
 SmallChatMCPCapabilityTransport >> toolSpecs [
 	"Combined tools/list response: spec dicts for every registered
-	 production capability plus every legacy SmallChatTool. Test fixtures
-	 are filtered via #isTestFixture."
+	 production capability (one per #capabilityName plus one per declared
+	 #mcpAliases entry), followed by every legacy SmallChatTool not yet
+	 migrated. Test fixtures filter out via #isTestFixture; capability +
+	 alias entries crowd out same-named legacy tools."
 	| specs seen |
 	specs := OrderedCollection new.
 	seen := Set new.
 	SmallChatCapabilityRegistry default allCapabilities do: [ :cap |
 		cap isTestFixture ifFalse: [
 			specs add: (self specDictForCapability: cap).
-			seen add: cap capabilityName ] ].
-	"Legacy tools not yet migrated: include their specs verbatim from the
-	 old registry. Aliases collide on a name we've already added; skip."
+			seen add: cap capabilityName.
+			cap mcpAliases do: [ :aliasName |
+				specs add: (self aliasSpecDictFor: cap aliasName: aliasName).
+				seen add: aliasName ] ] ].
 	SmallChatToolRegistry default toolSpecs do: [ :legacy |
 		(seen includes: (legacy at: 'name'))
 			ifFalse: [ specs add: legacy ] ].

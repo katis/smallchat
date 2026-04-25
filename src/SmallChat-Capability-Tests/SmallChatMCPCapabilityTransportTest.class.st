@@ -138,6 +138,22 @@ SmallChatMCPCapabilityTransportTest >> testProtocolHandleToolsCallRoutesThroughC
 ]
 
 { #category : 'tests' }
+SmallChatMCPCapabilityTransportTest >> testToolSpecsEmitsAliasEntryAlongsidePrefixedName [
+	"During the deprecation window, every capability alias produces its
+	 own tools/list entry (same schema, name = bare alias) so existing
+	 Claude Code prompts keep finding it. Description carries an
+	 ' (alias for X)' suffix to nudge new agents toward the prefixed name."
+	| specs vcs alias |
+	specs := SmallChatMCPCapabilityTransport new toolSpecs.
+	vcs := specs detect: [ :s | (s at: 'name') = 'vcs.status' ] ifNone: [ nil ].
+	alias := specs detect: [ :s | (s at: 'name') = 'status' ] ifNone: [ nil ].
+	self assert: vcs notNil description: 'vcs.status spec must be present'.
+	self assert: alias notNil description: 'status alias spec must be present'.
+	self assert: (alias at: 'inputSchema') equals: (vcs at: 'inputSchema').
+	self assert: ((alias at: 'description') includesSubstring: 'alias for vcs.status')
+]
+
+{ #category : 'tests' }
 SmallChatMCPCapabilityTransportTest >> testToolSpecsExcludesTestFixtures [
 	"Test-only capability subclasses are tagged via #isTestFixture and must
 	 never appear in tools/list -- they're internal scaffolding."
