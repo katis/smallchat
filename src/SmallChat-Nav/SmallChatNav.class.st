@@ -32,6 +32,28 @@ SmallChatNav class >> describeClass: classNameOrSymbol [
 ]
 
 { #category : 'api' }
+SmallChatNav class >> examplesFor: classNameOrSymbol [
+	| name cls examples siblingName sibling |
+	name := classNameOrSymbol asSymbol.
+	cls := Smalltalk globals at: name ifAbsent: [ nil ].
+	cls ifNil: [ ^ '_class not found: ', name asString, '_' ].
+	examples := cls selectorsInProtocol: 'examples'.
+	examples isEmpty ifFalse: [
+		^ String streamContents: [ :s |
+			examples asSortedCollection do: [ :sel |
+				s nextPutAll: '### '; nextPutAll: cls name;
+				  nextPutAll: '>>'; nextPutAll: sel asString; lf; lf;
+				  nextPutAll: '```smalltalk'; lf;
+				  nextPutAll: (cls >> sel) sourceCode; lf;
+				  nextPutAll: '```'; lf; lf ] ] ].
+	siblingName := (cls name asString , 'Test') asSymbol.
+	sibling := Smalltalk globals at: siblingName ifAbsent: [ nil ].
+	sibling ifNotNil: [
+		^ '_No examples yet. Try: `SmallChatNav findMethods: ''test'' in: #', siblingName asString, '`_' ].
+	^ '_No examples yet._'
+]
+
+{ #category : 'api' }
 SmallChatNav class >> findClasses: pattern [
 	| matcher matches limit shown |
 	matcher := RxMatcher forString: pattern.
