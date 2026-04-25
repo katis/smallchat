@@ -26,3 +26,14 @@ SmallChatCapabilitySchema >> initialize [
 	super initialize.
 	fields := OrderedCollection new
 ]
+
+{ #category : 'building' }
+SmallChatCapabilitySchema >> string: aName required: aBoolean description: aDescription [
+	"Append a #string field. Returns self so callers can chain."
+	fields add: (SmallChatCapabilitySchemaField
+		name: aName
+		type: #string
+		required: aBoolean
+		description: aDescription).
+	^ self
+]
