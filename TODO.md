@@ -179,11 +179,23 @@ See `plans/01`. Depends on: M0 (OSSubprocess).
 
 See `plans/02`, `plans/03`. Depends on: M0.
 
-- [ ] `SmallChatTSParser` + TS/TSX/JS/CSS grammar singletons.
-- [ ] Range helpers (byte <-> UTF-16 LSP position).
-- [ ] Named-child walker helpers.
-- [ ] Minimal Famix-X metamodel (13 classes), STON round-trip
-  tested.
+- [x] `SmallChatTSParser` + TSX / CSS grammar singletons.
+  (2026-04-25; JS deferred per S6 -- TSX grammar parses .ts cleanly,
+  so the JS wrapper waits until something actually needs it.)
+- [x] Range helpers (byte <-> UTF-16 LSP position). (2026-04-25;
+  ASCII / BMP non-ASCII / astral covered, LSP-shaped position-range
+  emit and inverse round-trip both implemented.)
+- [x] Named-child walker helpers. (2026-04-25;
+  topLevelDeclarations, importStatements, jsxAttributeValues,
+  memberExpressionsFor:objectName:inSource:, classSelectors --
+  exercise lib/fixtures/{ts-small,ts-css-small}/.)
+- [x] Minimal Famix-X metamodel (14 classes), STON round-trip
+  tested. (2026-04-25; grew to 14 per S6 -- added `Field` for
+  documentSymbol Property kinds. Project / Module / Class /
+  Interface / Function / Method / Parameter / Field / TypeAlias /
+  Import / JSXComponent / CSSModuleFile / CSSClass /
+  CSSClassReference, all rooted on SmallChatFamixEntity with
+  `name` and `sourceAnchor` accessors.)
 
 ### M3 - Famix population pipeline
 
