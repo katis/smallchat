@@ -15,10 +15,10 @@ SmallChatDebugStepToolsTest >> tearDown [
 SmallChatDebugStepToolsTest >> testProceedOnSteppedSessionRecapturesNextRaise [
     | evalResult sid proceedResult payload newSid |
     SmallChatDebugSessionRegistry reset.
-    evalResult := SmallChatToolRegistry default run: 'evaluate' with: (Dictionary new at: 'code' put: '1/0. 2/0. 42'; yourself).
+    evalResult := SmallChatMCPCapabilityTransport default dispatch: 'evaluate' with: (Dictionary new at: 'code' put: '1/0. 2/0. 42'; yourself).
     sid := (evalResult at: 'debugSession') at: 'id'.
-    SmallChatToolRegistry default run: 'debug_step_over' with: (Dictionary new at: 'sessionId' put: sid; yourself).
-    proceedResult := SmallChatToolRegistry default run: 'debug_proceed' with: (Dictionary new at: 'sessionId' put: sid; yourself).
+    SmallChatMCPCapabilityTransport default dispatch: 'debug_step_over' with: (Dictionary new at: 'sessionId' put: sid; yourself).
+    proceedResult := SmallChatMCPCapabilityTransport default dispatch: 'debug_proceed' with: (Dictionary new at: 'sessionId' put: sid; yourself).
     payload := proceedResult at: 'debugSession' ifAbsent: [ nil ].
     self assert: payload notNil description: 'debug_proceed after a step must recapture on the next raise'.
     self assert: (payload at: 'exceptionClass') equals: 'ZeroDivide'.
@@ -30,10 +30,10 @@ SmallChatDebugStepToolsTest >> testProceedOnSteppedSessionRecapturesNextRaise [
 SmallChatDebugStepToolsTest >> testReturnRejectsSteppedSession [
     | evalResult sid returnResult content text |
     SmallChatDebugSessionRegistry reset.
-    evalResult := SmallChatToolRegistry default run: 'evaluate' with: (Dictionary new at: 'code' put: '1/0. 42'; yourself).
+    evalResult := SmallChatMCPCapabilityTransport default dispatch: 'evaluate' with: (Dictionary new at: 'code' put: '1/0. 42'; yourself).
     sid := (evalResult at: 'debugSession') at: 'id'.
-    SmallChatToolRegistry default run: 'debug_step_over' with: (Dictionary new at: 'sessionId' put: sid; yourself).
-    returnResult := SmallChatToolRegistry default run: 'debug_return' with: (Dictionary new
+    SmallChatMCPCapabilityTransport default dispatch: 'debug_step_over' with: (Dictionary new at: 'sessionId' put: sid; yourself).
+    returnResult := SmallChatMCPCapabilityTransport default dispatch: 'debug_return' with: (Dictionary new
         at: 'sessionId' put: sid;
         at: 'expression' put: '99';
         yourself).
@@ -48,13 +48,13 @@ SmallChatDebugStepToolsTest >> testReturnRejectsSteppedSession [
 SmallChatDebugStepToolsTest >> testSecondStepOverSkipsRepopAndAdvancesFurther [
     | evalResult sid session afterFirstIctx afterSecondIctx |
     SmallChatDebugSessionRegistry reset.
-    evalResult := SmallChatToolRegistry default run: 'evaluate' with: (Dictionary new at: 'code' put: '1/0. 2/0. 99'; yourself).
+    evalResult := SmallChatMCPCapabilityTransport default dispatch: 'evaluate' with: (Dictionary new at: 'code' put: '1/0. 2/0. 99'; yourself).
     sid := (evalResult at: 'debugSession') at: 'id'.
-    SmallChatToolRegistry default run: 'debug_step_over' with: (Dictionary new at: 'sessionId' put: sid; yourself).
+    SmallChatMCPCapabilityTransport default dispatch: 'debug_step_over' with: (Dictionary new at: 'sessionId' put: sid; yourself).
     session := SmallChatDebugSessionRegistry default at: sid.
     self assert: session stepped.
     afterFirstIctx := session debugSession interruptedContext.
-    SmallChatToolRegistry default run: 'debug_step_over' with: (Dictionary new at: 'sessionId' put: sid; yourself).
+    SmallChatMCPCapabilityTransport default dispatch: 'debug_step_over' with: (Dictionary new at: 'sessionId' put: sid; yourself).
     session := SmallChatDebugSessionRegistry default at: sid.
     self assert: session stepped.
     afterSecondIctx := session debugSession interruptedContext.
@@ -77,11 +77,11 @@ SmallChatDebugStepToolsTest >> testSessionSteppedDefaultsToFalseAndRoundTrips [
 SmallChatDebugStepToolsTest >> testStepIntoEntersNextMethodCall [
     | evalResult sid session ictx |
     SmallChatDebugSessionRegistry reset.
-    evalResult := SmallChatToolRegistry default run: 'evaluate' with: (Dictionary new at: 'code' put: '1/0. 5 factorial. 42'; yourself).
+    evalResult := SmallChatMCPCapabilityTransport default dispatch: 'evaluate' with: (Dictionary new at: 'code' put: '1/0. 5 factorial. 42'; yourself).
     sid := (evalResult at: 'debugSession') at: 'id'.
     "Two step_intos: first reaches the next send-site, second enters the method."
-    SmallChatToolRegistry default run: 'debug_step_into' with: (Dictionary new at: 'sessionId' put: sid; yourself).
-    SmallChatToolRegistry default run: 'debug_step_into' with: (Dictionary new at: 'sessionId' put: sid; yourself).
+    SmallChatMCPCapabilityTransport default dispatch: 'debug_step_into' with: (Dictionary new at: 'sessionId' put: sid; yourself).
+    SmallChatMCPCapabilityTransport default dispatch: 'debug_step_into' with: (Dictionary new at: 'sessionId' put: sid; yourself).
     session := SmallChatDebugSessionRegistry default at: sid.
     self assert: session stepped.
     ictx := session debugSession interruptedContext.
@@ -93,7 +93,7 @@ SmallChatDebugStepToolsTest >> testStepIntoEntersNextMethodCall [
 SmallChatDebugStepToolsTest >> testStepIntoOnUnknownSessionRaisesError [
     | result |
     SmallChatDebugSessionRegistry reset.
-    result := SmallChatToolRegistry default run: 'debug_step_into' with: (Dictionary new at: 'sessionId' put: 'ds-nope'; yourself).
+    result := SmallChatMCPCapabilityTransport default dispatch: 'debug_step_into' with: (Dictionary new at: 'sessionId' put: 'ds-nope'; yourself).
     self assert: (result at: 'isError' ifAbsent: [ false ]) description: 'unknown sessionId must yield an MCP error result'
 ]
 
@@ -101,13 +101,13 @@ SmallChatDebugStepToolsTest >> testStepIntoOnUnknownSessionRaisesError [
 SmallChatDebugStepToolsTest >> testStepOverAdvancesIctxPastSignalAndMarksStepped [
     | evalResult sid session preIctx postIctx |
     SmallChatDebugSessionRegistry reset.
-    evalResult := SmallChatToolRegistry default run: 'evaluate' with: (Dictionary new at: 'code' put: '1/0. 42'; yourself).
+    evalResult := SmallChatMCPCapabilityTransport default dispatch: 'evaluate' with: (Dictionary new at: 'code' put: '1/0. 42'; yourself).
     sid := (evalResult at: 'debugSession') at: 'id'.
     session := SmallChatDebugSessionRegistry default at: sid.
     preIctx := session debugSession interruptedContext.
     self assert: preIctx receiver class equals: SmallInteger.
     self deny: session stepped.
-    SmallChatToolRegistry default run: 'debug_step_over' with: (Dictionary new at: 'sessionId' put: sid; yourself).
+    SmallChatMCPCapabilityTransport default dispatch: 'debug_step_over' with: (Dictionary new at: 'sessionId' put: sid; yourself).
     session := SmallChatDebugSessionRegistry default at: sid.
     self assert: session stepped.
     postIctx := session debugSession interruptedContext.
@@ -119,7 +119,7 @@ SmallChatDebugStepToolsTest >> testStepOverAdvancesIctxPastSignalAndMarksStepped
 SmallChatDebugStepToolsTest >> testStepOverOnUnknownSessionRaisesError [
     | result |
     SmallChatDebugSessionRegistry reset.
-    result := SmallChatToolRegistry default run: 'debug_step_over' with: (Dictionary new at: 'sessionId' put: 'ds-nope'; yourself).
+    result := SmallChatMCPCapabilityTransport default dispatch: 'debug_step_over' with: (Dictionary new at: 'sessionId' put: 'ds-nope'; yourself).
     self assert: (result at: 'isError' ifAbsent: [ false ]) description: 'unknown sessionId must yield an MCP error result'
 ]
 
@@ -127,9 +127,9 @@ SmallChatDebugStepToolsTest >> testStepOverOnUnknownSessionRaisesError [
 SmallChatDebugStepToolsTest >> testStepOverResponseIsDebugSessionPayloadWithSameId [
     | evalResult sid stepResult stepSessionPayload |
     SmallChatDebugSessionRegistry reset.
-    evalResult := SmallChatToolRegistry default run: 'evaluate' with: (Dictionary new at: 'code' put: '1/0. 42'; yourself).
+    evalResult := SmallChatMCPCapabilityTransport default dispatch: 'evaluate' with: (Dictionary new at: 'code' put: '1/0. 42'; yourself).
     sid := (evalResult at: 'debugSession') at: 'id'.
-    stepResult := SmallChatToolRegistry default run: 'debug_step_over' with: (Dictionary new at: 'sessionId' put: sid; yourself).
+    stepResult := SmallChatMCPCapabilityTransport default dispatch: 'debug_step_over' with: (Dictionary new at: 'sessionId' put: sid; yourself).
     stepSessionPayload := stepResult at: 'debugSession' ifAbsent: [ nil ].
     self assert: stepSessionPayload notNil description: 'response must carry a debugSession payload'.
     self assert: (stepSessionPayload at: 'id') equals: sid
