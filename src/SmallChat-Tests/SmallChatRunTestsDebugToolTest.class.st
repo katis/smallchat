@@ -27,13 +27,13 @@ SmallChatRunTestsDebugToolTest >> tearDown [
 
 { #category : 'tests' }
 SmallChatRunTestsDebugToolTest >> testDebugFirstFailureCapturesSession [
-    | result json |
-    result := SmallChatToolRegistry default run: 'run_tests' with: (Dictionary new
-        at: 'packagePattern' put: 'SmallChat-Tests-DebugFixture';
-        at: 'debug_first_failure' put: true;
-        yourself).
-    json := STONJSON fromString: ((result at: 'content') first at: 'text').
-    self assert: (json at: 'errored') equals: 1.
-    self assert: (json includesKey: 'debugSessionId').
-    self assert: (SmallChatDebugSessionRegistry default at: (json at: 'debugSessionId')) notNil
+	| result json |
+	result := SmallChatMCPCapabilityTransport default dispatch: 'eval.run-tests' with: (Dictionary new
+		at: 'packagePattern' put: 'SmallChat-Tests-DebugFixture';
+		at: 'debug_first_failure' put: true;
+		yourself).
+	json := STONJSON fromString: ((result at: 'content') first at: 'text').
+	self assert: (json at: 'errored') equals: 1.
+	self assert: (json includesKey: 'debugSessionId').
+	self assert: (SmallChatDebugSessionRegistry default at: (json at: 'debugSessionId')) notNil
 ]
