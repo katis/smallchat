@@ -3,7 +3,8 @@ Class {
 	#superclass : 'Object',
 	#instVars : [
 		'uiProcessProvider',
-		'currentWorkspace'
+		'currentWorkspace',
+		'mountedWorkspaces'
 	],
 	#classInstVars : [
 		'default'
@@ -49,6 +50,14 @@ SmallChatCapabilityRegistry >> currentWorkspace [
 { #category : 'accessing' }
 SmallChatCapabilityRegistry >> currentWorkspace: aWorkspace [
 	currentWorkspace := aWorkspace
+]
+
+{ #category : 'accessing' }
+SmallChatCapabilityRegistry >> mountedWorkspaces [
+	"Workspaces this registry knows about. The Pharo workspace is always
+	 the first entry; TS workspaces are appended via workspace.attach-ts."
+	^ mountedWorkspaces ifNil: [
+		mountedWorkspaces := OrderedCollection with: SmallChatPharoWorkspace default ]
 ]
 
 { #category : 'execution' }

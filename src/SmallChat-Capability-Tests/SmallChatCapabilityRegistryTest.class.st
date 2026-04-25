@@ -36,6 +36,13 @@ SmallChatCapabilityRegistryTest >> testCurrentWorkspaceDefaultsToPharo [
 	self assert: SmallChatCapabilityRegistry default currentWorkspace == SmallChatPharoWorkspace default
 ]
 
+{ #category : 'tests' }
+SmallChatCapabilityRegistryTest >> testMountedWorkspacesContainsPharoByDefault [
+	SmallChatCapabilityRegistry reset.
+	self assert: SmallChatCapabilityRegistry default mountedWorkspaces size equals: 1.
+	self assert: SmallChatCapabilityRegistry default mountedWorkspaces first == SmallChatPharoWorkspace default
+]
+
 { #category : 'tests-wrap' }
 SmallChatCapabilityRegistryTest >> testRunCapturesExceptionAsErrorResult [
 	"Universal wrap: any uncaught exception becomes a #error result."
