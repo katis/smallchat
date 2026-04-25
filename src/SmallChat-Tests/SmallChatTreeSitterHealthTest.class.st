@@ -23,6 +23,25 @@ SmallChatTreeSitterHealthTest >> testCheckDylibsReportsMissingForBogusName [
 ]
 
 { #category : 'tests' }
+SmallChatTreeSitterHealthTest >> testCheckGrammarsReportsTsxAndCss [
+	"Both grammars must be probed; result is a Dictionary keyed by grammar
+	 name with status :ok / :notLoaded / error description."
+	| result |
+	result := SmallChatTreeSitterHealth checkGrammars.
+	self assert: (result includesKey: #tsx).
+	self assert: (result includesKey: #css)
+]
+
+{ #category : 'tests' }
+SmallChatTreeSitterHealthTest >> testCheckIncludesGrammarsEntry [
+	"#check rolls dylib + grammar checks together so reportOn: has a single
+	 source of truth."
+	| result |
+	result := SmallChatTreeSitterHealth check.
+	self assert: (result includesKey: #grammars)
+]
+
+{ #category : 'tests' }
 SmallChatTreeSitterHealthTest >> testCheckSummedSizeMatchesExpectedDylibs [
     | result |
     result := SmallChatTreeSitterHealth check.
@@ -51,6 +70,15 @@ SmallChatTreeSitterHealthTest >> testReportOnAllPresentWritesSummary [
     self assert: (output includesSubstring: 'missing').
     self assert: (result at: #found) isCollection.
     self assert: (result at: #missing) isCollection
+]
+
+{ #category : 'tests' }
+SmallChatTreeSitterHealthTest >> testReportOnIncludesGrammarsLine [
+	| stream output |
+	stream := WriteStream on: String new.
+	SmallChatTreeSitterHealth reportOn: stream.
+	output := stream contents.
+	self assert: (output includesSubstring: 'grammar')
 ]
 
 { #category : 'tests' }
