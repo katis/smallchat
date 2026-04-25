@@ -173,6 +173,28 @@ The warning is the only channel — the MCP reader never blocks on the
 UI process, so without reading the prefix you'd never know debuggers
 accumulated.
 
+## In-image discovery API
+
+`SmallChatNav` (package `SmallChat-Nav`) is a five-selector class-side
+API for navigating the live image without dumping it. Each call
+returns Markdown, capped by `SmallChatNavBudget default size` (3200
+chars by default; set lower in test setUp to feel truncation, restore
+in tearDown). Both audiences — Claude Code via `evaluate`, the in-image
+LM agent via its `evaluate` tool — go through the same selectors.
+
+| Selector | Returns |
+| --- | --- |
+| `findClasses: 'pat'` | Bullet list of classes whose name matches the regex; `(package)` per item. Truncates with a `_N matches; showing first M._` tail. |
+| `describeClass: #Name` | One-page summary: header, comment first sentence, instance vars, public protocols (non-`private*`), top-8 lex selectors (excluding `private*`). |
+| `findMethods: 'pat' in: #Class` | Bullet list of ``Class>>selector`` with protocol; capped at 50. |
+| `show: #Class method: #sel` | Method header, comment, source as a fenced ```` ```smalltalk ```` block. |
+| `examplesFor: #Class` | Methods in the `examples` protocol rendered as fenced blocks; falls back to a sibling `<Name>Test` hint. |
+
+Prefer these over `evaluate '... allSubclasses ...'` /
+`SystemNavigation default ...` ad-hoc calls. The budget tail tells
+you when to narrow (`package: ...`, narrower regex). Pattern matching
+is `RxMatcher` semantics (`search:`-style — substrings hit).
+
 ## Development methodology: Red-Green TDD
 
 All behaviour changes follow strict Red-Green-Refactor TDD. No
