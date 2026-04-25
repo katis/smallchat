@@ -10,7 +10,12 @@ Class {
 		'method',
 		'parameter',
 		'field',
-		'typeAlias'
+		'typeAlias',
+		'import',
+		'jsxComponent',
+		'cssModuleFile',
+		'cssClass',
+		'cssClassReference'
 	],
 	#category : 'SmallChat-Famix',
 	#package : 'SmallChat-Famix'
@@ -31,9 +36,10 @@ SmallChatFamixMetamodelGenerator class >> prefix [
 
 { #category : 'generation' }
 SmallChatFamixMetamodelGenerator >> defineClasses [
-	"Declare each entity class. The framework concatenates `prefix` with
-	 the supplied name -- e.g. #Project -> SmallChatFamixProject."
+	"Declare each entity class. Framework concatenates `prefix` with the
+	 supplied name -- e.g. #Project -> SmallChatFamixProject."
 	super defineClasses.
+	"Core TS/JS."
 	project   := builder newClassNamed: #Project.
 	module    := builder newClassNamed: #Module.
 	class     := builder newClassNamed: #Class.
@@ -42,5 +48,11 @@ SmallChatFamixMetamodelGenerator >> defineClasses [
 	method    := builder newClassNamed: #Method.
 	parameter := builder newClassNamed: #Parameter.
 	field     := builder newClassNamed: #Field.
-	typeAlias := builder newClassNamed: #TypeAlias
+	typeAlias := builder newClassNamed: #TypeAlias.
+	"Cross-cutting + CSS bridge."
+	import            := builder newClassNamed: #Import.
+	jsxComponent      := builder newClassNamed: #JSXComponent.
+	cssModuleFile     := builder newClassNamed: #CSSModuleFile.
+	cssClass          := builder newClassNamed: #CSSClass.
+	cssClassReference := builder newClassNamed: #CSSClassReference
 ]

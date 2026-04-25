@@ -35,3 +35,15 @@ SmallChatFamixMetamodelGeneratorTest >> testSliceACoreEntitiesPresentAfterGenera
 	names do: [ :n |
 		self assert: (Smalltalk globals includesKey: n) description: n , ' missing' ]
 ]
+
+{ #category : 'tests' }
+SmallChatFamixMetamodelGeneratorTest >> testSliceBCrossCuttingEntitiesPresentAfterGenerate [
+	"Slice B: 5 cross-cutting + CSS bridge entities."
+	| names |
+	SmallChatFamixMetamodelGenerator new generate.
+	names := #(SmallChatFamixImport SmallChatFamixJSXComponent
+		SmallChatFamixCSSModuleFile SmallChatFamixCSSClass
+		SmallChatFamixCSSClassReference).
+	names do: [ :n |
+		self assert: (Smalltalk globals includesKey: n) description: n , ' missing' ]
+]

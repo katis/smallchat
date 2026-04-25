@@ -21,6 +21,27 @@ SmallChatFamixTEntityCreator classSide >> annotation [
 ]
 
 { #category : 'entity creation' }
+SmallChatFamixTEntityCreator >> newCSSClass [
+
+	<generated>
+	^ self add: SmallChatFamixCSSClass new
+]
+
+{ #category : 'entity creation' }
+SmallChatFamixTEntityCreator >> newCSSClassReference [
+
+	<generated>
+	^ self add: SmallChatFamixCSSClassReference new
+]
+
+{ #category : 'entity creation' }
+SmallChatFamixTEntityCreator >> newCSSModuleFile [
+
+	<generated>
+	^ self add: SmallChatFamixCSSModuleFile new
+]
+
+{ #category : 'entity creation' }
 SmallChatFamixTEntityCreator >> newClass [
 
 	<generated>
@@ -42,10 +63,24 @@ SmallChatFamixTEntityCreator >> newFunction [
 ]
 
 { #category : 'entity creation' }
+SmallChatFamixTEntityCreator >> newImport [
+
+	<generated>
+	^ self add: SmallChatFamixImport new
+]
+
+{ #category : 'entity creation' }
 SmallChatFamixTEntityCreator >> newInterface [
 
 	<generated>
 	^ self add: SmallChatFamixInterface new
+]
+
+{ #category : 'entity creation' }
+SmallChatFamixTEntityCreator >> newJSXComponent [
+
+	<generated>
+	^ self add: SmallChatFamixJSXComponent new
 ]
 
 { #category : 'entity creation' }
