@@ -1,45 +1,20 @@
 Class {
-	#name : 'SmallChatCommitFilesTool',
-	#superclass : 'SmallChatTool',
-	#instVars : [
-		'gitRunner',
-		'resyncer'
+	#name : 'SmallChatVcsCommitFilesCapability',
+	#superclass : 'SmallChatCapability',
+	#classInstVars : [
+		'gitRunnerOverride',
+		'resyncerOverride'
 	],
-	#category : 'SmallChat-MCP',
-	#package : 'SmallChat-MCP'
+	#category : 'SmallChat-Capability',
+	#package : 'SmallChat-Capability'
 }
 
-{ #category : 'accessing - metadata' }
-SmallChatCommitFilesTool class >> description [
-	^ 'Commit hand-edited files on disk (non-Iceberg-managed: CLAUDE.md, justfile, bin/*, lib/*.st, baselines, .mcp.json, etc.) via shell git, then re-anchor the in-image Iceberg working copy to the new HEAD. Without this, the next `commit` via Iceberg raises IceWorkingCopyDesyncronized because the in-image referenceCommit is stale. Do NOT use for Pharo source under src/SmallChat*; those go through `evaluate` + `commit`.'
+{ #category : 'metadata' }
+SmallChatVcsCommitFilesCapability class >> capabilityName [ ^ 'vcs.commit-files'
 ]
 
-{ #category : 'accessing - metadata' }
-SmallChatCommitFilesTool class >> inputSchema [
-	^ Dictionary new
-		at: 'type' put: 'object';
-		at: 'properties' put: (Dictionary new
-			at: 'paths' put: (Dictionary new
-				at: 'type' put: 'array';
-				at: 'items' put: (Dictionary new at: 'type' put: 'string'; yourself);
-				at: 'description' put: 'Repo-relative file paths to stage. Passed to `git add -- <paths>` verbatim, so deletions/renames work if git sees them.';
-				yourself);
-			at: 'message' put: (Dictionary new
-				at: 'type' put: 'string';
-				at: 'description' put: 'Commit message. Required.';
-				yourself);
-			yourself);
-		at: 'required' put: #('paths' 'message');
-		yourself
-]
-
-{ #category : 'accessing - metadata' }
-SmallChatCommitFilesTool class >> toolName [
-	^ 'commit_files'
-]
-
-{ #category : 'execution' }
-SmallChatCommitFilesTool >> describeProcessResult: aDict [
+{ #category : 'private' }
+SmallChatVcsCommitFilesCapability class >> describeProcessResult: aDict [
 	| parts stderr stdout |
 	parts := OrderedCollection new.
 	stderr := (aDict at: 'stderr' ifAbsent: [ '' ]) ifNil: [ '' ].
@@ -51,26 +26,36 @@ SmallChatCommitFilesTool >> describeProcessResult: aDict [
 		ifFalse: [ String streamContents: [ :s | parts do: [ :p | s nextPutAll: p ] separatedBy: [ s << ' | ' ] ] ]
 ]
 
-{ #category : 'execution' }
-SmallChatCommitFilesTool >> errorResult: aString [
-	^ STONJSON toString: (Dictionary new
+{ #category : 'metadata' }
+SmallChatVcsCommitFilesCapability class >> description [
+	^ 'Commit hand-edited files on disk (non-Iceberg-managed: CLAUDE.md, justfile, bin/*, lib/*.st, baselines, .mcp.json, etc.) via shell git, then re-anchor the in-image Iceberg working copy to the new HEAD. Without this, the next `commit` via Iceberg raises IceWorkingCopyDesyncronized because the in-image referenceCommit is stale. Do NOT use for Pharo source under src/SmallChat*; those go through `evaluate` + `commit`.'
+]
+
+{ #category : 'private' }
+SmallChatVcsCommitFilesCapability class >> errorResult: aString [
+	^ SmallChatCapabilityResult text: (STONJSON toString: (Dictionary new
 		at: 'error' put: aString;
-		yourself)
+		yourself))
 ]
 
-{ #category : 'accessing' }
-SmallChatCommitFilesTool >> gitRunner [
-	^ gitRunner ifNil: [ [ :argv | self runGitProcess: argv ] ]
+{ #category : 'private' }
+SmallChatVcsCommitFilesCapability class >> gitRunner [
+	^ gitRunnerOverride ifNil: [ [ :argv | self runGitProcess: argv ] ]
 ]
 
-{ #category : 'accessing' }
-SmallChatCommitFilesTool >> gitRunner: aBlock [
-	gitRunner := aBlock
+{ #category : 'test seam' }
+SmallChatVcsCommitFilesCapability class >> gitRunner: aBlock [
+	"Test seam: replace the git invocation with a deterministic block."
+	gitRunnerOverride := aBlock
 ]
 
-{ #category : 'execution' }
-SmallChatCommitFilesTool >> reanchorIceberg [
-	"Rebind the smallchat working copy to the on-disk HEAD (which a shell `git commit` advanced but which Iceberg still has pinned to the prior commit). Without this, the next Iceberg commit raises IceWorkingCopyDesyncronized. Returns the new HEAD id."
+{ #category : 'metadata' }
+SmallChatVcsCommitFilesCapability class >> mcpAliases [ ^ #('commit_files')
+]
+
+{ #category : 'private' }
+SmallChatVcsCommitFilesCapability class >> reanchorIceberg [
+	"Rebind the smallchat working copy to the on-disk HEAD."
 	| repo wc head |
 	repo := self repository
 		ifNil: [ ^ self error: 'no smallchat Iceberg repo registered' ].
@@ -81,8 +66,8 @@ SmallChatCommitFilesTool >> reanchorIceberg [
 	^ [ head id ] on: Error do: [ :_ | '<unknown>' ]
 ]
 
-{ #category : 'execution' }
-SmallChatCommitFilesTool >> repository [
+{ #category : 'private' }
+SmallChatVcsCommitFilesCapability class >> repository [
 	| iceRepo |
 	iceRepo := Smalltalk globals at: #IceRepository ifAbsent: [ ^ nil ].
 	^ iceRepo registry
@@ -90,19 +75,29 @@ SmallChatCommitFilesTool >> repository [
 		ifNone: [ nil ]
 ]
 
-{ #category : 'accessing' }
-SmallChatCommitFilesTool >> resyncer [
-	^ resyncer ifNil: [ [ self reanchorIceberg ] ]
+{ #category : 'test seam' }
+SmallChatVcsCommitFilesCapability class >> resetTestSeams [
+	"Drop both injection points so subsequent runs use the live behaviour."
+	gitRunnerOverride := nil.
+	resyncerOverride := nil
 ]
 
-{ #category : 'accessing' }
-SmallChatCommitFilesTool >> resyncer: aBlock [
-	resyncer := aBlock
+{ #category : 'private' }
+SmallChatVcsCommitFilesCapability class >> resyncer [
+	^ resyncerOverride ifNil: [ [ self reanchorIceberg ] ]
+]
+
+{ #category : 'test seam' }
+SmallChatVcsCommitFilesCapability class >> resyncer: aBlock [
+	"Test seam: replace the Iceberg re-anchor with a deterministic block."
+	resyncerOverride := aBlock
 ]
 
 { #category : 'execution' }
-SmallChatCommitFilesTool >> run: args [
-	| paths message commitId addRes commitRes |
+SmallChatVcsCommitFilesCapability class >> run: aCapabilityCall [
+	"Migrated from SmallChatCommitFilesTool>>run:."
+	| args paths message commitId addRes commitRes |
+	args := aCapabilityCall arguments.
 	paths := args at: 'paths' ifAbsent: [ ^ self errorResult: 'paths is required' ].
 	message := args at: 'message' ifAbsent: [ ^ self errorResult: 'message is required' ].
 	(paths isCollection and: [ paths isString not ]) ifFalse: [
@@ -120,15 +115,14 @@ SmallChatCommitFilesTool >> run: args [
 	(commitRes at: 'exitCode') = 0 ifFalse: [
 		^ self errorResult: 'git commit failed: ' , (self describeProcessResult: commitRes) ].
 	commitId := self resyncer value.
-	^ STONJSON toString: (Dictionary new
+	^ SmallChatCapabilityResult text: (STONJSON toString: (Dictionary new
 		at: 'commitId' put: commitId;
 		at: 'message' put: message;
-		yourself)
+		yourself))
 ]
 
-{ #category : 'execution' }
-SmallChatCommitFilesTool >> runGitProcess: argv [
-	"Run `git <argv...>` in the smallchat working tree via LibC. stdout+stderr are merged into the stdout key; exitCode follows Unix semantics (0 = success)."
+{ #category : 'private' }
+SmallChatVcsCommitFilesCapability class >> runGitProcess: argv [
 	| repo repoRoot outFile cmd systemRc stdout rc |
 	repo := self repository.
 	repo ifNil: [ ^ Dictionary new
@@ -153,9 +147,21 @@ SmallChatCommitFilesTool >> runGitProcess: argv [
 		yourself
 ]
 
-{ #category : 'execution' }
-SmallChatCommitFilesTool >> shellQuote: aString [
-	"POSIX-safe: wrap in single quotes; replace each internal apostrophe with '\'. Uses Character value:39 / value:92 to keep the source readable."
+{ #category : 'metadata' }
+SmallChatVcsCommitFilesCapability class >> schema [
+	^ SmallChatCapabilitySchema empty
+		array: 'paths'
+			of: #string
+			required: true
+			description: 'Repo-relative file paths to stage. Passed to `git add -- <paths>` verbatim, so deletions/renames work if git sees them.';
+		string: 'message'
+			required: true
+			description: 'Commit message. Required.'
+]
+
+{ #category : 'private' }
+SmallChatVcsCommitFilesCapability class >> shellQuote: aString [
+	"POSIX-safe: wrap in single quotes; replace each internal apostrophe."
 	| apos bs |
 	apos := Character value: 39.
 	bs := Character value: 92.
