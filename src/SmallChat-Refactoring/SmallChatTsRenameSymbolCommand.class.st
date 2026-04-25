@@ -20,10 +20,11 @@ SmallChatTsRenameSymbolCommand >> applier: anApplier [
 
 { #category : 'execution' }
 SmallChatTsRenameSymbolCommand >> apply [
-  "Open the URI on the LSP client, send textDocument/rename, run the applier
-   on the returned WorkspaceEdit. Returns SmallChatRefactoringOutcome."
+  "Open the URI on the LSP client, send textDocument/rename, and run the
+   applier on the returned WorkspaceEdit. tsgo can refuse a rename
+   (response nil) -- surface as a failed outcome with errorReason."
   | text response result |
-  text := (applier readSourceFor: fileUri).
+  text := applier readSourceFor: fileUri.
   client
     openDocumentUri: fileUri
     languageId: (self languageIdForUri: fileUri)
@@ -41,6 +42,9 @@ SmallChatTsRenameSymbolCommand >> apply [
         yourself);
       yourself)
     onDocumentUri: fileUri.
+  response isNil ifTrue: [
+    ^ SmallChatRefactoringOutcome fromApplyResult:
+      (SmallChatApplyResult errorReason: 'LSP rename returned no edit') ].
   result := applier applyWorkspaceEdit: response.
   ^ SmallChatRefactoringOutcome fromApplyResult: result
 ]
@@ -77,4 +81,9 @@ SmallChatTsRenameSymbolCommand >> line: anInteger [
 { #category : 'configuring' }
 SmallChatTsRenameSymbolCommand >> newName: aString [
   newName := aString
+]
+
+{ #category : 'rollback' }
+SmallChatTsRenameSymbolCommand >> rollback: aToken [
+  applier rollback: aToken
 ]

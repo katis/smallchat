@@ -115,3 +115,61 @@ SmallChatRefactoringCommandTest >> testTsRenameSymbolAppliesLspWorkspaceEditToDi
   self assert: (((request at: 'params') at: 'position') at: 'line') equals: 0.
   self assert: (((request at: 'params') at: 'position') at: 'character') equals: 7
 ]
+
+{ #category : 'tests' }
+SmallChatRefactoringCommandTest >> testTsRenameSymbolFailsWhenServerReturnsNoEdit [
+  "tsgo can refuse a rename (e.g. position not on a renameable identifier)
+   by returning null. The command must surface that as a failed outcome
+   and not touch the file."
+  | fs file uri stubClient applier cmd outcome |
+  fs := FileSystem memory.
+  file := fs / '/Button.ts'.
+  file writeStreamDo: [ :s | s nextPutAll: 'const x = 1;' ].
+  uri := 'file://' , file fullName.
+  applier := SmallChatWorkspaceEditApplier new fileSystem: fs; yourself.
+  stubClient := SmallChatStubLSPClient new
+    cannedResponse: 'textDocument/rename' is: nil;
+    yourself.
+  cmd := SmallChatTsRenameSymbolCommand new
+    client: stubClient; applier: applier;
+    fileUri: uri; line: 0; character: 6; newName: 'y';
+    yourself.
+  outcome := cmd apply.
+  self deny: outcome isSuccess.
+  self assert: outcome errorReason notNil.
+  self assert: (file readStreamDo: [ :s | s upToEnd ]) equals: 'const x = 1;'
+]
+
+{ #category : 'tests' }
+SmallChatRefactoringCommandTest >> testTsRenameSymbolRollbackRestoresOriginalText [
+  "After a successful apply, cmd rollback: outcome rollbackToken restores
+   the file to its pre-rename bytes through the same applier."
+  | fs file uri stubClient applier workspaceEdit cmd outcome |
+  fs := FileSystem memory.
+  file := fs / '/Button.ts'.
+  file writeStreamDo: [ :s | s nextPutAll: 'const oldName = 1;' ].
+  uri := 'file://' , file fullName.
+  applier := SmallChatWorkspaceEditApplier new fileSystem: fs; yourself.
+  workspaceEdit := Dictionary new
+    at: 'changes' put: (Dictionary new
+      at: uri put: (Array with: (Dictionary new
+        at: 'range' put: (Dictionary new
+          at: 'start' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 6; yourself);
+          at: 'end' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 13; yourself);
+          yourself);
+        at: 'newText' put: 'newName';
+        yourself));
+      yourself);
+    yourself.
+  stubClient := SmallChatStubLSPClient new
+    cannedResponse: 'textDocument/rename' is: workspaceEdit;
+    yourself.
+  cmd := SmallChatTsRenameSymbolCommand new
+    client: stubClient; applier: applier;
+    fileUri: uri; line: 0; character: 7; newName: 'newName';
+    yourself.
+  outcome := cmd apply.
+  self assert: outcome isSuccess.
+  cmd rollback: outcome rollbackToken.
+  self assert: (file readStreamDo: [ :s | s upToEnd ]) equals: 'const oldName = 1;'
+]
