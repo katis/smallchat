@@ -110,3 +110,16 @@ SmallChatCapabilityRegistryTest >> testRunReturnsApplicabilityErrorWhenWorkspace
 	self assert: (text includesSubstring: 'ts').
 	self assert: (text includesSubstring: 'workspace.attach-ts')
 ]
+
+{ #category : 'tests' }
+SmallChatCapabilityRegistryTest >> testRunStampsCallWorkspaceFromCurrent [
+	"Capabilities should see aCall workspace == registry currentWorkspace
+	 even when the call was constructed without one."
+	| call |
+	SmallChatCapabilityRegistry reset.
+	SmallChatCapabilityWorkspaceRecordingForTests reset.
+	call := SmallChatCapabilityCall name: 'test.workspace.recording' argumentsJson: '{}'.
+	self assert: call workspace isNil.
+	SmallChatCapabilityRegistry default run: 'test.workspace.recording' with: call.
+	self assert: SmallChatCapabilityWorkspaceRecordingForTests lastSeenWorkspace == SmallChatPharoWorkspace default
+]

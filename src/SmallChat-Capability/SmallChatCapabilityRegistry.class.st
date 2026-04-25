@@ -79,9 +79,10 @@ SmallChatCapabilityRegistry >> run: aName with: aCall [
 	"Dispatch aCall to the named capability under the universal cross-cutting
 	 wrap. Returns nil for unknown names so transports can fall through.
 	 Wrap (1) refuses to run on the Morphic UI process, (2) resumes any
-	 Notification, (3) captures Errors as #error results, and (4) refuses
-	 to run a capability whose #supportedWorkspaces does not include the
-	 resolved workspace's kind."
+	 Notification, (3) captures Errors as #error results, (4) refuses to
+	 run a capability whose #supportedWorkspaces does not include the
+	 resolved workspace's kind, and (5) stamps the resolved workspace
+	 onto aCall so capabilities can dispatch on it without re-resolving."
 	| cap ws |
 	Processor activeProcess == self uiProcessProvider value
 		ifTrue: [ self error: 'SmallChatCapability dispatch on UI process: ' , aName ].
@@ -90,6 +91,7 @@ SmallChatCapabilityRegistry >> run: aName with: aCall [
 	ws := self workspaceFor: aCall.
 	(cap supportedWorkspaces includes: ws kind) ifFalse: [
 		^ SmallChatCapabilityResult error: (self applicabilityErrorFor: cap workspace: ws) ].
+	aCall workspace: ws.
 	^ [ [ cap run: aCall ]
 			on: Notification
 			do: [ :n | n resume ] ]
