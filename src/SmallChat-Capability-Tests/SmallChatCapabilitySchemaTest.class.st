@@ -21,6 +21,22 @@ SmallChatCapabilitySchemaTest >> testEmptySchemaHasNoFields [
 	self assert: SmallChatCapabilitySchema empty fields isEmpty
 ]
 
+{ #category : 'tests-emitters' }
+SmallChatCapabilitySchemaTest >> testRequiredStringFieldEmitsCorrectJsonSchema [
+	"Required scalar lands in #required; per-property carries type + description."
+	| s json props |
+	s := SmallChatCapabilitySchema empty
+		string: 'code'
+		required: true
+		description: 'Smalltalk to evaluate'.
+	json := s asJsonSchema.
+	props := json at: 'properties'.
+	self assert: (props at: 'code') size equals: 2.
+	self assert: ((props at: 'code') at: 'type') equals: 'string'.
+	self assert: ((props at: 'code') at: 'description') equals: 'Smalltalk to evaluate'.
+	self assert: (json at: 'required') asArray equals: #('code')
+]
+
 { #category : 'tests' }
 SmallChatCapabilitySchemaTest >> testStringFieldBuilderAppendsField [
 	"#string:required:description: appends a SmallChatCapabilitySchemaField
