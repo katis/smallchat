@@ -6,6 +6,24 @@ Class {
 }
 
 { #category : 'tests-emitters' }
+SmallChatCapabilitySchemaTest >> testArrayOfStringFieldBuilder [
+	"#array:of:required:description: appends an #array field whose items
+	 carry the inner type. Emits {type: 'array', items: {type: <inner>}, description}."
+	| s json prop |
+	s := SmallChatCapabilitySchema empty
+		array: 'paths'
+		of: #string
+		required: true
+		description: 'Repo-relative paths'.
+	json := s asJsonSchema.
+	prop := (json at: 'properties') at: 'paths'.
+	self assert: (prop at: 'type') equals: 'array'.
+	self assert: ((prop at: 'items') at: 'type') equals: 'string'.
+	self assert: (prop at: 'description') equals: 'Repo-relative paths'.
+	self assert: (json at: 'required') asArray equals: #('paths')
+]
+
+{ #category : 'tests-emitters' }
 SmallChatCapabilitySchemaTest >> testBooleanFieldBuilder [
 	"#boolean:required:description: appends a #boolean field that emits as
 	 {type: 'boolean'} in the JSON Schema property."

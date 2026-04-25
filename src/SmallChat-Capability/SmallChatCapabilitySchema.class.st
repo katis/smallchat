@@ -14,6 +14,21 @@ SmallChatCapabilitySchema class >> empty [
 	^ self new
 ]
 
+{ #category : 'building' }
+SmallChatCapabilitySchema >> array: aName of: aItemTypeSymbol required: aBoolean description: aDescription [
+	"Append an #array field whose items carry #aItemTypeSymbol as their type.
+	 Emits {type: 'array', items: {type: <inner>}, description}."
+	| field |
+	field := SmallChatCapabilitySchemaField
+		name: aName
+		type: #array
+		required: aBoolean
+		description: aDescription.
+	field setItemsType: aItemTypeSymbol.
+	fields add: field.
+	^ self
+]
+
 { #category : 'emitting' }
 SmallChatCapabilitySchema >> asJsonSchema [
 	"Emit a JSON Schema dictionary matching today's SmallChatTool>>inputSchema
