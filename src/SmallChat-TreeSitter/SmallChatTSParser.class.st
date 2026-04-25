@@ -24,3 +24,14 @@ SmallChatTSParser >> parseTsxString: aString [
 	parser language: SmallChatTSGrammar tsx language.
 	^ parser parseString: aString
 ]
+
+{ #category : 'ranges' }
+SmallChatTSParser >> rangeOfNode: aTSNode inSource: aString [
+	"Build a SmallChatTSRange covering aTSNode in aString.
+	 The node is assumed to come from parsing aString -- the caller is
+	 responsible for that pairing; we don't carry parser-tree provenance."
+	^ SmallChatTSRange
+		startByte: aTSNode startByte
+		endByte: aTSNode endByte
+		source: aString
+]

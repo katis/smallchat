@@ -43,3 +43,18 @@ SmallChatTSParserTest >> testParseTsxStringReturnsTreeWithoutErrors [
 	self assert: errs isEmpty.
 	self assert: tree rootNode type equals: 'program'
 ]
+
+{ #category : 'tests' }
+SmallChatTSParserTest >> testRangeOfNodeReadsByteOffsetsFromTSNode [
+	| tree firstChild range source |
+	self isAvailable ifFalse: [ ^ self skip ].
+	source := 'const x = 1;'.
+	tree := SmallChatTSParser new parseTsxString: source.
+	firstChild := tree rootNode namedChildren first.
+	range := SmallChatTSParser new rangeOfNode: firstChild inSource: source.
+	self assert: range startByte equals: firstChild startByte.
+	self assert: range endByte equals: firstChild endByte.
+	self assert: range source equals: source.
+	self assert: range startLine equals: 0.
+	self assert: range startCharacter equals: 0
+]
