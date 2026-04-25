@@ -41,6 +41,17 @@ SmallChatTSNodeWalker >> jsxAttributeValues: aRootNode [
 ]
 
 { #category : 'walking' }
+SmallChatTSNodeWalker >> memberExpressionsFor: aRootNode objectName: aName inSource: aSource [
+	"Variant that takes the source string explicitly. The walker is
+	 stateless, so the caller supplies the source the tree was parsed from."
+	| sourceText all |
+	sourceText := aSource.
+	all := self allNodesOfType: 'member_expression' under: aRootNode.
+	^ all select: [ :m |
+		(m namedChildren first textFromSourceText: sourceText) = aName ]
+]
+
+{ #category : 'walking' }
 SmallChatTSNodeWalker >> topLevelDeclarations: aRootNode [
 	"Return the program's named children whose type is a known
 	 declaration kind. Imports are excluded; export_statement is

@@ -56,6 +56,22 @@ SmallChatTSNodeWalkerTest >> testJsxAttributeValuesOnButtonTsxReturnsThree [
 ]
 
 { #category : 'tests' }
+SmallChatTSNodeWalkerTest >> testMemberExpressionsForStylesOnCssBridgeTsxReturnsTwo [
+	"ts-css-small/Button.tsx has 4 member_expression nodes total:
+	 props.variant, styles.primary, styles.secondary, props.label.
+	 Filter on objectName = 'styles' returns 2."
+	| source tree members |
+	self isAvailable ifFalse: [ ^ self skip ].
+	source := self fixtureContents: 'ts-css-small/Button.tsx'.
+	tree := SmallChatTSParser new parseTsxString: source.
+	members := SmallChatTSNodeWalker new
+		memberExpressionsFor: tree rootNode
+		objectName: 'styles'
+		inSource: source.
+	self assert: members size equals: 2
+]
+
+{ #category : 'tests' }
 SmallChatTSNodeWalkerTest >> testTopLevelDeclarationsOnButtonTsxReturnsTwoDeclarations [
 	"ts-small/Button.tsx top-level: import_statement, type_alias_declaration,
 	 export_statement. Walker excludes imports -- 2 declarations."
