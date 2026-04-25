@@ -27,19 +27,31 @@ SmallChatFamixImporter >> client [ ^ client
 
 { #category : 'population' }
 SmallChatFamixImporter >> ensureModuleForUri: aUri text: aText [
-  "Create a SmallChatFamixModule for aUri. Module name is the URI's last
-   path segment (the bare filename); source anchor covers the whole text.
-   Caller is responsible for not double-importing a URI -- regeneration (S5)
-   adds the de-dup pass."
+  "Create a SmallChatFamixModule for aUri, linked to the model's singleton
+   Project. Module name is the URI's last path segment (the bare filename);
+   source anchor covers the whole text. Caller is responsible for not
+   double-importing a URI -- regeneration (S5) adds the de-dup pass."
   | filename module |
   filename := aUri copyAfterLast: $/.
   module := model newModule.
   module name: filename.
+  module project: self ensureProject.
   module sourceAnchor: (SmallChatFamixSourceAnchor
     fileUri: aUri
     startByte: 0
     endByte: aText size).
   ^ module
+]
+
+{ #category : 'population' }
+SmallChatFamixImporter >> ensureProject [
+  "Return the singleton SmallChatFamixProject for this model, creating it on
+   first call. One project per model -- workspace identity flows from the model
+   the importer was constructed with."
+  | existing |
+  existing := model allWithType: SmallChatFamixProject.
+  existing isEmpty ifFalse: [ ^ existing first ].
+  ^ model newProject
 ]
 
 { #category : 'symbol mapping' }

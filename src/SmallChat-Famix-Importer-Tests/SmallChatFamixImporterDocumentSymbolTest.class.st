@@ -132,6 +132,24 @@ SmallChatFamixImporterDocumentSymbolTest >> testImportTsFileCreatesModulePerFile
   self assert: module sourceAnchor endByte equals: text size
 ]
 
+{ #category : 'tests - module' }
+SmallChatFamixImporterDocumentSymbolTest >> testModuleLinksToLazilyCreatedSingletonProject [
+  "All Module entities created during a single model's lifetime share one
+   SmallChatFamixProject (lazily created on first import). Module.project
+   points back to that Project."
+  | model importer projects modules theProject |
+  model := SmallChatFamixModel new.
+  importer := self newImporterOn: model.
+  importer populateFromDocumentSymbols: #() intoUri: 'file:///t/A.ts' text: ''.
+  importer populateFromDocumentSymbols: #() intoUri: 'file:///t/B.ts' text: ''.
+  projects := model allWithType: SmallChatFamixProject.
+  modules := model allWithType: SmallChatFamixModule.
+  self assert: projects size equals: 1.
+  self assert: modules size equals: 2.
+  theProject := projects first.
+  self assert: (modules allSatisfy: [ :m | m project == theProject ])
+]
+
 { #category : 'tests - kinds' }
 SmallChatFamixImporterDocumentSymbolTest >> testNestedConstructorEmitsMethodWithOwningClass [
   "LSP SymbolKind 9 (Constructor) folds into SmallChatFamixMethod -- v1
