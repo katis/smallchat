@@ -81,38 +81,76 @@ non-code goes through Write + shell `git commit`. If a hand-edit to
 an Iceberg-managed file is unavoidable, `just rebuild-mcp` afterwards
 to resync — otherwise the next `commit` will overwrite it.
 
-## MCP tool surface
+## Agent capabilities
+
+Every tool both audiences (Claude Code via MCP, the in-image LM via
+the chat client) reach is a `SmallChatCapability` subclass in
+`SmallChat-Capability`. The MCP transport
+(`SmallChatMCPCapabilityTransport`) and the LM-native catalog
+(`SmallChatLMCapabilityCatalog`) both consume the same
+`SmallChatCapabilityRegistry`. Add one capability subclass and both
+transports advertise it.
+
+Naming convention: prefixed lowercase identifier, dot-separated
+namespace, hyphenated within the leaf
+(`vcs.commit-files`, `eval.run-tests`, `debug.step-over`). The MCP
+transport accepts an additional bare-name alias per capability via
+`#mcpAliases` (e.g. `'status' -> vcs.status`); the LM transport
+never inherits aliases.
 
 Core:
 
-| Tool | Purpose |
+| Capability (alias) | Purpose |
 | --- | --- |
-| `evaluate` | Run arbitrary Smalltalk; returns `printString` of the result. Uncaught exceptions land in a captured debug session. The workhorse — all compile/inspect/refactor goes through here. |
-| `run_tests` | SUnit over packages matching a regex (default `SmallChat.*`). Returns `{passed, failed, errored, failures[], errors[]}`. Pass `debug_first_failure: true` to capture the first failing test as a debug session. Reflects in-image state, not disk. |
-| `lint` | ReCriticEngine over matching packages. Returns `{critiques[]}`. |
-| `status` | Iceberg working-copy status: branch, dirty flag, `{changeType, target, definitionClass}` changes. |
-| `commit` | Refreshes Tonel from in-image state and runs `commitChanges:withMessage:`. Uses `~/.gitconfig`. **No automated green guard.** |
+| `eval.smalltalk` (`evaluate`) | Run arbitrary Smalltalk; returns `printString` of the result. Uncaught exceptions land in a captured debug session. The workhorse — all compile/inspect/refactor goes through here. |
+| `eval.run-tests` (`run_tests`) | SUnit over packages matching a regex (default `SmallChat.*`). Returns `{passed, failed, errored, failures[], errors[]}`. Pass `debug_first_failure: true` to capture the first failing test as a debug session. Reflects in-image state, not disk. |
+| `eval.lint` (`lint`) | ReCriticEngine over matching packages. Returns `{critiques[]}`. |
+| `vcs.status` (`status`) | Iceberg working-copy status: branch, dirty flag, `{changeType, target, definitionClass}` changes. |
+| `vcs.commit` (`commit`) | Refreshes Tonel from in-image state and runs `commitChanges:withMessage:`. Uses `~/.gitconfig`. **No automated green guard.** |
+| `vcs.commit-files` (`commit_files`) | Shell `git add` + `git commit` for non-Iceberg-managed files (CLAUDE.md, justfile, baselines, …) followed by an Iceberg working-copy re-anchor. |
 
-Debug-session tools (operate on sessions captured by `evaluate`
-always or `run_tests debug_first_failure: true` opt-in):
+Debug-session capabilities (operate on sessions captured by
+`eval.smalltalk` always or `eval.run-tests debug_first_failure: true`
+opt-in):
 
-| Tool | Purpose |
+| Capability (alias) | Purpose |
 | --- | --- |
-| `debug_sessions` | List active sessions: `[{id, exceptionClass, messageText, topFrame, createdAtMs}]`. |
-| `debug_stack` | Stack summary (args: `sessionId`, optional `limit`). |
-| `debug_frame` | Frame detail at index — receiver, selector, args, temps, source. |
-| `debug_evaluate` | Evaluate an expression in a frame's context (`self`/args/temps in scope). Sharpest tool for root-causing. |
-| `debug_return` | Resume, substituting `expression`'s value for the signalling expression. If user code finishes, returns its final result; re-raise captures a new session. Rejected on stepped sessions. |
-| `debug_proceed` | Resume with `nil`. |
-| `debug_restart` | Restart a frame from its method entry (args: `sessionId`, optional `index`, default 0). Typically `index: 1` to retry the user frame after compiling a fix. |
-| `debug_step_over` | Advance one message-send past the current context, pausing at the new location. First call pops the handler+suspend frames (nil-substituting the signalling expression); subsequent calls advance further. Session keeps its id and is marked stepped. |
-| `debug_step_into` | Like `debug_step_over` but enters the called method. Two calls are typically needed from a post-capture DoIt: first reaches the next send-site, second enters the callee. |
-| `debug_terminate` | Drop the session and terminate its parked process. |
+| `debug.sessions` (`debug_sessions`) | List active sessions: `[{id, exceptionClass, messageText, topFrame, createdAtMs}]`. |
+| `debug.stack` (`debug_stack`) | Stack summary (args: `sessionId`, optional `limit`). |
+| `debug.frame` (`debug_frame`) | Frame detail at index — receiver, selector, args, temps, source. |
+| `debug.evaluate` (`debug_evaluate`) | Evaluate an expression in a frame's context (`self`/args/temps in scope). Sharpest tool for root-causing. |
+| `debug.return` (`debug_return`) | Resume, substituting `expression`'s value for the signalling expression. If user code finishes, returns its final result; re-raise captures a new session. Rejected on stepped sessions. |
+| `debug.proceed` (`debug_proceed`) | Resume with `nil`. |
+| `debug.restart` (`debug_restart`) | Restart a frame from its method entry (args: `sessionId`, optional `index`, default 0). Typically `index: 1` to retry the user frame after compiling a fix. |
+| `debug.step-over` (`debug_step_over`) | Advance one message-send past the current context, pausing at the new location. First call pops the handler+suspend frames (nil-substituting the signalling expression); subsequent calls advance further. Session keeps its id and is marked stepped. |
+| `debug.step-into` (`debug_step_into`) | Like `debug.step-over` but enters the called method. Two calls are typically needed from a post-capture DoIt: first reaches the next send-site, second enters the callee. |
+| `debug.terminate` (`debug_terminate`) | Drop the session and terminate its parked process. |
 
-`evaluate`'s protocol `instructions` string documents the Smalltalk
-navigation/compile/snapshot selectors. Anything the dedicated tools
-don't cover (creating classes, removing methods, inspecting senders)
-composes on top of `evaluate`.
+`eval.smalltalk`'s protocol `instructions` string documents the
+Smalltalk navigation/compile/snapshot selectors. Anything the
+dedicated capabilities don't cover (creating classes, removing
+methods, inspecting senders) composes on top of `eval.smalltalk`.
+
+### Adding a new capability
+
+1. `SmallChatCapability subclass: #SmallChatXxxCapability` in the
+   `SmallChat-Capability` package.
+2. Class-side `#capabilityName` (prefixed identifier),
+   `#description` (free-text), `#schema` (built via the DSL on
+   `SmallChatCapabilitySchema empty`), and `#run: aCall` returning a
+   `SmallChatCapabilityResult`.
+3. Optional class-side `#mcpAliases ^ #('bare-name')` if the bare
+   name should keep working through MCP.
+4. The registry is reflective — no registration call needed. Both
+   transports surface the new capability immediately.
+
+Cross-cutting behaviour the registry guarantees: dispatch refuses to
+run on the Morphic UI process, suppresses Notifications (so they
+never reach Pharo's default Transcript writer and corrupt MCP
+framing), and rewrites uncaught Errors as
+`SmallChatCapabilityResult error: ...`. The MCP transport adds the
+stray-debugger warning prefix and `SmallChatToolResult`-equivalent
+reply rendering on top.
 
 ### Debug-session mechanics
 
@@ -143,8 +181,8 @@ window on the UI process, which sits there waiting on a human who
 isn't present. These windows are **invisible to `debug_sessions`**
 and cannot be inspected via the `debug_*` tools.
 
-`SmallChatToolRegistry` detects them and prepends a warning to every
-tool reply:
+`SmallChatMCPCapabilityTransport` detects them and prepends a
+warning to every tool reply:
 
     [smallchat: N stray Pharo UI debugger window(s) open -- these
     block the dev image's UI process. Dismiss via:
@@ -506,10 +544,10 @@ Non-negotiable for code in `SmallChat-MCP/` — hard-won from akkuna:
 - **`UIManager default defer: [ ... ]`** for any Morphic/Spec2 window
   op from tool code. Opening a window from the forked reader can
   deadlock the VM.
-- **`on: Notification do: [:n | n resume]`** wraps tool execution in
-  `SmallChatToolRegistry>>run:with:`. Pharo's default notification
-  handler writes to stdout (deprecation warnings, Metacello progress)
-  and would corrupt MCP framing.
+- **`on: Notification do: [:n | n resume]`** wraps capability dispatch
+  in `SmallChatCapabilityRegistry>>run:with:`. Pharo's default
+  notification handler writes to stdout (deprecation warnings,
+  Metacello progress) and would corrupt MCP framing.
 - **SessionManager `startUp:/shutDown:` fire on save-and-continue**,
   not just on quit. Both `SmallChatMCPServer` and
   `SmallChatMCPTcpServer` clear `running` on `shutDown:` and rebind

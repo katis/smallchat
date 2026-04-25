@@ -223,16 +223,26 @@ See `plans/03`. Depends on: M1, M2.
 See `plans/05`. Depends on: nothing blocking, but best done
 alongside M1 so new LSP-backed tools can consume it.
 
-- [ ] Core types (`SmallChatCapability`,
+- [x] Core types (`SmallChatCapability`,
   `SmallChatCapabilitySchema`, `SmallChatCapabilityResult`,
-  `SmallChatCapabilityCall`, registry).
-- [ ] JSON-Schema + OpenAI function-schema emitters.
-- [ ] MCP transport adapter wrapping the legacy registry.
-- [ ] Migrate existing 16 MCP tools to `SmallChatCapability`,
-  one per commit.
-- [ ] LM native transport adapter; replace `toolFor:` with
-  registry lookup.
-- [ ] Retire `SmallChatTool` in favour of `SmallChatCapability`.
+  `SmallChatCapabilityCall`, registry). (2026-04-25)
+- [x] JSON-Schema + OpenAI function-schema emitters. (2026-04-25)
+- [x] MCP transport adapter wrapping the legacy registry.
+  (2026-04-25; `SmallChatMCPCapabilityTransport` with universal
+  wrap on the registry — UI-process assertion, Notification
+  resume, Error capture — plus stray-debugger decoration.)
+- [x] Migrate existing 16 MCP tools to `SmallChatCapability`,
+  one per commit. (2026-04-25; named under `vcs.* eval.* debug.*`
+  prefixes with bare-name MCP aliases.)
+- [x] LM native transport adapter; replace `toolFor:` with
+  registry lookup. (2026-04-25; `SmallChatLMCapabilityCatalog`
+  feeds `SmallChatLMChatClient`, per-call worker fork in
+  `SmallChatLMSession>>dispatchToolCall:` plus chat-window
+  `cancelInFlight`.)
+- [x] Retire `SmallChatTool` in favour of `SmallChatCapability`.
+  (2026-04-25; `SmallChatTool`, `SmallChatToolRegistry`,
+  `SmallChatToolResult` deleted along with
+  `SmallChatLMEvaluateTool` and `SmallChatToolRegistryDebugTest`.)
 
 ### M5 - Refactoring API
 
@@ -319,9 +329,9 @@ layers, neither is optional:
 
 ### Docs
 
-- [ ] Update `CLAUDE.md` when M4 lands — capability naming
+- [x] Update `CLAUDE.md` when M4 lands — capability naming
   conventions, how to add a new capability, migration notes for
-  the legacy `SmallChatTool` pattern.
+  the legacy `SmallChatTool` pattern. (2026-04-25)
 - [ ] Per-plan Open Questions: when a spike answers one, delete
   the question from the plan (don't leave stale).
 - [ ] Add `docs/refactoring-cookbook.md` once a handful of
