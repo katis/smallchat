@@ -6,6 +6,14 @@ Class {
 }
 
 { #category : 'tests' }
+SmallChatCapabilityResultTest >> testErrorResultCarriesTextWithErrorKind [
+	| r |
+	r := SmallChatCapabilityResult error: 'boom'.
+	self assert: r kind equals: #error.
+	self assert: r text equals: 'boom'
+]
+
+{ #category : 'tests' }
 SmallChatCapabilityResultTest >> testTextResultCarriesText [
 	| r |
 	r := SmallChatCapabilityResult text: 'hi'.

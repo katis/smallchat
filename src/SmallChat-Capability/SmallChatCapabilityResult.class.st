@@ -10,6 +10,13 @@ Class {
 }
 
 { #category : 'instance creation' }
+SmallChatCapabilityResult class >> error: aString [
+	"Construct an error-shaped result. Carried text is the human-readable
+	 message; transports flag the result with their error envelope."
+	^ self new setKind: #error text: aString
+]
+
+{ #category : 'instance creation' }
 SmallChatCapabilityResult class >> text: aString [
 	"Construct a text-shaped result. The most common variant: any
 	 capability returning a printable string, JSON-encoded payload, etc."
