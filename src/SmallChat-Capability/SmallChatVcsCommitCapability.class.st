@@ -1,6 +1,9 @@
 Class {
 	#name : 'SmallChatVcsCommitCapability',
 	#superclass : 'SmallChatCapability',
+	#classInstVars : [
+		'pharoCommitOverride'
+	],
 	#category : 'SmallChat-Capability',
 	#package : 'SmallChat-Capability'
 }
@@ -50,6 +53,19 @@ SmallChatVcsCommitCapability class >> errorResult: aString [
 SmallChatVcsCommitCapability class >> mcpAliases [ ^ #('commit')
 ]
 
+{ #category : 'test seams' }
+SmallChatVcsCommitCapability class >> pharoCommitOverride [
+	"Test seam: optional block (workspace, message) -> SmallChatCapabilityResult.
+	 When set, the Pharo dispatch branch defers to it instead of running
+	 Iceberg. Default nil = real behaviour."
+	^ pharoCommitOverride
+]
+
+{ #category : 'test seams' }
+SmallChatVcsCommitCapability class >> pharoCommitOverride: aBlock [
+	pharoCommitOverride := aBlock
+]
+
 { #category : 'private' }
 SmallChatVcsCommitCapability class >> repository [
 	| iceRepo |
@@ -57,6 +73,11 @@ SmallChatVcsCommitCapability class >> repository [
 	^ iceRepo registry
 		detect: [ :r | ([ r name ] on: Error do: [ :_ | nil ]) = 'smallchat' ]
 		ifNone: [ nil ]
+]
+
+{ #category : 'test seams' }
+SmallChatVcsCommitCapability class >> resetTestSeams [
+	pharoCommitOverride := nil
 ]
 
 { #category : 'execution' }
@@ -77,8 +98,10 @@ SmallChatVcsCommitCapability class >> run: aCapabilityCall [
 
 { #category : 'execution' }
 SmallChatVcsCommitCapability class >> runPharoCommit: aMessage in: aPharoWorkspace [
-	"Iceberg path: refresh, count, commit. Returns SmallChatCapabilityResult."
+	"Iceberg path: refresh, count, commit. Returns SmallChatCapabilityResult.
+	 #pharoCommitOverride: lets tests swap this out without driving Iceberg."
 	| repo commit changeCount |
+	pharoCommitOverride ifNotNil: [ ^ pharoCommitOverride value: aPharoWorkspace value: aMessage ].
 	repo := self repository.
 	repo ifNil: [ ^ self errorResult: 'No Iceberg repo "smallchat" registered' ].
 	[ repo workingCopy refreshDirtyPackages ] on: Error do: [ :_ | ].

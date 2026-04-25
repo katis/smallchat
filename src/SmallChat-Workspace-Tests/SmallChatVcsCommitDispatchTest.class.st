@@ -14,6 +14,7 @@ SmallChatVcsCommitDispatchTest >> setUp [
 
 { #category : 'running' }
 SmallChatVcsCommitDispatchTest >> tearDown [
+	SmallChatVcsCommitCapability resetTestSeams.
 	SmallChatVcsTsCommit resetRunner.
 	SmallChatTsWorkspace resetLauncherBlock.
 	SmallChatCapabilityRegistry reset.
@@ -21,23 +22,26 @@ SmallChatVcsCommitDispatchTest >> tearDown [
 ]
 
 { #category : 'tests' }
-SmallChatVcsCommitDispatchTest >> testCommitOnPharoWorkspaceStillTakesIcebergPath [
-	"vcs.commit on the Pharo workspace must NOT call the TS runner. We do
-	 not actually commit -- just assert the runner was untouched and the
-	 result came back from Iceberg path. The repo has no in-image changes
-	 since the test fixture imports nothing, so we expect either a success
-	 or the existing 'Nothing to commit' error -- either way the TS runner
-	 stays untouched."
-	| runnerInvoked call result |
-	runnerInvoked := false.
+SmallChatVcsCommitDispatchTest >> testCommitOnPharoWorkspaceRoutesToPharoBranch [
+	"vcs.commit on the Pharo workspace dispatches through runPharoCommit:in:.
+	 Verify by intercepting the Pharo branch via #pharoCommitOverride: -- never
+	 reaches Iceberg, never side-effects on the live working copy."
+	| seenWs seenMsg call result tsRunnerInvoked |
+	seenWs := nil. seenMsg := nil. tsRunnerInvoked := false.
+	SmallChatVcsCommitCapability pharoCommitOverride: [ :ws :msg |
+		seenWs := ws. seenMsg := msg.
+		SmallChatCapabilityResult text: 'pharo-stub-ok' ].
 	SmallChatVcsTsCommit runner: [ :argv :cwd |
-		runnerInvoked := true.
+		tsRunnerInvoked := true.
 		Dictionary new at: 'exitCode' put: 0; at: 'stdout' put: ''; yourself ].
 	call := SmallChatCapabilityCall name: 'vcs.commit'
-		argumentsJson: (STONJSON toString: (Dictionary new at: 'message' put: 'pharo-attempt'; yourself)).
+		argumentsJson: (STONJSON toString: (Dictionary new at: 'message' put: 'pharo-msg'; yourself)).
 	result := SmallChatCapabilityRegistry default run: 'vcs.commit' with: call.
-	self assert: result notNil.
-	self deny: runnerInvoked
+	self assert: result kind equals: #text.
+	self assert: result text equals: 'pharo-stub-ok'.
+	self assert: seenWs == SmallChatPharoWorkspace default.
+	self assert: seenMsg equals: 'pharo-msg'.
+	self deny: tsRunnerInvoked
 ]
 
 { #category : 'tests' }
