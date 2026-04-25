@@ -51,6 +51,33 @@ SmallChatNav class >> findClasses: pattern [
 			  nextPutAll: '._'; lf ] ]
 ]
 
+{ #category : 'api' }
+SmallChatNav class >> findMethods: pattern in: classNameOrSymbol [
+	| name cls matcher matches sorted shown total cap |
+	name := classNameOrSymbol asSymbol.
+	cls := Smalltalk globals at: name ifAbsent: [ nil ].
+	cls ifNil: [ ^ '_class not found: ', name asString, '_' ].
+	matcher := RxMatcher forString: pattern.
+	matches := cls selectors select: [ :sel | matcher search: sel asString ].
+	matches isEmpty ifTrue: [ ^ '_no matches_' ].
+	cap := 50.
+	sorted := matches asSortedCollection asArray.
+	total := sorted size.
+	shown := total min: cap.
+	^ String streamContents: [ :s |
+		1 to: shown do: [ :i | | sel |
+			sel := sorted at: i.
+			s nextPutAll: '* `'; nextPutAll: cls name;
+			  nextPutAll: '>>'; nextPutAll: sel asString; nextPutAll: '`'.
+			(cls protocolNameOfSelector: sel) ifNotNil: [ :p |
+				s nextPutAll: ' ('; nextPutAll: p asString; nextPutAll: ')' ].
+			s lf ].
+		shown < total ifTrue: [
+			s nextPutAll: '_'; print: total;
+			  nextPutAll: ' matches; showing first '; print: shown;
+			  nextPutAll: '._'; lf ] ]
+]
+
 { #category : 'private' }
 SmallChatNav class >> firstSentenceOf: aString [
 	| dot |
