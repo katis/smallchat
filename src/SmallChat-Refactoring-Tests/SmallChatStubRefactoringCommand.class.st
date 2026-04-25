@@ -19,6 +19,11 @@ SmallChatStubRefactoringCommand >> apply [
   ^ SmallChatRefactoringOutcome fromApplyResult: (applier applyWorkspaceEdit: workspaceEdit)
 ]
 
+{ #category : 'rollback' }
+SmallChatStubRefactoringCommand >> rollback: aToken [
+  applier rollback: aToken
+]
+
 { #category : 'configuring' }
 SmallChatStubRefactoringCommand >> workspaceEdit: aWorkspaceEdit [
   workspaceEdit := aWorkspaceEdit

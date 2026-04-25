@@ -15,3 +15,12 @@ SmallChatRefactoringCommand >> apply [
   "Run the refactoring. Concrete commands return a SmallChatRefactoringOutcome."
   ^ self subclassResponsibility
 ]
+
+{ #category : 'rollback' }
+SmallChatRefactoringCommand >> rollback: aToken [
+  "Restore filesystem state captured in aToken (an opaque rollback token
+   from a prior #apply outcome). Concrete commands override; the default
+   raises subclassResponsibility so every command spells out its rollback
+   path explicitly."
+  ^ self subclassResponsibility
+]
