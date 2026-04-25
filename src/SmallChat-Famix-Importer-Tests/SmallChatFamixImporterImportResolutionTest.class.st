@@ -5,6 +5,28 @@ Class {
 	#package : 'SmallChat-Famix-Importer-Tests'
 }
 
+{ #category : 'helpers' }
+SmallChatFamixImporterImportResolutionTest >> lspLocationUri: aUri [
+  "Build a single-Location LSP definition response wrapping aUri with a
+   zero-length range (importer reads only uri)."
+  ^ Dictionary new
+    at: 'uri' put: aUri;
+    at: 'range' put: (Dictionary new
+      at: 'start' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 0; yourself);
+      at: 'end' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 0; yourself);
+      yourself);
+    yourself
+]
+
+{ #category : 'helpers' }
+SmallChatFamixImporterImportResolutionTest >> newImporterWithTransport: aTransport onModel: aModel [
+  ^ SmallChatFamixImporter new
+    model: aModel
+    client: (SmallChatLSPClient new transport: aTransport)
+    parser: SmallChatTSParser new
+    walker: SmallChatTSNodeWalker new
+]
+
 { #category : 'tests - classifier' }
 SmallChatFamixImporterImportResolutionTest >> testClassifierBuckets [
   "Classifier maps a resolved URI plus the project root URI to one of four
@@ -51,4 +73,50 @@ SmallChatFamixImporterImportResolutionTest >> testProjectCarriesRootUri [
   self assert: project rootUri equals: nil.
   project rootUri: 'file:///proj'.
   self assert: project rootUri equals: 'file:///proj'
+]
+
+{ #category : 'tests - resolution' }
+SmallChatFamixImporterImportResolutionTest >> testResolveImportSetsResolvedUriAndSrcLocalClassification [
+  "resolveImport:atSpecifierStartByte:inSourceText:onUri: issues
+   textDocument/definition for the given byte position, reads the
+   first Location's uri off the response, and stores it on the
+   import along with the bucket from classifyResolvedUri:againstRoot:.
+   For a stub-resolved file under the project root, classification
+   is #srcLocal."
+  | model importer transport text uri imp project done fork sentReq |
+  model := SmallChatFamixModel new.
+  project := model newProject.
+  project rootUri: 'file:///proj'.
+  transport := SmallChatLSPStubTransport new.
+  importer := self newImporterWithTransport: transport onModel: model.
+  uri := 'file:///proj/src/Foo.ts'.
+  text := 'import { x } from "./bar";'.
+  importer client openDocumentUri: uri languageId: 'typescript' text: text.
+  imp := model newImport.
+  imp name: './bar'.
+  done := Semaphore new.
+  fork := [
+    importer resolveImport: imp atSpecifierStartByte: 19 inSourceText: text onUri: uri.
+    done signal ] forkAt: Processor activePriority - 1.
+  self assert: (self waitFor: [ transport sentMessages size >= 2 ] upTo: 1000).
+  sentReq := transport sentMessages last.
+  self assert: (sentReq at: 'method') equals: 'textDocument/definition'.
+  transport enqueueServerMessage: (Dictionary new
+    at: 'jsonrpc' put: '2.0';
+    at: 'id' put: (sentReq at: 'id');
+    at: 'result' put: { self lspLocationUri: 'file:///proj/src/bar.ts' };
+    yourself).
+  importer client pumpOneMessage.
+  done wait.
+  self assert: imp resolvedUri equals: 'file:///proj/src/bar.ts'.
+  self assert: imp classification equals: #srcLocal
+]
+
+{ #category : 'helpers' }
+SmallChatFamixImporterImportResolutionTest >> waitFor: aBlock upTo: ms [
+  | deadline |
+  deadline := Time millisecondClockValue + ms.
+  [ aBlock value or: [ Time millisecondClockValue > deadline ] ]
+    whileFalse: [ (Delay forMilliseconds: 5) wait ].
+  ^ aBlock value
 ]

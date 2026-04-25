@@ -120,6 +120,20 @@ SmallChatFamixImporter >> languageIdForUri: aUri [
   ^ 'typescript'
 ]
 
+{ #category : 'resolution' }
+SmallChatFamixImporter >> lspPositionForByte: aByte inSource: aText [
+  "Build an LSP position dict (line + character) for a UTF-8 byte offset
+   into aText. Uses SmallChatTSRange's lineCharacterAtByte: -- the byte/
+   UTF-16 encoding logic already lives there."
+  | range point |
+  range := SmallChatTSRange startByte: aByte endByte: aByte source: aText.
+  point := range lineCharacterAtByte: aByte.
+  ^ Dictionary new
+    at: 'line' put: point x;
+    at: 'character' put: point y;
+    yourself
+]
+
 { #category : 'accessing' }
 SmallChatFamixImporter >> model [ ^ model
 ]
@@ -198,6 +212,39 @@ SmallChatFamixImporter >> processSymbol: aSymbol intoUri: aUri text: aText owner
       ifTrue: [ entity owningClass: anOwner ] ].
   (aSymbol at: 'children' ifAbsent: [ #() ]) do: [ :child |
     self processSymbol: child intoUri: aUri text: aText owner: (entity ifNil: [ anOwner ]) ]
+]
+
+{ #category : 'resolution' }
+SmallChatFamixImporter >> resolveImport: anImport atSpecifierStartByte: aByte inSourceText: aText onUri: aUri [
+  "Issue textDocument/definition for the import specifier at aByte in aText
+   on aUri, set anImport resolvedUri to the first Location's uri (or nil if
+   the response is nil/empty), and classify it against the model's project
+   rootUri. Tolerates Location | Location[] | LocationLink[] response shapes
+   (LSP allows all three); takes the first uri it finds. Blocking on the LSP
+   pending; caller must not run on the UI."
+  | response location resolvedUri rootUri |
+  response := client
+    request: (Dictionary new
+      at: 'method' put: 'textDocument/definition';
+      at: 'params' put: (Dictionary new
+        at: 'textDocument' put: (Dictionary new at: 'uri' put: aUri; yourself);
+        at: 'position' put: (self lspPositionForByte: aByte inSource: aText);
+        yourself);
+      yourself)
+    onDocumentUri: aUri.
+  location := response isNil
+    ifTrue: [ nil ]
+    ifFalse: [ (response isArray or: [ response isKindOf: SequenceableCollection ])
+        ifTrue: [ response isEmpty ifTrue: [ nil ] ifFalse: [ response first ] ]
+        ifFalse: [ response ] ].
+  resolvedUri := location isNil
+    ifTrue: [ nil ]
+    ifFalse: [ location at: 'uri' ifAbsent: [ location at: 'targetUri' ifAbsent: [ nil ] ] ].
+  anImport resolvedUri: resolvedUri.
+  rootUri := (self ensureProject) rootUri.
+  anImport classification: (self class
+    classifyResolvedUri: resolvedUri
+    againstRoot: rootUri)
 ]
 
 { #category : 'symbol mapping' }
