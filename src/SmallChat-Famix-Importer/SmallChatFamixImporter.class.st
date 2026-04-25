@@ -145,6 +145,24 @@ SmallChatFamixImporter >> populateImportsFromText: aText intoUri: aUri [
       endByte: (spec at: 'endByte')) ]
 ]
 
+{ #category : 'population' }
+SmallChatFamixImporter >> populateJsxComponentsFromText: aText intoUri: aUri [
+  "Parse aText with the TSX grammar, walk for JSXComponent declarations
+   (top-level function declarations / const-arrows / TanStack pair-arrows
+   that return JSX), and emit one SmallChatFamixJSXComponent per detection.
+   Source anchor covers the whole declaration."
+  | tree decls |
+  tree := parser parseTsxString: aText.
+  decls := walker jsxComponentDeclarationsIn: tree rootNode source: aText.
+  decls do: [ :d | | comp |
+    comp := model newJSXComponent.
+    comp name: (d at: 'name').
+    comp sourceAnchor: (SmallChatFamixSourceAnchor
+      fileUri: aUri
+      startByte: (d at: 'startByte')
+      endByte: (d at: 'endByte')) ]
+]
+
 { #category : 'symbol mapping' }
 SmallChatFamixImporter >> processSymbol: aSymbol intoUri: aUri text: aText owner: anOwner [
   "Convert one DocumentSymbol (and recursively its children) into Famix

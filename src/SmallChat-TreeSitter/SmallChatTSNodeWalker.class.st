@@ -27,6 +27,21 @@ SmallChatTSNodeWalker >> classSelectors: aRootNode [
 	^ self allNodesOfType: 'class_selector' under: aRootNode
 ]
 
+{ #category : 'walking - private' }
+SmallChatTSNodeWalker >> functionBodyReturnsJsx: aFunctionDeclNode [
+  "True iff the function's statement_block contains a return_statement whose
+   argument is a JSX node (jsx_element, jsx_self_closing_element, or
+   jsx_fragment). Conservative: only checks immediate children of the block."
+  | block jsxTypes |
+  block := aFunctionDeclNode namedChildren
+    detect: [ :c | c type = 'statement_block' ]
+    ifNone: [ ^ false ].
+  jsxTypes := #('jsx_element' 'jsx_self_closing_element' 'jsx_fragment').
+  ^ block namedChildren anySatisfy: [ :stmt |
+      stmt type = 'return_statement'
+        and: [ stmt namedChildren anySatisfy: [ :a | jsxTypes includes: a type ] ] ]
+]
+
 { #category : 'walking' }
 SmallChatTSNodeWalker >> importSpecifiersIn: aRootNode source: aSource [
   "Return an Array of (Dictionary at: 'specifier' put: String;
@@ -66,6 +81,28 @@ SmallChatTSNodeWalker >> jsxAttributeValues: aRootNode [
 		collect: [ :a | a namedChildren size > 1
 			ifTrue: [ a namedChildren second ]
 			ifFalse: [ a namedChildren first ] ]
+]
+
+{ #category : 'walking' }
+SmallChatTSNodeWalker >> jsxComponentDeclarationsIn: aRootNode source: aSource [
+  "Return Array of (Dictionary at: 'name' put: String;
+   at: 'startByte' put: Integer; at: 'endByte' put: Integer;
+   at: 'kind' put: Symbol). For now only top-level function_declaration
+   whose body contains a return_statement with a JSX child counts;
+   const-arrow and TanStack pair-arrow forms come in follow-up slices."
+  | components |
+  components := OrderedCollection new.
+  aRootNode namedChildren do: [ :decl |
+    (decl type = 'function_declaration' and: [ self functionBodyReturnsJsx: decl ])
+      ifTrue: [ | nameNode |
+        nameNode := decl namedChildren detect: [ :c | c type = 'identifier' ].
+        components add: (Dictionary new
+          at: 'name' put: (nameNode textFromSourceText: aSource);
+          at: 'startByte' put: decl startByte;
+          at: 'endByte' put: decl endByte;
+          at: 'kind' put: #function;
+          yourself) ] ].
+  ^ components asArray
 ]
 
 { #category : 'walking' }
