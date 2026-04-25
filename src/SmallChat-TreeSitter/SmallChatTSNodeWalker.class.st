@@ -5,11 +5,39 @@ Class {
 	#package : 'SmallChat-TreeSitter'
 }
 
+{ #category : 'walking - private' }
+SmallChatTSNodeWalker >> allNodesOfType: aTypeName under: aRootNode [
+	"Recursive named-child walk -- returns every descendant whose type
+	 matches. namedChildren do: only (S2 found namedChildAt: primitive-
+	 fails on deep nodes)."
+	| collected walk |
+	collected := OrderedCollection new.
+	walk := [ :node |
+		node type = aTypeName ifTrue: [ collected add: node ].
+		node namedChildren do: walk ].
+	walk value: aRootNode.
+	^ collected
+]
+
 { #category : 'walking' }
 SmallChatTSNodeWalker >> importStatements: aRootNode [
 	"Return all import_statement nodes in the program. Imports live at
 	 the top level in TS / TSX, so a top-level scan suffices."
 	^ aRootNode namedChildren select: [ :n | n type = 'import_statement' ]
+]
+
+{ #category : 'walking' }
+SmallChatTSNodeWalker >> jsxAttributeValues: aRootNode [
+	"Return the value child of every jsx_attribute under aRootNode.
+	 A jsx_attribute is shaped (property_identifier, value-node) -- the
+	 value-node is the second named child when present (and the only
+	 named child when the attribute is name-only like `disabled`)."
+	| attrs |
+	attrs := self allNodesOfType: 'jsx_attribute' under: aRootNode.
+	^ attrs
+		collect: [ :a | a namedChildren size > 1
+			ifTrue: [ a namedChildren second ]
+			ifFalse: [ a namedChildren first ] ]
 ]
 
 { #category : 'walking' }

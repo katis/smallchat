@@ -44,6 +44,18 @@ SmallChatTSNodeWalkerTest >> testImportStatementsOnButtonTsxReturnsOneImport [
 ]
 
 { #category : 'tests' }
+SmallChatTSNodeWalkerTest >> testJsxAttributeValuesOnButtonTsxReturnsThree [
+	"ts-small/Button.tsx jsx_attribute count: 3 (type, className, onClick).
+	 Walker returns the value child of each jsx_attribute."
+	| source tree values |
+	self isAvailable ifFalse: [ ^ self skip ].
+	source := self fixtureContents: 'ts-small/Button.tsx'.
+	tree := SmallChatTSParser new parseTsxString: source.
+	values := SmallChatTSNodeWalker new jsxAttributeValues: tree rootNode.
+	self assert: values size equals: 3
+]
+
+{ #category : 'tests' }
 SmallChatTSNodeWalkerTest >> testTopLevelDeclarationsOnButtonTsxReturnsTwoDeclarations [
 	"ts-small/Button.tsx top-level: import_statement, type_alias_declaration,
 	 export_statement. Walker excludes imports -- 2 declarations."
