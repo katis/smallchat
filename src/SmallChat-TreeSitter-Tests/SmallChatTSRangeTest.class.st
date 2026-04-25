@@ -6,6 +6,18 @@ Class {
 }
 
 { #category : 'tests' }
+SmallChatTSRangeTest >> testAsLSPPositionRangeShape [
+	| range dict source |
+	source := 'abcde'.
+	range := SmallChatTSRange startByte: 1 endByte: 4 source: source.
+	dict := range asLSPPositionRange.
+	self assert: ((dict at: 'start') at: 'line') equals: 0.
+	self assert: ((dict at: 'start') at: 'character') equals: 1.
+	self assert: ((dict at: 'end') at: 'line') equals: 0.
+	self assert: ((dict at: 'end') at: 'character') equals: 4
+]
+
+{ #category : 'tests' }
 SmallChatTSRangeTest >> testAsciiByteOffsetMapsToCharacterOffset [
 	"const x = 1; -- equals at byte 8, character 8 (line 0)."
 	| range source |
@@ -51,4 +63,19 @@ SmallChatTSRangeTest >> testNewlineAdvancesLine [
 	range := SmallChatTSRange startByte: 6 endByte: 7 source: source.
 	self assert: range startLine equals: 1.
 	self assert: range startCharacter equals: 0
+]
+
+{ #category : 'tests' }
+SmallChatTSRangeTest >> testRoundTripFromLSPPositionRange [
+	"Build a range from a Pharo source containing astral chars, emit
+	 LSP positions, and reconstruct -- byte offsets must match."
+	| smiley source range positions reconstructed |
+	smiley := (Character codePoint: 16r1F600) asString.
+	source := 'const ' , smiley , 'x = 1;'.
+	"Range covers the = sign at byte 12 / character 10."
+	range := SmallChatTSRange startByte: 12 endByte: 13 source: source.
+	positions := range asLSPPositionRange.
+	reconstructed := SmallChatTSRange fromLSPPositionRange: positions source: source.
+	self assert: reconstructed startByte equals: range startByte.
+	self assert: reconstructed endByte equals: range endByte
 ]
