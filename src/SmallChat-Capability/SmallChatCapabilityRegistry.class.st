@@ -26,3 +26,11 @@ SmallChatCapabilityRegistry >> allCapabilities [
 	 the image. Compile a new subclass and it appears here automatically."
 	^ SmallChatCapability allSubclasses reject: [ :c | c isAbstract ]
 ]
+
+{ #category : 'accessing' }
+SmallChatCapabilityRegistry >> capabilityNamed: aString [
+	"Look up a capability class by its agent-facing identifier. Returns
+	 nil if no concrete subclass matches -- transports decide whether to
+	 surface that as an error or fall through to a legacy registry."
+	^ self allCapabilities detect: [ :c | c capabilityName = aString ] ifNone: [ nil ]
+]
