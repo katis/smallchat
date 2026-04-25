@@ -23,12 +23,12 @@ SmallChatLMCapabilityCatalog class >> reset [
 SmallChatLMCapabilityCatalog >> toolSchemas [
 	"One OpenAI-function schema per registered production capability.
 	 Test fixtures (#isTestFixture true) are filtered out so they never
-	 reach the LM. The result is fed verbatim into the chat completions
-	 request body's 'tools' field."
-	^ (SmallChatCapabilityRegistry default allCapabilities
+	 reach the LM. Returned as Array (STONJSON requires Array, not
+	 OrderedCollection)."
+	^ ((SmallChatCapabilityRegistry default allCapabilities
 		reject: [ :cap | cap isTestFixture ])
 		collect: [ :cap |
 			cap schema
 				asOpenAIFunctionSchemaName: cap capabilityName
-				description: cap description ]
+				description: cap description ]) asArray
 ]

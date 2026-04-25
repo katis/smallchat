@@ -16,7 +16,8 @@ Class {
 		'maxTokens',
 		'temperature',
 		'httpClient',
-		'apiKey'
+		'apiKey',
+		'toolCatalog'
 	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
@@ -209,16 +210,16 @@ SmallChatLMChatClient >> requestBodyFor: aConversation [
     ^ self requestBodyFor: aConversation streaming: false
 ]
 
-{ #category : 'private' }
+{ #category : 'requesting' }
 SmallChatLMChatClient >> requestBodyFor: aConversation streaming: aBoolean [
-    ^ Dictionary new
-        at: 'model' put: modelName;
-        at: 'messages' put: (self messagesFor: aConversation) asArray;
-        at: 'max_tokens' put: maxTokens;
-        at: 'temperature' put: temperature;
-        at: 'stream' put: aBoolean;
-        at: 'tools' put: { SmallChatLMEvaluateTool toolSchema };
-        yourself
+	^ Dictionary new
+		at: 'model' put: modelName;
+		at: 'messages' put: (self messagesFor: aConversation) asArray;
+		at: 'max_tokens' put: maxTokens;
+		at: 'temperature' put: temperature;
+		at: 'stream' put: aBoolean;
+		at: 'tools' put: self toolCatalog toolSchemas;
+		yourself
 ]
 
 { #category : 'private' }
@@ -314,4 +315,16 @@ SmallChatLMChatClient >> toolCallsFromAccumulator: accumulator [
 			id: (e at: 'id')
 			name: (e at: 'name')
 			arguments: (e at: 'arguments') ]) asArray
+]
+
+{ #category : 'configuration' }
+SmallChatLMChatClient >> toolCatalog [
+	"Provider of the tool schemas list. Defaults to the live capability catalog;
+	 tests inject a stub."
+	^ toolCatalog ifNil: [ toolCatalog := SmallChatLMCapabilityCatalog default ]
+]
+
+{ #category : 'configuration' }
+SmallChatLMChatClient >> toolCatalog: aCatalog [
+	toolCatalog := aCatalog
 ]

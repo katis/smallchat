@@ -175,10 +175,14 @@ SmallChatLMChatClientTest >> testCompletePostsToChatCompletionsEndpoint [
 ]
 
 { #category : 'tests' }
-SmallChatLMChatClientTest >> testCompleteRequestBodyIncludesToolsArrayWithEvaluate [
-	| stub client parsed tools first fn |
+SmallChatLMChatClientTest >> testCompleteRequestBodyIncludesToolsArrayFromCatalog [
+	"After M4, the chat client takes its tools from SmallChatLMCapabilityCatalog
+	 (or an injected stub for testing) instead of hardcoding evaluate."
+	| stub stubCatalog client parsed tools first fn |
 	stub := self stubRespondingWith: '{"choices":[{"message":{"role":"assistant","content":"ok"}}]}'.
 	client := self clientWithStub: stub.
+	stubCatalog := SmallChatLMCapabilityCatalogStubForTests new.
+	client toolCatalog: stubCatalog.
 	client complete: (SmallChatLMConversation new addUser: 'hi'; yourself).
 	parsed := STONJSON fromString: stub lastBody.
 	tools := parsed at: 'tools'.
@@ -187,7 +191,7 @@ SmallChatLMChatClientTest >> testCompleteRequestBodyIncludesToolsArrayWithEvalua
 	first := tools first.
 	self assert: (first at: 'type') equals: 'function'.
 	fn := first at: 'function'.
-	self assert: (fn at: 'name') equals: 'evaluate'
+	self assert: (fn at: 'name') equals: 'stub.fake.tool'
 ]
 
 { #category : 'tests' }
