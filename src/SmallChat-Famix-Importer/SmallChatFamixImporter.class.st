@@ -32,6 +32,44 @@ SmallChatFamixImporter >> entityForSymbol: aSymbol ifAbsent: aBlock [
   ^ factory value: model
 ]
 
+{ #category : 'orchestration' }
+SmallChatFamixImporter >> fetchDocumentSymbolsForUri: aUri [
+  "Issue textDocument/documentSymbol for an already-open URI; returns the
+   server's result list (or empty when the server returns nil)."
+  | response |
+  response := client
+    request: (Dictionary new
+      at: 'method' put: 'textDocument/documentSymbol';
+      at: 'params' put: (Dictionary new
+        at: 'textDocument' put: (Dictionary new at: 'uri' put: aUri; yourself);
+        yourself);
+      yourself)
+    onDocumentUri: aUri.
+  ^ response ifNil: [ #() ]
+]
+
+{ #category : 'orchestration' }
+SmallChatFamixImporter >> importTsFileUri: aUri text: aText [
+  "Open aUri on the LSP client (so subsequent requests pre-flight cleanly),
+   fetch documentSymbol, and turn the response into Famix entities. Blocking
+   on the LSP pending; callers must not run on the UI process. The text-
+   injecting form keeps tests off disk."
+  | symbols |
+  client openDocumentUri: aUri languageId: (self languageIdForUri: aUri) text: aText.
+  symbols := self fetchDocumentSymbolsForUri: aUri.
+  self populateFromDocumentSymbols: symbols intoUri: aUri text: aText
+]
+
+{ #category : 'orchestration' }
+SmallChatFamixImporter >> languageIdForUri: aUri [
+  "Map a file URI suffix to the LSP languageId server expects."
+  (aUri endsWith: '.tsx') ifTrue: [ ^ 'typescriptreact' ].
+  (aUri endsWith: '.ts') ifTrue: [ ^ 'typescript' ].
+  (aUri endsWith: '.js') ifTrue: [ ^ 'javascript' ].
+  (aUri endsWith: '.jsx') ifTrue: [ ^ 'javascriptreact' ].
+  ^ 'typescript'
+]
+
 { #category : 'accessing' }
 SmallChatFamixImporter >> model [ ^ model
 ]
