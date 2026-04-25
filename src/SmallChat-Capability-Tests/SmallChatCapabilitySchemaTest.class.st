@@ -38,6 +38,21 @@ SmallChatCapabilitySchemaTest >> testEmptySchemaHasNoFields [
 ]
 
 { #category : 'tests-emitters' }
+SmallChatCapabilitySchemaTest >> testIntegerFieldBuilder [
+	"#integer:required:description: appends a #integer field that emits as
+	 {type: 'integer'} in the JSON Schema property."
+	| s json prop |
+	s := SmallChatCapabilitySchema empty
+		integer: 'index'
+		required: true
+		description: 'Frame index to inspect'.
+	json := s asJsonSchema.
+	prop := (json at: 'properties') at: 'index'.
+	self assert: (prop at: 'type') equals: 'integer'.
+	self assert: (json at: 'required') asArray equals: #('index')
+]
+
+{ #category : 'tests-emitters' }
 SmallChatCapabilitySchemaTest >> testOpenAIFunctionSchemaWrapsJsonSchema [
 	"Matches OpenAI function-call tool schema shape:
 	 { type: 'function', function: { name, description, parameters: <jsonSchema> } }"

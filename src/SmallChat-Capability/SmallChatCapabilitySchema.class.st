@@ -73,6 +73,17 @@ SmallChatCapabilitySchema >> initialize [
 ]
 
 { #category : 'building' }
+SmallChatCapabilitySchema >> integer: aName required: aBoolean description: aDescription [
+	"Append an #integer field. Same shape as the string and boolean builders."
+	fields add: (SmallChatCapabilitySchemaField
+		name: aName
+		type: #integer
+		required: aBoolean
+		description: aDescription).
+	^ self
+]
+
+{ #category : 'building' }
 SmallChatCapabilitySchema >> string: aName required: aBoolean description: aDescription [
 	"Append a #string field. Returns self so callers can chain."
 	fields add: (SmallChatCapabilitySchemaField
