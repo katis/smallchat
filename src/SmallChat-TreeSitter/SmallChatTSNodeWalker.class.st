@@ -6,6 +6,13 @@ Class {
 }
 
 { #category : 'walking' }
+SmallChatTSNodeWalker >> importStatements: aRootNode [
+	"Return all import_statement nodes in the program. Imports live at
+	 the top level in TS / TSX, so a top-level scan suffices."
+	^ aRootNode namedChildren select: [ :n | n type = 'import_statement' ]
+]
+
+{ #category : 'walking' }
 SmallChatTSNodeWalker >> topLevelDeclarations: aRootNode [
 	"Return the program's named children whose type is a known
 	 declaration kind. Imports are excluded; export_statement is

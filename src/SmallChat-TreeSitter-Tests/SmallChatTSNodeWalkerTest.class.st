@@ -33,6 +33,17 @@ SmallChatTSNodeWalkerTest >> isAvailable [
 ]
 
 { #category : 'tests' }
+SmallChatTSNodeWalkerTest >> testImportStatementsOnButtonTsxReturnsOneImport [
+	| source tree imports |
+	self isAvailable ifFalse: [ ^ self skip ].
+	source := self fixtureContents: 'ts-small/Button.tsx'.
+	tree := SmallChatTSParser new parseTsxString: source.
+	imports := SmallChatTSNodeWalker new importStatements: tree rootNode.
+	self assert: imports size equals: 1.
+	self assert: imports first type equals: 'import_statement'
+]
+
+{ #category : 'tests' }
 SmallChatTSNodeWalkerTest >> testTopLevelDeclarationsOnButtonTsxReturnsTwoDeclarations [
 	"ts-small/Button.tsx top-level: import_statement, type_alias_declaration,
 	 export_statement. Walker excludes imports -- 2 declarations."
