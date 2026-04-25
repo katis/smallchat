@@ -2,7 +2,8 @@ Class {
 	#name : 'SmallChatFamixEntity',
 	#superclass : 'MooseEntity',
 	#instVars : [
-		'sourceAnchor'
+		'sourceAnchor',
+		'name'
 	],
 	#category : 'SmallChat-Famix-Entities',
 	#package : 'SmallChat-Famix',
@@ -31,6 +32,16 @@ SmallChatFamixEntity class >> metamodel [
 
 	<generated>
 	^ SmallChatFamixModel metamodel
+]
+
+{ #category : 'accessing' }
+SmallChatFamixEntity >> name [
+	^ name
+]
+
+{ #category : 'accessing' }
+SmallChatFamixEntity >> name: aString [
+	name := aString
 ]
 
 { #category : 'accessing' }
