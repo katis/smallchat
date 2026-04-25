@@ -29,6 +29,26 @@ SmallChatLMSessionTest >> sessionWithCannedReply: aString [
 ]
 
 { #category : 'tests' }
+SmallChatLMSessionTest >> testCancelInFlightCancelsTrackedLspPendingsBeforeTerminatingWorkers [
+  "Closing the chat window calls cancelInFlight; any tracked LSP pending
+   request must be #cancel'd so the server sees a $/cancelRequest before
+   the worker process is terminated and the response is silently dropped.
+   Duck-typed stub stands in for a real SmallChatLSPPendingRequest so
+   SmallChat-Tests doesn't pull SmallChat-LSP."
+  | session pending worker |
+  session := SmallChatLMSession new.
+  pending := SmallChatLMSessionTestStubCancellable new.
+  session trackLspPending: pending.
+  worker := [ (Delay forSeconds: 60) wait ] newProcess.
+  session trackInFlight: worker.
+  worker resume.
+  session cancelInFlight.
+  self assert: pending cancelCount equals: 1.
+  self assert: worker isTerminated.
+  self deny: (session inFlightWorkers includes: worker)
+]
+
+{ #category : 'tests' }
 SmallChatLMSessionTest >> testCancelInFlightTerminatesWorker [
 	"cancelInFlight terminates any process that #trackInFlight: has been
 	 told about. The chat window calls this on close so a slow capability

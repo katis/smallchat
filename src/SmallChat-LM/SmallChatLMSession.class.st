@@ -14,7 +14,8 @@ Class {
 	#instVars : [
 		'conversation',
 		'client',
-		'inFlightWorkers'
+		'inFlightWorkers',
+		'lspPendings'
 	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
@@ -22,12 +23,15 @@ Class {
 
 { #category : 'cancellation' }
 SmallChatLMSession >> cancelInFlight [
-	"Terminate any worker process this session forked for a capability call.
-	 Called by the chat window on close so a slow tool-call doesn't outlive
-	 the UI it was driving."
-	self inFlightWorkers asArray do: [ :p |
-		p isTerminated ifFalse: [ p terminate ].
-		self untrackInFlight: p ]
+  "Cancel every tracked LSP pending request first so the server sees
+   $/cancelRequest while the worker is still parked on its result wait,
+   then terminate any worker process #trackInFlight: was told about."
+  self lspPendings asArray do: [ :p |
+    [ p cancel ] on: Error do: [ :_ | "best-effort cancel" ] ].
+  self lspPendings removeAll: self lspPendings asArray.
+  self inFlightWorkers asArray do: [ :p |
+    p isTerminated ifFalse: [ p terminate ].
+    self untrackInFlight: p ]
 ]
 
 { #category : 'accessing' }
@@ -93,6 +97,15 @@ SmallChatLMSession >> initialize [
 	prompt := SmallChatConfig systemPrompt.
 	(prompt isNil or: [ prompt isEmpty ]) ifFalse: [ conversation addSystem: prompt ].
 	client := SmallChatLMChatClient new
+]
+
+{ #category : 'cancellation' }
+SmallChatLMSession >> lspPendings [
+  "IdentitySet of LSP pending requests this session has been told about
+   via #trackLspPending:. cancelInFlight cancels each before terminating
+   workers so the LSP server gets a $/cancelRequest instead of a silent
+   orphan."
+  ^ lspPendings ifNil: [ lspPendings := IdentitySet new ]
 ]
 
 { #category : 'tool dispatch' }
@@ -202,6 +215,11 @@ SmallChatLMSession >> trackInFlight: aProcess [
 	self inFlightWorkers add: aProcess
 ]
 
+{ #category : 'cancellation' }
+SmallChatLMSession >> trackLspPending: aPending [
+  self lspPendings add: aPending
+]
+
 { #category : 'rendering' }
 SmallChatLMSession >> transcriptText [
 	^ String streamContents: [ :s |
@@ -217,4 +235,9 @@ SmallChatLMSession >> transcriptText [
 { #category : 'cancellation' }
 SmallChatLMSession >> untrackInFlight: aProcess [
 	self inFlightWorkers remove: aProcess ifAbsent: [ ]
+]
+
+{ #category : 'cancellation' }
+SmallChatLMSession >> untrackLspPending: aPending [
+  self lspPendings remove: aPending ifAbsent: [ ]
 ]
