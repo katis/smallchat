@@ -54,6 +54,38 @@ SmallChatWorkspaceEditApplierTest >> testMultipleEditsAppliedInReverseOrder [
 ]
 
 { #category : 'tests' }
+SmallChatWorkspaceEditApplierTest >> testOverlappingEditsAreReportedAsError [
+  "Two edits whose byte ranges overlap within one document violate the
+   LSP spec's undefined-behaviour clause. The applier must reject them:
+   isSuccess returns false, and source bytes are not mutated."
+  | applier edit sources result |
+  applier := SmallChatWorkspaceEditApplier new.
+  edit := Dictionary new
+    at: 'changes' put: (Dictionary new
+      at: 'file:///t/a.txt' put: (Array
+        with: (Dictionary new
+          at: 'range' put: (Dictionary new
+            at: 'start' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 7; yourself);
+            at: 'end' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 12; yourself);
+            yourself);
+          at: 'newText' put: 'X';
+          yourself)
+        with: (Dictionary new
+          at: 'range' put: (Dictionary new
+            at: 'start' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 10; yourself);
+            at: 'end' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 14; yourself);
+            yourself);
+          at: 'newText' put: 'Y';
+          yourself));
+      yourself);
+    yourself.
+  sources := Dictionary new at: 'file:///t/a.txt' put: 'Hello, World!'; yourself.
+  result := applier applyWorkspaceEdit: edit withSources: sources.
+  self deny: result isSuccess.
+  self assert: result errorReason notNil
+]
+
+{ #category : 'tests' }
 SmallChatWorkspaceEditApplierTest >> testSingleTextEditReplacesRange [
   | applier edit sources result |
   applier := SmallChatWorkspaceEditApplier new.

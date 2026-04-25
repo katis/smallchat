@@ -34,10 +34,9 @@ SmallChatWorkspaceEditApplier >> applyTextEdits: anArray to: aString [
 
 { #category : 'execution' }
 SmallChatWorkspaceEditApplier >> applyWorkspaceEdit: aWorkspaceEdit withSources: aSources [
-  "Apply a WorkspaceEdit changes-form against aSources (uri -> string) and return
-   a SmallChatApplyResult carrying the rewritten sources. URIs not mentioned in
-   the edit pass through unchanged. Edits within one URI are applied reverse-
-   sorted by range start so earlier byte offsets stay stable."
+  "Apply a WorkspaceEdit changes-form against aSources (uri -> string).
+   Returns SmallChatApplyResult with isSuccess=false and an errorReason
+   when any URI's edits overlap; on success, returns the rewritten sources."
   | newSources changes |
   newSources := Dictionary new.
   aSources keysAndValuesDo: [ :uri :text | newSources at: uri put: text ].
@@ -45,6 +44,9 @@ SmallChatWorkspaceEditApplier >> applyWorkspaceEdit: aWorkspaceEdit withSources:
   changes keysAndValuesDo: [ :uri :edits |
     | text |
     text := aSources at: uri.
+    (self overlapsAmong: edits inSource: text) ifTrue: [
+      ^ SmallChatApplyResult errorReason:
+        'Overlapping edits within ' , uri ].
     newSources at: uri put: (self applyTextEdits: edits to: text) ].
   ^ SmallChatApplyResult successWithSources: newSources
 ]
@@ -52,4 +54,18 @@ SmallChatWorkspaceEditApplier >> applyWorkspaceEdit: aWorkspaceEdit withSources:
 { #category : 'execution' }
 SmallChatWorkspaceEditApplier >> editStartByte: anEditDict inSource: aString [
   ^ (SmallChatTSRange fromLSPPositionRange: (anEditDict at: 'range') source: aString) startByte
+]
+
+{ #category : 'execution' }
+SmallChatWorkspaceEditApplier >> overlapsAmong: anArray inSource: aString [
+  "Return true when any two edits in anArray have overlapping byte ranges
+   in aString. Touch (end == start) is allowed; strict overlap (any byte
+   shared) is rejected."
+  | ranges sorted |
+  ranges := anArray collect: [ :edit |
+    SmallChatTSRange fromLSPPositionRange: (edit at: 'range') source: aString ].
+  sorted := ranges asSortedCollection: [ :a :b | a startByte < b startByte ].
+  sorted asArray overlappingPairsDo: [ :a :b |
+    a endByte > b startByte ifTrue: [ ^ true ] ].
+  ^ false
 ]
