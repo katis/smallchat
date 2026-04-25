@@ -199,7 +199,11 @@ SmallChatLMChatWindow >> initializeWindow: aWindow [
 	aWindow
 		title: 'smallchat';
 		initialExtent: 640 @ 480;
-		whenClosedDo: [ self unsubscribeFromMCPAnnouncer ]
+		whenClosedDo: [
+			self unsubscribeFromMCPAnnouncer.
+			session ifNotNil: [ :s | s cancelInFlight ].
+			pendingRequest ifNotNil: [ :p |
+				p isTerminated ifFalse: [ p terminate ] ] ]
 ]
 
 { #category : 'accessing' }
