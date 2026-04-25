@@ -28,3 +28,12 @@ SmallChatVcsStatusCapabilityTest >> testRunReturnsLegacyEquivalentJson [
 	self assert: capResult kind equals: #text.
 	self assert: capResult text equals: legacyResult
 ]
+
+{ #category : 'tests' }
+SmallChatVcsStatusCapabilityTest >> testStatusBareNameResolvesToVcsStatus [
+	"Migrated capability declares 'status' as its MCP alias so existing
+	 mcp__smallchat__status calls continue to land on vcs.status."
+	| transport |
+	transport := SmallChatMCPCapabilityTransport new.
+	self assert: (transport resolveAlias: 'status') equals: 'vcs.status'
+]
