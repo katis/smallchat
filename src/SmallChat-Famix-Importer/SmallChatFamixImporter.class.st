@@ -64,6 +64,18 @@ SmallChatFamixImporter >> bindingNameFor: aSpecifier inRootNode: aRootNode sourc
 SmallChatFamixImporter >> client [ ^ client
 ]
 
+{ #category : 'regeneration' }
+SmallChatFamixImporter >> dropEntitiesForUri: aUri [
+  "Remove every entity from the model whose sourceAnchor fileUri equals
+   aUri. Entities without a sourceAnchor (Project) are left alone."
+  | doomed |
+  doomed := model entities select: [ :e |
+    (e respondsTo: #sourceAnchor)
+      and: [ e sourceAnchor notNil
+      and: [ e sourceAnchor fileUri = aUri ] ] ].
+  model removeAll: doomed
+]
+
 { #category : 'population' }
 SmallChatFamixImporter >> ensureModuleForUri: aUri text: aText [
   "Create a SmallChatFamixModule for aUri, linked to the model's singleton
