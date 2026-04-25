@@ -21,6 +21,41 @@ SmallChatFamixTEntityCreator classSide >> annotation [
 ]
 
 { #category : 'entity creation' }
+SmallChatFamixTEntityCreator >> newClass [
+
+	<generated>
+	^ self add: SmallChatFamixClass new
+]
+
+{ #category : 'entity creation' }
+SmallChatFamixTEntityCreator >> newField [
+
+	<generated>
+	^ self add: SmallChatFamixField new
+]
+
+{ #category : 'entity creation' }
+SmallChatFamixTEntityCreator >> newFunction [
+
+	<generated>
+	^ self add: SmallChatFamixFunction new
+]
+
+{ #category : 'entity creation' }
+SmallChatFamixTEntityCreator >> newInterface [
+
+	<generated>
+	^ self add: SmallChatFamixInterface new
+]
+
+{ #category : 'entity creation' }
+SmallChatFamixTEntityCreator >> newMethod [
+
+	<generated>
+	^ self add: SmallChatFamixMethod new
+]
+
+{ #category : 'entity creation' }
 SmallChatFamixTEntityCreator >> newModule [
 
 	<generated>
@@ -28,8 +63,22 @@ SmallChatFamixTEntityCreator >> newModule [
 ]
 
 { #category : 'entity creation' }
+SmallChatFamixTEntityCreator >> newParameter [
+
+	<generated>
+	^ self add: SmallChatFamixParameter new
+]
+
+{ #category : 'entity creation' }
 SmallChatFamixTEntityCreator >> newProject [
 
 	<generated>
 	^ self add: SmallChatFamixProject new
+]
+
+{ #category : 'entity creation' }
+SmallChatFamixTEntityCreator >> newTypeAlias [
+
+	<generated>
+	^ self add: SmallChatFamixTypeAlias new
 ]

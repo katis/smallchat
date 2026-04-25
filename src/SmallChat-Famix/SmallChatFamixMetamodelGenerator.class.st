@@ -3,7 +3,14 @@ Class {
 	#superclass : 'FamixMetamodelGenerator',
 	#instVars : [
 		'project',
-		'module'
+		'module',
+		'class',
+		'interface',
+		'function',
+		'method',
+		'parameter',
+		'field',
+		'typeAlias'
 	],
 	#category : 'SmallChat-Famix',
 	#package : 'SmallChat-Famix'
@@ -24,10 +31,16 @@ SmallChatFamixMetamodelGenerator class >> prefix [
 
 { #category : 'generation' }
 SmallChatFamixMetamodelGenerator >> defineClasses [
-	"FamixNG generator entry: declare each entity class in the metamodel.
-	 The framework concatenates `prefix` with the supplied name to build
-	 the final Pharo class name (e.g. #Project -> SmallChatFamixProject)."
+	"Declare each entity class. The framework concatenates `prefix` with
+	 the supplied name -- e.g. #Project -> SmallChatFamixProject."
 	super defineClasses.
-	project := builder newClassNamed: #Project.
-	module := builder newClassNamed: #Module
+	project   := builder newClassNamed: #Project.
+	module    := builder newClassNamed: #Module.
+	class     := builder newClassNamed: #Class.
+	interface := builder newClassNamed: #Interface.
+	function  := builder newClassNamed: #Function.
+	method    := builder newClassNamed: #Method.
+	parameter := builder newClassNamed: #Parameter.
+	field     := builder newClassNamed: #Field.
+	typeAlias := builder newClassNamed: #TypeAlias
 ]

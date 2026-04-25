@@ -21,3 +21,17 @@ SmallChatFamixMetamodelGeneratorTest >> testPackageNameAndPrefix [
 	self assert: SmallChatFamixMetamodelGenerator packageName equals: 'SmallChat-Famix'.
 	self assert: SmallChatFamixMetamodelGenerator prefix equals: 'SmallChatFamix'
 ]
+
+{ #category : 'tests' }
+SmallChatFamixMetamodelGeneratorTest >> testSliceACoreEntitiesPresentAfterGenerate [
+	"Slice A: 7 core TS/JS entities concat-prefixed with the metamodel
+	 prefix and rooted on SmallChatFamixEntity."
+	| names |
+	SmallChatFamixMetamodelGenerator new generate.
+	names := #(SmallChatFamixClass SmallChatFamixInterface
+		SmallChatFamixFunction SmallChatFamixMethod
+		SmallChatFamixParameter SmallChatFamixField
+		SmallChatFamixTypeAlias).
+	names do: [ :n |
+		self assert: (Smalltalk globals includesKey: n) description: n , ' missing' ]
+]
