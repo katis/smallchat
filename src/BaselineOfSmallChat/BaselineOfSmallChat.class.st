@@ -23,7 +23,8 @@ BaselineOfSmallChat >> baseline: spec [
 		spec
 			package: 'SmallChat';
 			package: 'SmallChat-Nav'              with: [ spec requires: #() ];
-			package: 'SmallChat-Capability'       with: [ spec requires: #('SmallChat') ];
+			package: 'SmallChat-Workspace'        with: [ spec requires: #('SmallChat' 'SmallChat-LSP') ];
+			package: 'SmallChat-Capability'       with: [ spec requires: #('SmallChat' 'SmallChat-Workspace') ];
 			package: 'SmallChat-MCP'              with: [ spec requires: #('SmallChat' 'SmallChat-Capability') ];
 			package: 'SmallChat-LM'               with: [ spec requires: #('SmallChat' 'SmallChat-MCP' 'SmallChat-Capability') ];
 			package: 'SmallChat-LSP'              with: [ spec requires: #('SmallChat') ];
@@ -33,6 +34,7 @@ BaselineOfSmallChat >> baseline: spec [
 			package: 'SmallChat-Refactoring'      with: [ spec requires: #('SmallChat' 'SmallChat-TreeSitter' 'SmallChat-Famix') ];
 			package: 'SmallChat-Tests'            with: [ spec requires: #('SmallChat' 'SmallChat-LM' 'SmallChat-MCP') ];
 			package: 'SmallChat-Capability-Tests' with: [ spec requires: #('SmallChat-Capability' 'SmallChat-Tests') ];
+			package: 'SmallChat-Workspace-Tests'  with: [ spec requires: #('SmallChat-Workspace' 'SmallChat-Tests') ];
 			package: 'SmallChat-NavTests'         with: [ spec requires: #('SmallChat-Nav' 'SmallChat-Tests') ];
 			package: 'SmallChat-LSP-Tests'        with: [ spec requires: #('SmallChat-LSP' 'SmallChat-Tests') ];
 			package: 'SmallChat-TreeSitter-Tests' with: [ spec requires: #('SmallChat-TreeSitter' 'SmallChat-Tests') ];
@@ -44,9 +46,9 @@ BaselineOfSmallChat >> baseline: spec [
 			 them for real. Leaving a binding out lets isAvailable-guarded tests
 			 skip silently in CI; the M3 phase hit a NULL-handle regression that
 			 hid for weeks because walker tests skipped under the verifier image."
-			group: 'default' with: #('SmallChat' 'SmallChat-Nav' 'SmallChat-Capability' 'SmallChat-LM' 'SmallChat-MCP' 'SmallChat-LSP' 'SmallChat-TreeSitter' 'SmallChat-Famix' 'SmallChat-Famix-Importer' 'SmallChat-Refactoring' 'SmallChat-Tests' 'SmallChat-Capability-Tests' 'SmallChat-NavTests' 'SmallChat-LSP-Tests' 'SmallChat-TreeSitter-Tests' 'SmallChat-Famix-Tests' 'SmallChat-Famix-Importer-Tests' 'SmallChat-Refactoring-Tests' 'TreeSitter' 'Famix');
-			group: 'core'    with: #('SmallChat' 'SmallChat-Capability' 'SmallChat-LM');
-			group: 'tests'   with: #('SmallChat-Tests' 'SmallChat-Capability-Tests' 'SmallChat-NavTests' 'SmallChat-LSP-Tests' 'SmallChat-TreeSitter-Tests' 'SmallChat-Famix-Tests' 'SmallChat-Famix-Importer-Tests' 'SmallChat-Refactoring-Tests');
-			group: 'mcp'     with: #('SmallChat' 'SmallChat-Capability' 'SmallChat-LM' 'SmallChat-MCP');
-			group: 'dev'     with: #('SmallChat' 'SmallChat-Nav' 'SmallChat-Capability' 'SmallChat-LM' 'SmallChat-Tests' 'SmallChat-Capability-Tests' 'SmallChat-NavTests' 'SmallChat-MCP' 'SmallChat-LSP' 'SmallChat-LSP-Tests' 'SmallChat-TreeSitter' 'SmallChat-TreeSitter-Tests' 'SmallChat-Famix' 'SmallChat-Famix-Tests' 'SmallChat-Famix-Importer' 'SmallChat-Famix-Importer-Tests' 'SmallChat-Refactoring' 'SmallChat-Refactoring-Tests' 'OSSubprocess' 'TreeSitter' 'Famix') ]
+			group: 'default' with: #('SmallChat' 'SmallChat-Nav' 'SmallChat-Workspace' 'SmallChat-Capability' 'SmallChat-LM' 'SmallChat-MCP' 'SmallChat-LSP' 'SmallChat-TreeSitter' 'SmallChat-Famix' 'SmallChat-Famix-Importer' 'SmallChat-Refactoring' 'SmallChat-Tests' 'SmallChat-Capability-Tests' 'SmallChat-Workspace-Tests' 'SmallChat-NavTests' 'SmallChat-LSP-Tests' 'SmallChat-TreeSitter-Tests' 'SmallChat-Famix-Tests' 'SmallChat-Famix-Importer-Tests' 'SmallChat-Refactoring-Tests' 'TreeSitter' 'Famix');
+			group: 'core'    with: #('SmallChat' 'SmallChat-Workspace' 'SmallChat-Capability' 'SmallChat-LM');
+			group: 'tests'   with: #('SmallChat-Tests' 'SmallChat-Capability-Tests' 'SmallChat-Workspace-Tests' 'SmallChat-NavTests' 'SmallChat-LSP-Tests' 'SmallChat-TreeSitter-Tests' 'SmallChat-Famix-Tests' 'SmallChat-Famix-Importer-Tests' 'SmallChat-Refactoring-Tests');
+			group: 'mcp'     with: #('SmallChat' 'SmallChat-Workspace' 'SmallChat-Capability' 'SmallChat-LM' 'SmallChat-MCP');
+			group: 'dev'     with: #('SmallChat' 'SmallChat-Nav' 'SmallChat-Workspace' 'SmallChat-Capability' 'SmallChat-LM' 'SmallChat-Tests' 'SmallChat-Capability-Tests' 'SmallChat-Workspace-Tests' 'SmallChat-NavTests' 'SmallChat-MCP' 'SmallChat-LSP' 'SmallChat-LSP-Tests' 'SmallChat-TreeSitter' 'SmallChat-TreeSitter-Tests' 'SmallChat-Famix' 'SmallChat-Famix-Tests' 'SmallChat-Famix-Importer' 'SmallChat-Famix-Importer-Tests' 'SmallChat-Refactoring' 'SmallChat-Refactoring-Tests' 'OSSubprocess' 'TreeSitter' 'Famix') ]
 ]
