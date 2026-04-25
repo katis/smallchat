@@ -103,11 +103,14 @@ SmallChatTSNodeWalker >> jsxAttributeValues: aRootNode [
 SmallChatTSNodeWalker >> jsxComponentDeclarationsIn: aRootNode source: aSource [
   "Return Array of (Dictionary at: 'name' put: String;
    at: 'startByte' put: Integer; at: 'endByte' put: Integer;
-   at: 'kind' put: Symbol). Two shapes today: top-level
-   function_declaration whose body returns JSX (#function), and top-level
-   const-arrow whose value is an arrow_function with a JSX body
-   (#arrow). The TanStack pair-arrow form comes in a follow-up slice.
-   Source anchor covers the whole top-level declaration node."
+   at: 'kind' put: Symbol). Three shapes: top-level
+   function_declaration whose body returns JSX (#function); top-level
+   const-arrow whose value is an arrow_function with a JSX body (#arrow);
+   any nested pair (property_identifier + arrow_function with a JSX body),
+   for TanStack-style `({ component: () => <X/> })` route declarations
+   (#propertyArrow). #function / #arrow anchor on the top-level
+   declaration; #propertyArrow anchors on the arrow_function itself,
+   since the surrounding declaration may carry many unrelated pairs."
   | components |
   components := OrderedCollection new.
   aRootNode namedChildren do: [ :decl |
@@ -137,6 +140,20 @@ SmallChatTSNodeWalker >> jsxComponentDeclarationsIn: aRootNode source: aSource [
                   at: 'endByte' put: decl endByte;
                   at: 'kind' put: #arrow;
                   yourself) ] ] ] ].
+  (self allNodesOfType: 'pair' under: aRootNode) do: [ :pair |
+    | key value |
+    key := pair namedChildren first.
+    value := pair namedChildren last.
+    (key type = 'property_identifier'
+      and: [ value type = 'arrow_function'
+      and: [ self arrowReturnsJsx: value ] ])
+        ifTrue: [
+          components add: (Dictionary new
+            at: 'name' put: (key textFromSourceText: aSource);
+            at: 'startByte' put: value startByte;
+            at: 'endByte' put: value endByte;
+            at: 'kind' put: #propertyArrow;
+            yourself) ] ].
   ^ components asArray
 ]
 

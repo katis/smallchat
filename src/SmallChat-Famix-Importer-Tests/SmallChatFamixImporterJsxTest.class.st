@@ -99,3 +99,26 @@ SmallChatFamixImporterJsxTest >> testNonJsxFunctionDoesNotEmitJsxComponent [
     intoUri: 'file:///t/Math.ts'.
   self assert: (model allWithType: SmallChatFamixJSXComponent) size equals: 0
 ]
+
+{ #category : 'tests' }
+SmallChatFamixImporterJsxTest >> testTanstackPairArrowEmitsJsxComponent [
+  "TanStack-style nested component definition: `({ component: () => <X/> })`.
+   The arrow lives under call_expression > arguments > object > pair >
+   arrow_function. Emit one JSXComponent named after the property key
+   (`component`); anchor covers the arrow_function's byte range (precision
+   over uniformity -- the surrounding variable_declarator can have many
+   pairs)."
+  | model importer text uri comp |
+  model := SmallChatFamixModel new.
+  importer := self newImporterOn: model.
+  text := 'export const Route = createFileRoute("/_authed")({ component: () => <Outlet /> })'.
+  uri := 'file:///t/route._authed.tsx'.
+  importer populateJsxComponentsFromText: text intoUri: uri.
+  self assert: (model allWithType: SmallChatFamixJSXComponent) size equals: 1.
+  comp := (model allWithType: SmallChatFamixJSXComponent) first.
+  self assert: comp name equals: 'component'.
+  self assert: comp sourceAnchor fileUri equals: uri.
+  "arrow_function byte range from S6 AST: 62..78"
+  self assert: comp sourceAnchor startByte equals: 62.
+  self assert: comp sourceAnchor endByte equals: 78
+]
