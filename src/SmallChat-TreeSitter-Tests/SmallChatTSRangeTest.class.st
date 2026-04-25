@@ -31,7 +31,7 @@ SmallChatTSRangeTest >> testAsciiByteOffsetMapsToCharacterOffset [
 
 { #category : 'tests' }
 SmallChatTSRangeTest >> testAstralCharIsTwoUtf16CodeUnits [
-	"const á½ 0 x = 1; -- the smiley is 4 UTF-8 bytes, surrogate pair (2 UTF-16 units).
+	"const <U+1F600>x = 1; -- the smiley is 4 UTF-8 bytes, surrogate pair (2 UTF-16 units).
 	 The = sign sits at byte 12, character 10 (line 0)."
 	| range source smiley |
 	smiley := (Character codePoint: 16r1F600) asString.
