@@ -103,3 +103,26 @@ SmallChatNav class >> publicProtocolsOf: aClass [
 		reject: [ :p | p name asString beginsWith: 'private' ])
 		collect: [ :p | p name asString ]
 ]
+
+{ #category : 'api' }
+SmallChatNav class >> show: classNameOrSymbol method: selectorSymbol [
+	| name cls method protoName |
+	name := classNameOrSymbol asSymbol.
+	cls := Smalltalk globals at: name ifAbsent: [ nil ].
+	cls ifNil: [ ^ '_class not found: ', name asString, '_' ].
+	(cls includesSelector: selectorSymbol) ifFalse: [
+		^ '_method not found: ', cls name, '>>', selectorSymbol asString, '_' ].
+	method := cls >> selectorSymbol.
+	protoName := cls protocolNameOfSelector: selectorSymbol.
+	^ String streamContents: [ :s |
+		s nextPutAll: '**'; nextPutAll: cls name;
+		  nextPutAll: '>>'; nextPutAll: selectorSymbol asString; nextPutAll: '**'.
+		protoName ifNotNil: [
+			s nextPutAll: ' (protocol: '; nextPutAll: protoName asString; nextPutAll: ')' ].
+		s lf; lf.
+		(method comment ifNil: [ '' ]) ifNotEmpty: [ :c |
+			s nextPutAll: c; lf; lf ].
+		s nextPutAll: '```smalltalk'; lf;
+		  nextPutAll: method sourceCode; lf;
+		  nextPutAll: '```'; lf ]
+]
