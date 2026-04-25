@@ -80,13 +80,16 @@ SmallChatFamixImporter >> fetchDocumentSymbolsForUri: aUri [
 { #category : 'orchestration' }
 SmallChatFamixImporter >> importTsFileUri: aUri text: aText [
   "Open aUri on the LSP client (so subsequent requests pre-flight cleanly),
-   fetch documentSymbol, and turn the response into Famix entities. Blocking
-   on the LSP pending; callers must not run on the UI process. The text-
-   injecting form keeps tests off disk."
+   fetch documentSymbol, and turn the response into Famix entities. Then walk
+   tree-sitter for imports and JSX components. Blocking on the LSP pending;
+   callers must not run on the UI process. The text-injecting form keeps tests
+   off disk."
   | symbols |
   client openDocumentUri: aUri languageId: (self languageIdForUri: aUri) text: aText.
   symbols := self fetchDocumentSymbolsForUri: aUri.
-  self populateFromDocumentSymbols: symbols intoUri: aUri text: aText
+  self populateFromDocumentSymbols: symbols intoUri: aUri text: aText.
+  self populateImportsFromText: aText intoUri: aUri.
+  self populateJsxComponentsFromText: aText intoUri: aUri
 ]
 
 { #category : 'orchestration' }
