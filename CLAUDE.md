@@ -350,6 +350,21 @@ not flushed to Tonel. Two safeguards:
   Instance vars go on via `addInstVarNamed:`. The old one-liner
   `subclass:instanceVariableNames:classVariableNames:package:` is
   gone in Pharo 13.
+- **`'pkg' asPackage` raises `NotFound` for empty packages.** A
+  newly-declared `package.st` that hasn't yet had a class added is
+  invisible to `PackageOrganizer`. `evaluate 'PackageOrganizer
+  default ensurePackage: ''SmallChat-X'''` first, then
+  `'SmallChat-X' asPackage addClass: cls` succeeds.
+- **ASCII only in Smalltalk source — strings AND comments.** Tonel
+  round-trips arbitrary unicode as mojibake. BMP non-ASCII (`…`,
+  `π`, smart quotes, em-dash) shows up as Latin-1 garbage in the
+  UI. Astral chars (`😀`, any 4-byte UTF-8 codepoint) come back as
+  invalid UTF-8 and break the next image rebuild outright in
+  `ZnUTF8Encoder>>ensureAtBeginOfCodePointOnStream:` — every
+  `just rebuild` / `just rebuild-mcp` fails until the offending
+  comment is patched. Construct genuine unicode at runtime
+  (`Character codePoint: 16r1F600`); in comments, use a
+  `<U+XXXX>` placeholder.
 - **Screenshot the GUI for visual UI verification.** Spec2 layout
   assertions prove wire-up, not pixels — any UI-touching slice
   deserves a rendered-pixel check at the end:
@@ -512,4 +527,27 @@ Non-negotiable for code in `SmallChat-MCP/` — hard-won from akkuna:
   wc referenceCommit: repo headCommit.
   wc refreshDirtyPackages
   ```
-  Then retry `commit`.
+  Then retry `commit`. **Caveat:** `referenceCommit:` followed by
+  `refreshDirtyPackages` clears the in-image diff (in-image classes
+  are now considered "matching reference"). To re-surface modified
+  methods after a re-anchor, recompile each affected method via
+  `evaluate 'ClassName compile: ''…'' classified: ''…'''` so the
+  SystemAnnouncer fires and Iceberg re-marks them dirty.
+- **A failed `commit` mid-flight can leave half-written Tonel files
+  on disk.** If `mcp__smallchat__commit` errors out (or the MCP
+  connection drops, or the VM hangs during `updateDiskWorkingCopy:`),
+  some `.class.st` files may already have been wiped or rewritten
+  empty before the git commit step. The next `just rebuild` then
+  fails in `TonelParser` with `bitAnd: was sent to nil` — Tonel
+  reading an empty file. **Recovery:** before triggering any
+  rebuild after a commit hang, check `git status` for unexpected
+  modifications/deletions; revert any 0-byte `.class.st` and any
+  spurious deletions with `git checkout HEAD -- <files>`. Only my
+  intended in-image changes (which the commit already wrote
+  successfully) should remain in the diff.
+- **Empty packages are dropped by `wc refreshPackages`.** After
+  `basicAddPackage:` for a brand-new package that has no classes
+  yet, `refreshPackages` removes it again because nothing in HEAD
+  matches. Either compile a class into the package first (so HEAD
+  isn't empty after the next commit), or skip `refreshPackages` on
+  the freshly-attached set and let the next `commit` reconcile.
