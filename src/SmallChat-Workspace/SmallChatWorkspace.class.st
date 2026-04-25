@@ -42,3 +42,10 @@ SmallChatWorkspace >> name [
 SmallChatWorkspace >> name: aString [
 	name := aString
 ]
+
+{ #category : 'lifecycle' }
+SmallChatWorkspace >> shutdown [
+	"Tear down any external resources owned by this workspace. Default is
+	 a no-op (Pharo workspace owns nothing detachable)."
+	^ self
+]

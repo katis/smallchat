@@ -33,3 +33,18 @@ SmallChatTsWorkspaceTest >> testAttachUsesLauncherBlockToBuildLspClient [
 	  self assert: ws path = launchedWith ]
 		ensure: [ SmallChatTsWorkspace resetLauncherBlock ]
 ]
+
+{ #category : 'tests' }
+SmallChatTsWorkspaceTest >> testShutdownTearsDownLspClient [
+	"shutdown should propagate to the workspace's LSP client (and through it
+	 to the transport). Verify via the stub transport's shutdownCalled flag."
+	| stub stubClient ws |
+	[ stub := SmallChatLSPStubTransport new.
+	  stubClient := SmallChatLSPClient new transport: stub.
+	  SmallChatTsWorkspace launcherBlock: [ :p | stubClient ].
+	  ws := SmallChatTsWorkspace attachAt: '/tmp/smallchat-stub-ts-shutdown' name: nil.
+	  self deny: stub shutdownCalled.
+	  ws shutdown.
+	  self assert: stub shutdownCalled ]
+		ensure: [ SmallChatTsWorkspace resetLauncherBlock ]
+]

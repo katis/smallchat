@@ -93,3 +93,12 @@ SmallChatTsWorkspace >> path [ ^ path
 { #category : 'accessing' }
 SmallChatTsWorkspace >> path: aRef [ path := aRef
 ]
+
+{ #category : 'lifecycle' }
+SmallChatTsWorkspace >> shutdown [
+	"Stop the LSP client and drop it. Idempotent: safe after the first call."
+	lspClient ifNotNil: [
+		[ lspClient shutdown ] on: Error do: [ :_ | nil ].
+		lspClient := nil ].
+	^ self
+]
