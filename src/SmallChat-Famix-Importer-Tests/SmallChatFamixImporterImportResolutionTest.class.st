@@ -153,6 +153,69 @@ SmallChatFamixImporterImportResolutionTest >> testResolveImportSetsResolvedUriAn
   self assert: imp classification equals: #srcLocal
 ]
 
+{ #category : 'tests - resolution' }
+SmallChatFamixImporterImportResolutionTest >> testUnresolvedImportFlagged [
+  "Server returns an empty array (or null) for the definition request --
+   resolvedUri stays nil, classification = #unresolved."
+  | model importer transport text uri imp project done fork sentReq |
+  model := SmallChatFamixModel new.
+  project := model newProject.
+  project rootUri: 'file:///proj'.
+  transport := SmallChatLSPStubTransport new.
+  importer := self newImporterWithTransport: transport onModel: model.
+  uri := 'file:///proj/src/Foo.ts'.
+  text := 'import { x } from "./missing";'.
+  importer client openDocumentUri: uri languageId: 'typescript' text: text.
+  done := Semaphore new.
+  fork := [
+    importer populateImportsFromText: text intoUri: uri.
+    done signal ] forkAt: Processor activePriority - 1.
+  self assert: (self waitFor: [ transport sentMessages size >= 2 ] upTo: 1000).
+  sentReq := transport sentMessages last.
+  transport enqueueServerMessage: (Dictionary new
+    at: 'jsonrpc' put: '2.0';
+    at: 'id' put: (sentReq at: 'id');
+    at: 'result' put: #();
+    yourself).
+  importer client pumpOneMessage.
+  done wait.
+  imp := (model allWithType: SmallChatFamixImport) first.
+  self assert: imp resolvedUri equals: nil.
+  self assert: imp classification equals: #unresolved
+]
+
+{ #category : 'tests - resolution' }
+SmallChatFamixImporterImportResolutionTest >> testVirtualModuleImportClassified [
+  "A resolution outside the project root and not in node_modules buckets
+   as #virtualModule (S6: Cloudflare cloudflare:workers virtual specifier
+   resolves to a project-root-adjacent .d.ts that doesn't live under src/)."
+  | model importer transport text uri imp project done fork sentReq |
+  model := SmallChatFamixModel new.
+  project := model newProject.
+  project rootUri: 'file:///proj'.
+  transport := SmallChatLSPStubTransport new.
+  importer := self newImporterWithTransport: transport onModel: model.
+  uri := 'file:///proj/src/Foo.ts'.
+  text := 'import { Env } from "cloudflare:workers";'.
+  importer client openDocumentUri: uri languageId: 'typescript' text: text.
+  done := Semaphore new.
+  fork := [
+    importer populateImportsFromText: text intoUri: uri.
+    done signal ] forkAt: Processor activePriority - 1.
+  self assert: (self waitFor: [ transport sentMessages size >= 2 ] upTo: 1000).
+  sentReq := transport sentMessages last.
+  transport enqueueServerMessage: (Dictionary new
+    at: 'jsonrpc' put: '2.0';
+    at: 'id' put: (sentReq at: 'id');
+    at: 'result' put: { self lspLocationUri: 'file:///elsewhere/worker-configuration.d.ts' };
+    yourself).
+  importer client pumpOneMessage.
+  done wait.
+  imp := (model allWithType: SmallChatFamixImport) first.
+  self assert: imp resolvedUri equals: 'file:///elsewhere/worker-configuration.d.ts'.
+  self assert: imp classification equals: #virtualModule
+]
+
 { #category : 'helpers' }
 SmallChatFamixImporterImportResolutionTest >> waitFor: aBlock upTo: ms [
   | deadline |
