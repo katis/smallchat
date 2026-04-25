@@ -28,6 +28,26 @@ SmallChatTSNodeWalker >> classSelectors: aRootNode [
 ]
 
 { #category : 'walking' }
+SmallChatTSNodeWalker >> importSpecifiersIn: aRootNode source: aSource [
+  "Return an Array of (Dictionary at: 'specifier' put: String;
+   at: 'startByte' put: Integer; at: 'endByte' put: Integer) for every
+   top-level import_statement. The byte range covers the whole import_statement
+   (`import ... from 'mod';`); the specifier is the source string contents
+   (without quotes), extracted from the import_statement's `string` named
+   child's `string_fragment` first child."
+  | imports |
+  imports := self importStatements: aRootNode.
+  ^ imports collect: [ :imp | | sourceString fragment |
+    sourceString := imp namedChildren detect: [ :c | c type = 'string' ].
+    fragment := sourceString namedChildren first.
+    Dictionary new
+      at: 'specifier' put: (fragment textFromSourceText: aSource);
+      at: 'startByte' put: imp startByte;
+      at: 'endByte' put: imp endByte;
+      yourself ]
+]
+
+{ #category : 'walking' }
 SmallChatTSNodeWalker >> importStatements: aRootNode [
 	"Return all import_statement nodes in the program. Imports live at
 	 the top level in TS / TSX, so a top-level scan suffices."

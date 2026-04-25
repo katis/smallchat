@@ -95,6 +95,24 @@ SmallChatFamixImporter >> populateFromDocumentSymbols: aSymbolList intoUri: aUri
   aSymbolList do: [ :sym | self processSymbol: sym intoUri: aUri text: aText owner: nil ]
 ]
 
+{ #category : 'population' }
+SmallChatFamixImporter >> populateImportsFromText: aText intoUri: aUri [
+  "Parse aText with the TSX grammar, walk import_statements, and emit one
+   SmallChatFamixImport per top-level import. Entity name is the module
+   specifier (the string between the quotes); sourceAnchor covers the whole
+   import_statement byte range."
+  | tree specs |
+  tree := parser parseTsxString: aText.
+  specs := walker importSpecifiersIn: tree rootNode source: aText.
+  specs do: [ :spec | | imp |
+    imp := model newImport.
+    imp name: (spec at: 'specifier').
+    imp sourceAnchor: (SmallChatFamixSourceAnchor
+      fileUri: aUri
+      startByte: (spec at: 'startByte')
+      endByte: (spec at: 'endByte')) ]
+]
+
 { #category : 'symbol mapping' }
 SmallChatFamixImporter >> processSymbol: aSymbol intoUri: aUri text: aText owner: anOwner [
   "Convert one DocumentSymbol (and recursively its children) into Famix
