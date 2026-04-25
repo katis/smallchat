@@ -30,6 +30,16 @@ SmallChatCapabilityRegistryTest >> testCapabilityNamedReturnsNilForUnknown [
 	self assert: (SmallChatCapabilityRegistry default capabilityNamed: 'nope.does-not-exist') isNil
 ]
 
+{ #category : 'tests-wrap' }
+SmallChatCapabilityRegistryTest >> testRunCapturesExceptionAsErrorResult [
+	"Universal wrap: any uncaught exception becomes a #error result."
+	| call result |
+	call := SmallChatCapabilityCall name: 'test.fake.raising' argumentsJson: ''.
+	result := SmallChatCapabilityRegistry default run: 'test.fake.raising' with: call.
+	self assert: result kind equals: #error.
+	self assert: (result text includesSubstring: 'boom')
+]
+
 { #category : 'tests' }
 SmallChatCapabilityRegistryTest >> testRunDispatchesToCapability [
 	"#run:with: looks up the capability by name and forwards aCall to its

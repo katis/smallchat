@@ -37,13 +37,15 @@ SmallChatCapabilityRegistry >> capabilityNamed: aString [
 
 { #category : 'execution' }
 SmallChatCapabilityRegistry >> run: aName with: aCall [
-	"Dispatch aCall to the capability registered under aName. Returns nil
-	 if no capability matches; transports decide whether to surface as an
-	 error or fall through. Phase 3 layers the universal cross-cutting
-	 wrap (UI-process assertion, Notification suppression, exception
-	 capture) on top of this bare path."
+	"Dispatch aCall to the named capability under the universal cross-cutting
+	 wrap. Returns nil for unknown names so transports can fall through.
+	 Wrap captures uncaught exceptions and rewrites them as #error results."
 	| cap |
 	cap := self capabilityNamed: aName.
 	cap ifNil: [ ^ nil ].
-	^ cap run: aCall
+	^ [ cap run: aCall ]
+		on: Error
+		do: [ :e |
+			SmallChatCapabilityResult error:
+				'Error: ' , e class name , ' ' , (e messageText ifNil: [ '' ]) ]
 ]
