@@ -20,6 +20,14 @@ SmallChatTSNodeWalker >> allNodesOfType: aTypeName under: aRootNode [
 ]
 
 { #category : 'walking' }
+SmallChatTSNodeWalker >> classSelectors: aRootNode [
+	"Return every class_selector node under aRootNode. CSS class
+	 selectors live inside selectors lists, possibly nested under media
+	 queries -- a recursive walk is the safe call."
+	^ self allNodesOfType: 'class_selector' under: aRootNode
+]
+
+{ #category : 'walking' }
 SmallChatTSNodeWalker >> importStatements: aRootNode [
 	"Return all import_statement nodes in the program. Imports live at
 	 the top level in TS / TSX, so a top-level scan suffices."

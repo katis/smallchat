@@ -33,6 +33,17 @@ SmallChatTSNodeWalkerTest >> isAvailable [
 ]
 
 { #category : 'tests' }
+SmallChatTSNodeWalkerTest >> testClassSelectorsOnButtonModuleCssReturnsThree [
+	"Button.module.css has three class selectors: .primary .secondary .disabled."
+	| source tree selectors |
+	self isAvailable ifFalse: [ ^ self skip ].
+	source := self fixtureContents: 'ts-css-small/Button.module.css'.
+	tree := SmallChatTSParser new parseCssString: source.
+	selectors := SmallChatTSNodeWalker new classSelectors: tree rootNode.
+	self assert: selectors size equals: 3
+]
+
+{ #category : 'tests' }
 SmallChatTSNodeWalkerTest >> testImportStatementsOnButtonTsxReturnsOneImport [
 	| source tree imports |
 	self isAvailable ifFalse: [ ^ self skip ].
