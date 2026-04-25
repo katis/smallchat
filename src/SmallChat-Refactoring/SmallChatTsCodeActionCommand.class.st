@@ -9,7 +9,9 @@ Class {
 		'startCharacter',
 		'endLine',
 		'endCharacter',
-		'kind'
+		'kind',
+		'diagnosticsBefore',
+		'diagnosticsAfter'
 	],
 	#category : 'SmallChat-Refactoring',
 	#package : 'SmallChat-Refactoring'
@@ -22,16 +24,17 @@ SmallChatTsCodeActionCommand >> applier: anApplier [
 
 { #category : 'execution' }
 SmallChatTsCodeActionCommand >> apply [
-  "Open URI on the LSP client, send textDocument/codeAction restricted to
-   the configured kind, pick the first action with an edit, and run the
-   applier on it. tsgo can return an empty list (no action available);
-   surface that as a failed outcome with errorReason."
-  | text actions edit action |
+  "Open URI on the LSP client, capture pre-apply diagnostics, send
+   textDocument/codeAction restricted to the configured kind, run the
+   applier on the first action's edit, and capture post-apply
+   diagnostics on success."
+  | text actions edit action result |
   text := applier readSourceFor: fileUri.
   client
     openDocumentUri: fileUri
     languageId: (self languageIdForUri: fileUri)
     text: text.
+  diagnosticsBefore := self fetchDiagnostics.
   actions := client
     request: (Dictionary new
       at: 'method' put: 'textDocument/codeAction';
@@ -56,7 +59,9 @@ SmallChatTsCodeActionCommand >> apply [
   edit isNil ifTrue: [
     ^ SmallChatRefactoringOutcome fromApplyResult:
       (SmallChatApplyResult errorReason: 'Code action returned no edit; codeAction/resolve fallback not yet implemented') ].
-  ^ SmallChatRefactoringOutcome fromApplyResult: (applier applyWorkspaceEdit: edit)
+  result := applier applyWorkspaceEdit: edit.
+  result isSuccess ifTrue: [ diagnosticsAfter := self fetchDiagnostics ].
+  ^ SmallChatRefactoringOutcome fromApplyResult: result
 ]
 
 { #category : 'configuring' }
@@ -72,6 +77,18 @@ SmallChatTsCodeActionCommand >> endCharacter: anInteger [
 { #category : 'configuring' }
 SmallChatTsCodeActionCommand >> endLine: anInteger [
   endLine := anInteger
+]
+
+{ #category : 'private' }
+SmallChatTsCodeActionCommand >> fetchDiagnostics [
+  ^ client
+    request: (Dictionary new
+      at: 'method' put: 'textDocument/diagnostic';
+      at: 'params' put: (Dictionary new
+        at: 'textDocument' put: (Dictionary new at: 'uri' put: fileUri; yourself);
+        yourself);
+      yourself)
+    onDocumentUri: fileUri
 ]
 
 { #category : 'configuring' }
@@ -106,4 +123,12 @@ SmallChatTsCodeActionCommand >> startCharacter: anInteger [
 { #category : 'configuring' }
 SmallChatTsCodeActionCommand >> startLine: anInteger [
   startLine := anInteger
+]
+
+{ #category : 'verification' }
+SmallChatTsCodeActionCommand >> verify [
+  ^ SmallChatRefactoringVerification
+    fromBefore: diagnosticsBefore
+    after: diagnosticsAfter
+    forUri: fileUri
 ]

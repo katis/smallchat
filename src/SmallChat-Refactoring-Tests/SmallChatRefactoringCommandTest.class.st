@@ -193,6 +193,58 @@ SmallChatRefactoringCommandTest >> testTsCodeActionMoveToFileMultiUriEditAtomic 
 ]
 
 { #category : 'tests' }
+SmallChatRefactoringCommandTest >> testTsCodeActionVerifyReportsDiagnosticsDelta [
+  "Same pattern as ts.rename-symbol's verify test: 0 errors before, 1
+   warning after. Verify reports the delta."
+  | fs file uri stubClient applier workspaceEdit cmd outcome verification preDiag postDiag |
+  fs := FileSystem memory.
+  file := fs / '/foo.ts'.
+  file writeStreamDo: [ :s | s nextPutAll: 'const x = 1 + 2;' ].
+  uri := 'file://' , file fullName.
+  applier := SmallChatWorkspaceEditApplier new fileSystem: fs; yourself.
+  workspaceEdit := Dictionary new
+    at: 'changes' put: (Dictionary new
+      at: uri put: (Array with: (Dictionary new
+        at: 'range' put: (Dictionary new
+          at: 'start' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 10; yourself);
+          at: 'end' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 15; yourself);
+          yourself);
+        at: 'newText' put: 'sum()';
+        yourself));
+      yourself);
+    yourself.
+  preDiag := Dictionary new at: 'kind' put: 'full'; at: 'items' put: #(); yourself.
+  postDiag := Dictionary new
+    at: 'kind' put: 'full';
+    at: 'items' put: (Array with: (Dictionary new
+      at: 'severity' put: 2;
+      at: 'message' put: 'sum is unused';
+      yourself));
+    yourself.
+  stubClient := SmallChatStubLSPClient new
+    cannedResponse: 'textDocument/codeAction' is: (Array with: (Dictionary new
+      at: 'title' put: 'Extract';
+      at: 'kind' put: 'refactor.extract.function';
+      at: 'edit' put: workspaceEdit;
+      yourself));
+    cannedSequence: 'textDocument/diagnostic' is: { preDiag. postDiag };
+    yourself.
+  cmd := SmallChatTsCodeActionCommand new
+    client: stubClient; applier: applier;
+    fileUri: uri;
+    startLine: 0; startCharacter: 10; endLine: 0; endCharacter: 15;
+    kind: 'refactor.extract.function';
+    yourself.
+  outcome := cmd apply.
+  self assert: outcome isSuccess.
+  verification := cmd verify.
+  self assert: verification errorsBefore equals: 0.
+  self assert: verification errorsAfter equals: 0.
+  self assert: verification warningsBefore equals: 0.
+  self assert: verification warningsAfter equals: 1
+]
+
+{ #category : 'tests' }
 SmallChatRefactoringCommandTest >> testTsRenameSymbolAppliesLspWorkspaceEditToDisk [
   "End-to-end: stub LSP client returns a canned WorkspaceEdit for
    textDocument/rename; the command opens the doc, sends rename, runs
