@@ -5,7 +5,8 @@ Class {
 		'applier',
 		'cssFileUri',
 		'oldClassName',
-		'newClassName'
+		'newClassName',
+		'model'
 	],
 	#category : 'SmallChat-Refactoring',
 	#package : 'SmallChat-Refactoring'
@@ -18,18 +19,21 @@ SmallChatCssRenameClassCommand >> applier: anApplier [
 
 { #category : 'execution' }
 SmallChatCssRenameClassCommand >> apply [
-  "Read CSS source through the applier, build TextEdits via tree-sitter,
-   and run the applier on a single-URI WorkspaceEdit. Returns
-   SmallChatRefactoringOutcome."
-  | text edits workspaceEdit result |
+  "Read CSS source through the applier, build CSS edits via tree-sitter,
+   and -- when a Famix model is provided -- TS-side edits for every
+   member_expression styles.X reference. Combine into a single
+   WorkspaceEdit and apply atomically."
+  | text cssEdits tsEditsByUri changes workspaceEdit result |
   text := applier readSourceFor: cssFileUri.
-  edits := self editsForCssText: text.
-  edits isEmpty ifTrue: [
+  cssEdits := self editsForCssText: text.
+  cssEdits isEmpty ifTrue: [
     ^ SmallChatRefactoringOutcome fromApplyResult:
       (SmallChatApplyResult errorReason: 'No class_selector occurrences of "' , oldClassName , '" found in ' , cssFileUri) ].
-  workspaceEdit := Dictionary new
-    at: 'changes' put: (Dictionary new at: cssFileUri put: edits; yourself);
-    yourself.
+  tsEditsByUri := self tsEditsByUriFromModel.
+  changes := Dictionary new.
+  changes at: cssFileUri put: cssEdits.
+  tsEditsByUri keysAndValuesDo: [ :uri :edits | changes at: uri put: edits ].
+  workspaceEdit := Dictionary new at: 'changes' put: changes; yourself.
   result := applier applyWorkspaceEdit: workspaceEdit.
   ^ SmallChatRefactoringOutcome fromApplyResult: result
 ]
@@ -66,6 +70,11 @@ SmallChatCssRenameClassCommand >> editsForCssText: aText [
 ]
 
 { #category : 'configuring' }
+SmallChatCssRenameClassCommand >> model: aModel [
+  model := aModel
+]
+
+{ #category : 'configuring' }
 SmallChatCssRenameClassCommand >> newClassName: aString [
   newClassName := aString
 ]
@@ -78,4 +87,38 @@ SmallChatCssRenameClassCommand >> oldClassName: aString [
 { #category : 'rollback' }
 SmallChatCssRenameClassCommand >> rollback: aToken [
   applier rollback: aToken
+]
+
+{ #category : 'private' }
+SmallChatCssRenameClassCommand >> tsEditsByUriFromModel [
+  "Walk the model for CSSClassReference entities pointing at the renamed
+   class, group by TS URI, and build property-identifier TextEdits.
+   Each ref's sourceAnchor covers the whole member_expression
+   (`styles.X`); the property identifier sits at the last `oldClassName
+   size` bytes, so we don't need to re-parse to locate it."
+  | cssClass refs editsByUri |
+  model isNil ifTrue: [ ^ Dictionary new ].
+  cssClass := (model allWithType: SmallChatFamixCSSClass)
+    detect: [ :c | c name = oldClassName
+      and: [ c file notNil
+      and: [ c file sourceAnchor notNil
+      and: [ c file sourceAnchor fileUri = cssFileUri ] ] ] ]
+    ifNone: [ ^ Dictionary new ].
+  refs := (model allWithType: SmallChatFamixCSSClassReference)
+    select: [ :r | r referent == cssClass ].
+  editsByUri := Dictionary new.
+  refs do: [ :ref | | tsUri propEndByte propStartByte tsText |
+    tsUri := ref sourceAnchor fileUri.
+    propEndByte := ref sourceAnchor endByte.
+    propStartByte := propEndByte - oldClassName size.
+    tsText := applier readSourceFor: tsUri.
+    (editsByUri at: tsUri ifAbsentPut: [ OrderedCollection new ])
+      add: (Dictionary new
+        at: 'range' put: (SmallChatTSRange
+          startByte: propStartByte
+          endByte: propEndByte
+          source: tsText) asLSPPositionRange;
+        at: 'newText' put: newClassName;
+        yourself) ].
+  ^ editsByUri collect: [ :coll | coll asArray ]
 ]
