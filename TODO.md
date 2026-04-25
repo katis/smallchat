@@ -248,17 +248,31 @@ alongside M1 so new LSP-backed tools can consume it.
 
 See `plans/04`. Depends on: M1, M2, M3, M4.
 
-- [ ] `SmallChatWorkspaceEditApplier` with snapshot/rollback.
-- [ ] `SmallChatRefactoringCommand` abstract + value types.
-- [ ] First LSP-backed command: `ts.rename-symbol`.
-- [ ] First Smalltalk-side command: `smalltalk.rename-method`
-  (depends on S5 outcome).
-- [ ] First tree-sitter-backed command: `css.rename-class`
-  (single file).
-- [ ] Cross-language: `css.rename-class` with TS consumers.
-- [ ] `ts.extract-function`, `ts.move-to-file` (tsgo codeAction
-  with fallback).
-- [ ] Diagnostics-delta verification wired.
+- [x] `SmallChatWorkspaceEditApplier` with snapshot/rollback.
+  (2026-04-25)
+- [x] `SmallChatRefactoringCommand` abstract + value types.
+  (2026-04-25; #apply / #rollback: / #verify; #preview deferred until
+  an agent asks for it.)
+- [x] First LSP-backed command: `ts.rename-symbol`. (2026-04-25;
+  command + tests via stub LSP client. Capability shim deferred to M6
+  -- there's no long-lived tsgo client registry yet.)
+- [x] First Smalltalk-side command: `smalltalk.rename-method`.
+  (2026-04-25; class-snapshot rollback rather than Epicea boundary
+  inversion -- TestExecutionEnvironment silences EpMonitor so the S5
+  recipe is empty under SUnit. Manual snapshot is robust in both the
+  test environment and a normal evaluate context.)
+- [x] First tree-sitter-backed command: `css.rename-class`
+  (single file). (2026-04-25)
+- [x] Cross-language: `css.rename-class` with TS consumers.
+  (2026-04-25; optional model: input drives multi-URI WorkspaceEdit
+  via existing CSSClassReference entities.)
+- [x] `ts.extract-function`, `ts.move-to-file` (tsgo codeAction
+  with fallback). (2026-04-25; LSP-only path. Tree-sitter fallback
+  deferred per spike 1 until a real refactor stalls.)
+- [x] Diagnostics-delta verification wired. (2026-04-25;
+  textDocument/diagnostic bookended around apply on ts.rename-symbol
+  and ts.code-action; CSS / Smalltalk-native return empty since neither
+  talks to LSP.)
 
 ### M6 - Workspace scoping
 
@@ -296,8 +310,10 @@ layers, neither is optional:
 - [x] Unit test: calling `SmallChatLSPClient #request:` from
   `UIManager default uiProcess` raises. Regression guard against
   future accidental wiring. (2026-04-24)
-- [ ] Unit test: closing the LM chat window cancels in-flight
-  capability workers and their pending LSP requests.
+- [x] Unit test: closing the LM chat window cancels in-flight
+  capability workers and their pending LSP requests. (2026-04-25;
+  `SmallChatLMSession>>cancelInFlight` walks tracked LSP pendings and
+  cancels each before terminating workers.)
 
 ### Testing
 
