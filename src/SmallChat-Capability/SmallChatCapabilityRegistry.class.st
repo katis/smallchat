@@ -2,7 +2,8 @@ Class {
 	#name : 'SmallChatCapabilityRegistry',
 	#superclass : 'Object',
 	#instVars : [
-		'uiProcessProvider'
+		'uiProcessProvider',
+		'currentWorkspace'
 	],
 	#classInstVars : [
 		'default'
@@ -36,6 +37,18 @@ SmallChatCapabilityRegistry >> capabilityNamed: aString [
 	 nil if no concrete subclass matches -- transports decide whether to
 	 surface that as an error or fall through to a legacy registry."
 	^ self allCapabilities detect: [ :c | c capabilityName = aString ] ifNone: [ nil ]
+]
+
+{ #category : 'accessing' }
+SmallChatCapabilityRegistry >> currentWorkspace [
+	"The workspace this registry dispatches to when a capability call does
+	 not name one explicitly. Defaults to the Pharo dev image."
+	^ currentWorkspace ifNil: [ currentWorkspace := SmallChatPharoWorkspace default ]
+]
+
+{ #category : 'accessing' }
+SmallChatCapabilityRegistry >> currentWorkspace: aWorkspace [
+	currentWorkspace := aWorkspace
 ]
 
 { #category : 'execution' }

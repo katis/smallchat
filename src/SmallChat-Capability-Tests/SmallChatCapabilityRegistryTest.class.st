@@ -30,6 +30,12 @@ SmallChatCapabilityRegistryTest >> testCapabilityNamedReturnsNilForUnknown [
 	self assert: (SmallChatCapabilityRegistry default capabilityNamed: 'nope.does-not-exist') isNil
 ]
 
+{ #category : 'tests' }
+SmallChatCapabilityRegistryTest >> testCurrentWorkspaceDefaultsToPharo [
+	SmallChatCapabilityRegistry reset.
+	self assert: SmallChatCapabilityRegistry default currentWorkspace == SmallChatPharoWorkspace default
+]
+
 { #category : 'tests-wrap' }
 SmallChatCapabilityRegistryTest >> testRunCapturesExceptionAsErrorResult [
 	"Universal wrap: any uncaught exception becomes a #error result."
