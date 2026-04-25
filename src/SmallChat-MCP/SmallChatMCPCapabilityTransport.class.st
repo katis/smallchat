@@ -83,9 +83,8 @@ SmallChatMCPCapabilityTransport >> decorateReply: aReplyDict withStray: descript
 { #category : 'dispatching' }
 SmallChatMCPCapabilityTransport >> dispatch: aName with: anArgsDict [
 	"Resolve aliases, dispatch via the capability registry, translate the
-	 result to MCP shape, decorate with stray-debugger warning. Falls
-	 through to the legacy SmallChatToolRegistry while migration is in
-	 progress."
+	 result to MCP shape, decorate with stray-debugger warning. Unknown
+	 names return an #error reply."
 	| resolved call result reply stray |
 	stray := [ self debuggerWatch value ] on: Error do: [ :_ | #() ].
 	resolved := self resolveAlias: aName.
@@ -93,9 +92,9 @@ SmallChatMCPCapabilityTransport >> dispatch: aName with: anArgsDict [
 		name: resolved
 		argumentsJson: (STONJSON toString: anArgsDict).
 	result := SmallChatCapabilityRegistry default run: resolved with: call.
-	result ifNotNil: [
-		^ self decorateReply: (self mcpReplyFor: result) withStray: stray ].
-	reply := SmallChatToolRegistry default run: aName with: anArgsDict.
+	result ifNil: [
+		result := SmallChatCapabilityResult error: 'Unknown capability: ' , aName ].
+	reply := self mcpReplyFor: result.
 	^ self decorateReply: reply withStray: stray
 ]
 
@@ -179,23 +178,14 @@ SmallChatMCPCapabilityTransport >> specDictForCapability: aCapability [
 
 { #category : 'tools-list' }
 SmallChatMCPCapabilityTransport >> toolSpecs [
-	"Combined tools/list response: spec dicts for every registered
-	 production capability (one per #capabilityName plus one per declared
-	 #mcpAliases entry), followed by every legacy SmallChatTool not yet
-	 migrated. Test fixtures filter out via #isTestFixture; capability +
-	 alias entries crowd out same-named legacy tools."
-	| specs seen |
+	"One spec per registered production capability plus one per #mcpAliases
+	 entry. Test fixtures filter via #isTestFixture."
+	| specs |
 	specs := OrderedCollection new.
-	seen := Set new.
 	SmallChatCapabilityRegistry default allCapabilities do: [ :cap |
 		cap isTestFixture ifFalse: [
 			specs add: (self specDictForCapability: cap).
-			seen add: cap capabilityName.
 			cap mcpAliases do: [ :aliasName |
-				specs add: (self aliasSpecDictFor: cap aliasName: aliasName).
-				seen add: aliasName ] ] ].
-	SmallChatToolRegistry default toolSpecs do: [ :legacy |
-		(seen includes: (legacy at: 'name'))
-			ifFalse: [ specs add: legacy ] ].
+				specs add: (self aliasSpecDictFor: cap aliasName: aliasName) ] ] ].
 	^ specs asArray
 ]

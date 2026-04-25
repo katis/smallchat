@@ -125,6 +125,17 @@ SmallChatMCPCapabilityTransportTest >> testDispatchTextResultProducesContentDict
 ]
 
 { #category : 'tests' }
+SmallChatMCPCapabilityTransportTest >> testDispatchUnknownNameReturnsErrorReply [
+	"After Phase 7 the legacy fall-through is gone; unknown names yield an
+	 #error reply through the standard MCP envelope."
+	| transport reply |
+	transport := SmallChatMCPCapabilityTransport new.
+	reply := transport dispatch: 'nonexistent.tool.zzz' with: Dictionary new.
+	self assert: (reply at: 'isError') equals: true.
+	self assert: ((reply at: 'content') first at: 'text') = 'Unknown capability: nonexistent.tool.zzz' description: 'should name the missing capability'
+]
+
+{ #category : 'tests' }
 SmallChatMCPCapabilityTransportTest >> testProtocolHandleToolsCallRoutesThroughCapabilityTransport [
 	"After the rewire, SmallChatMCPProtocol>>handleToolsCall: dispatches via
 	 SmallChatMCPCapabilityTransport default, so a registered fake capability
