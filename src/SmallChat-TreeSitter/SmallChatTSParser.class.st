@@ -10,7 +10,7 @@ SmallChatTSParser >> parseCssString: aString [
 	"Parse aString with the CSS grammar and return a TSTree."
 	| parser |
 	parser := TSParser new.
-	parser language: TSCSSLibrary uniqueInstance tree_sitter_css.
+	parser language: SmallChatTSGrammar css language.
 	^ parser parseString: aString
 ]
 
@@ -21,6 +21,6 @@ SmallChatTSParser >> parseTsxString: aString [
 	so .ts content also routes through here."
 	| parser |
 	parser := TSParser new.
-	parser language: TSTsxLibrary uniqueInstance tree_sitter_tsx.
+	parser language: SmallChatTSGrammar tsx language.
 	^ parser parseString: aString
 ]
