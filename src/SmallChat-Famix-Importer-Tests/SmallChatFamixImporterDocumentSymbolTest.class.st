@@ -63,3 +63,44 @@ SmallChatFamixImporterDocumentSymbolTest >> testCreatesClassFromTopLevelSymbol [
   self assert: anchor startByte equals: 0.
   self assert: anchor endByte equals: 15
 ]
+
+{ #category : 'tests - kinds' }
+SmallChatFamixImporterDocumentSymbolTest >> testCreatesFunctionFromTopLevelSymbol [
+  "LSP SymbolKind 12 (Function) -> SmallChatFamixFunction."
+  | model importer text symbol fn |
+  model := SmallChatFamixModel new.
+  importer := self newImporterOn: model.
+  text := 'function greet() {}'.
+  symbol := self
+    symbolNamed: 'greet'
+    kind: 12
+    range: (self lspRangeStartLine: 0 character: 0 endLine: 0 character: 19).
+  importer
+    populateFromDocumentSymbols: { symbol }
+    intoUri: 'file:///t/g.ts'
+    text: text.
+  self assert: (model allWithType: SmallChatFamixFunction) size equals: 1.
+  fn := (model allWithType: SmallChatFamixFunction) first.
+  self assert: fn name equals: 'greet'.
+  self assert: fn sourceAnchor endByte equals: 19
+]
+
+{ #category : 'tests - kinds' }
+SmallChatFamixImporterDocumentSymbolTest >> testCreatesInterfaceFromTopLevelSymbol [
+  "LSP SymbolKind 11 (Interface) -> SmallChatFamixInterface."
+  | model importer text symbol iface |
+  model := SmallChatFamixModel new.
+  importer := self newImporterOn: model.
+  text := 'interface IUser {}'.
+  symbol := self
+    symbolNamed: 'IUser'
+    kind: 11
+    range: (self lspRangeStartLine: 0 character: 0 endLine: 0 character: 18).
+  importer
+    populateFromDocumentSymbols: { symbol }
+    intoUri: 'file:///t/IUser.ts'
+    text: text.
+  self assert: (model allWithType: SmallChatFamixInterface) size equals: 1.
+  iface := (model allWithType: SmallChatFamixInterface) first.
+  self assert: iface name equals: 'IUser'
+]
