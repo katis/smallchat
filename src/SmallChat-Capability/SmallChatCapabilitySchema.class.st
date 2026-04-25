@@ -31,6 +31,23 @@ SmallChatCapabilitySchema >> asJsonSchema [
 		yourself
 ]
 
+{ #category : 'emitting' }
+SmallChatCapabilitySchema >> asOpenAIFunctionSchemaName: aName description: aDescription [
+	"Wrap #asJsonSchema in OpenAI function-calling tool schema shape:
+	 { type: 'function', function: { name, description, parameters: <jsonSchema> } }.
+	 The LM-native catalog calls this once per registered capability."
+	| fn |
+	fn := Dictionary new
+		at: 'name' put: aName;
+		at: 'description' put: aDescription;
+		at: 'parameters' put: self asJsonSchema;
+		yourself.
+	^ Dictionary new
+		at: 'type' put: 'function';
+		at: 'function' put: fn;
+		yourself
+]
+
 { #category : 'accessing' }
 SmallChatCapabilitySchema >> fields [
 	"Ordered collection of SmallChatCapabilitySchemaField. Order is the

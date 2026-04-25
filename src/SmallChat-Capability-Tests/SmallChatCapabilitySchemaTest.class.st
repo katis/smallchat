@@ -22,6 +22,23 @@ SmallChatCapabilitySchemaTest >> testEmptySchemaHasNoFields [
 ]
 
 { #category : 'tests-emitters' }
+SmallChatCapabilitySchemaTest >> testOpenAIFunctionSchemaWrapsJsonSchema [
+	"Matches OpenAI function-call tool schema shape:
+	 { type: 'function', function: { name, description, parameters: <jsonSchema> } }"
+	| s schema fn |
+	s := SmallChatCapabilitySchema empty
+		string: 'code'
+		required: true
+		description: 'Smalltalk to evaluate'.
+	schema := s asOpenAIFunctionSchemaName: 'eval.smalltalk' description: 'Run Smalltalk in the live image'.
+	self assert: (schema at: 'type') equals: 'function'.
+	fn := schema at: 'function'.
+	self assert: (fn at: 'name') equals: 'eval.smalltalk'.
+	self assert: (fn at: 'description') equals: 'Run Smalltalk in the live image'.
+	self assert: (fn at: 'parameters') equals: s asJsonSchema
+]
+
+{ #category : 'tests-emitters' }
 SmallChatCapabilitySchemaTest >> testOptionalFieldExcludedFromRequired [
 	"Optional fields appear in #properties but not in the #required list."
 	| s json |
