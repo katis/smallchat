@@ -69,3 +69,49 @@ SmallChatRefactoringCommandTest >> testStubCommandApplyReturnsSuccessOutcomeWith
   self assert: outcome rollbackToken notNil.
   self assert: (file readStreamDo: [ :s | s upToEnd ]) equals: 'Hello, there!'
 ]
+
+{ #category : 'tests' }
+SmallChatRefactoringCommandTest >> testTsRenameSymbolAppliesLspWorkspaceEditToDisk [
+  "End-to-end: stub LSP client returns a canned WorkspaceEdit for
+   textDocument/rename; the command opens the doc, sends rename, runs
+   the applier on the response. The file content reflects the edit;
+   the outcome carries a rollback token."
+  | fs file uri stubClient applier workspaceEdit cmd outcome request |
+  fs := FileSystem memory.
+  file := fs / '/Button.ts'.
+  file writeStreamDo: [ :s | s nextPutAll: 'const oldName = 1;' ].
+  uri := 'file://' , file fullName.
+  applier := SmallChatWorkspaceEditApplier new fileSystem: fs; yourself.
+  workspaceEdit := Dictionary new
+    at: 'changes' put: (Dictionary new
+      at: uri put: (Array with: (Dictionary new
+        at: 'range' put: (Dictionary new
+          at: 'start' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 6; yourself);
+          at: 'end' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 13; yourself);
+          yourself);
+        at: 'newText' put: 'newName';
+        yourself));
+      yourself);
+    yourself.
+  stubClient := SmallChatStubLSPClient new
+    cannedResponse: 'textDocument/rename' is: workspaceEdit;
+    yourself.
+  cmd := SmallChatTsRenameSymbolCommand new
+    client: stubClient;
+    applier: applier;
+    fileUri: uri;
+    line: 0;
+    character: 7;
+    newName: 'newName';
+    yourself.
+  outcome := cmd apply.
+  self assert: outcome isSuccess.
+  self assert: outcome rollbackToken notNil.
+  self assert: (file readStreamDo: [ :s | s upToEnd ]) equals: 'const newName = 1;'.
+  self assert: stubClient openedUris size equals: 1.
+  self assert: ((stubClient openedUris first) at: 'languageId') equals: 'typescript'.
+  request := stubClient requestLog detect: [ :r | (r at: 'method') = 'textDocument/rename' ].
+  self assert: ((request at: 'params') at: 'newName') equals: 'newName'.
+  self assert: (((request at: 'params') at: 'position') at: 'line') equals: 0.
+  self assert: (((request at: 'params') at: 'position') at: 'character') equals: 7
+]
