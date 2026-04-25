@@ -35,3 +35,15 @@ SmallChatCapabilityCallTest >> testNameAndArgumentsJsonRoundTrip [
 	self assert: c capabilityName equals: 'vcs.status'.
 	self assert: c argumentsJson equals: '{"x":1}'
 ]
+
+{ #category : 'tests' }
+SmallChatCapabilityCallTest >> testSessionDefaultsToNilAndCanBeSet [
+	"MCP calls have no session; LM calls carry the SmallChatLMSession so
+	 capabilities that need conversation context can reach it."
+	| c stub |
+	c := SmallChatCapabilityCall name: 'vcs.status' argumentsJson: ''.
+	self assert: c session isNil.
+	stub := Object new.
+	c session: stub.
+	self assert: c session == stub
+]

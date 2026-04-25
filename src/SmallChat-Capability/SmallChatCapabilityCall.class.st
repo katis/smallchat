@@ -4,7 +4,8 @@ Class {
 	#instVars : [
 		'capabilityName',
 		'argumentsJson',
-		'arguments'
+		'arguments',
+		'session'
 	],
 	#category : 'SmallChat-Capability',
 	#package : 'SmallChat-Capability'
@@ -37,6 +38,17 @@ SmallChatCapabilityCall >> argumentsJson [
 SmallChatCapabilityCall >> capabilityName [
 	"The capability the agent asked to invoke (e.g. 'vcs.status')."
 	^ capabilityName
+]
+
+{ #category : 'accessing' }
+SmallChatCapabilityCall >> session [
+	"Optional session handle. nil for MCP calls; SmallChatLMSession for LM calls."
+	^ session
+]
+
+{ #category : 'accessing' }
+SmallChatCapabilityCall >> session: anObject [
+	session := anObject
 ]
 
 { #category : 'private' }
