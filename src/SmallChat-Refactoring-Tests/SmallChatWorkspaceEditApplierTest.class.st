@@ -6,6 +6,34 @@ Class {
 }
 
 { #category : 'tests' }
+SmallChatWorkspaceEditApplierTest >> testEditAcrossBmpNonAsciiUsesUtf16PositionsCorrectly [
+  "BMP non-ASCII (here: GREEK SMALL LETTER PI, U+03C0 -- 1 UTF-16 code unit,
+   2 UTF-8 bytes) sits between the prefix and the edit range. The applier
+   must convert LSP UTF-16 characters to UTF-8 byte offsets so the slice
+   does not split the multi-byte sequence."
+  | applier pi source edit sources expected result |
+  pi := (Character codePoint: 16r03C0) asString.
+  source := 'Hello, ' , pi , ' World!'. "15 chars, 16 utf-8 bytes; 'World' at char 9..14"
+  expected := 'Hello, ' , pi , ' Earth!'.
+  applier := SmallChatWorkspaceEditApplier new.
+  edit := Dictionary new
+    at: 'changes' put: (Dictionary new
+      at: 'file:///t/a.txt' put: (Array with: (Dictionary new
+        at: 'range' put: (Dictionary new
+          at: 'start' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 9; yourself);
+          at: 'end' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 14; yourself);
+          yourself);
+        at: 'newText' put: 'Earth';
+        yourself));
+      yourself);
+    yourself.
+  sources := Dictionary new at: 'file:///t/a.txt' put: source; yourself.
+  result := applier applyWorkspaceEdit: edit withSources: sources.
+  self assert: result isSuccess.
+  self assert: (result newSourceFor: 'file:///t/a.txt') equals: expected
+]
+
+{ #category : 'tests' }
 SmallChatWorkspaceEditApplierTest >> testEmptyChangesLeaveSourceUnchanged [
   | applier edit sources result |
   applier := SmallChatWorkspaceEditApplier new.
