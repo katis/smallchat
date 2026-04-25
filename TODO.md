@@ -201,11 +201,22 @@ See `plans/02`, `plans/03`. Depends on: M0.
 
 See `plans/03`. Depends on: M1, M2.
 
-- [ ] `documentSymbol`-backed per-file importer.
-- [ ] Tree-sitter + LSP-definition imports resolution.
-- [ ] CSS-module importer.
-- [ ] CSS-module bridge (TS `styles.X` refs).
-- [ ] Regeneration API keyed on changed URIs.
+- [x] `documentSymbol`-backed per-file importer. (2026-04-25;
+  importTsFileUri:text: emits Module + Project + symbol entities
+  via documentSymbol, then walks tree-sitter for imports +
+  JSXComponents (function decl, const-arrow, TanStack pair-arrow)
+  and links CSS references.)
+- [x] Tree-sitter + LSP-definition imports resolution. (2026-04-25;
+  each Import carries resolvedUri + classification, bucketed as
+  #srcLocal / #nodeModules / #virtualModule / #unresolved.)
+- [x] CSS-module importer. (2026-04-25; importCssFileUri:text:
+  emits CSSModuleFile + deduped CSSClass per selector.)
+- [x] CSS-module bridge (TS `styles.X` refs). (2026-04-25;
+  linkCssReferencesInTsUri:text: emits CSSClassReference per
+  member-expression, resolved or unresolved-flagged.)
+- [x] Regeneration API keyed on changed URIs. (2026-04-25;
+  reimportUris: drops + re-imports per URI; relinkCssReferencesForUris:
+  refreshes references after CSS-only changes.)
 
 ### M4 - Capability registry + transport rewires
 
