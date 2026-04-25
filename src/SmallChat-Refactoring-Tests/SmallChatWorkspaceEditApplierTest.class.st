@@ -159,6 +159,28 @@ SmallChatWorkspaceEditApplierTest >> testOverlappingEditsAreReportedAsError [
 ]
 
 { #category : 'tests' }
+SmallChatWorkspaceEditApplierTest >> testRollbackRestoresFileToOriginalBytes [
+  "applyWorkspaceEdit: must capture pre-edit bytes for every URI it writes
+   so a follow-up rollback restores them. The rollback hook is on the
+   applier itself, addressed by the token returned in the result."
+  | applier triple uri file edit result token |
+  triple := self helperFsAndUriFor: '/a.txt' text: 'Hello, World!'.
+  uri := triple second.
+  file := triple third.
+  applier := SmallChatWorkspaceEditApplier new
+    fileSystem: triple first;
+    yourself.
+  edit := self helperEditFor: uri start: 7 end: 12 newText: 'there'.
+  result := applier applyWorkspaceEdit: edit.
+  self assert: result isSuccess.
+  self assert: (file readStreamDo: [ :s | s upToEnd ]) equals: 'Hello, there!'.
+  token := result rollbackToken.
+  self assert: token notNil.
+  applier rollback: token.
+  self assert: (file readStreamDo: [ :s | s upToEnd ]) equals: 'Hello, World!'
+]
+
+{ #category : 'tests' }
 SmallChatWorkspaceEditApplierTest >> testSingleTextEditReplacesRange [
   | applier edit sources result |
   applier := SmallChatWorkspaceEditApplier new.

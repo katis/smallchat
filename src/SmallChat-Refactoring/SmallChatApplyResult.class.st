@@ -3,7 +3,8 @@ Class {
 	#superclass : 'Object',
 	#instVars : [
 		'sources',
-		'errorReason'
+		'errorReason',
+		'rollbackToken'
 	],
 	#category : 'SmallChat-Refactoring',
 	#package : 'SmallChat-Refactoring'
@@ -32,6 +33,16 @@ SmallChatApplyResult >> isSuccess [
 { #category : 'accessing' }
 SmallChatApplyResult >> newSourceFor: aUri [
   ^ sources at: aUri
+]
+
+{ #category : 'accessing' }
+SmallChatApplyResult >> rollbackToken [
+  ^ rollbackToken
+]
+
+{ #category : 'accessing' }
+SmallChatApplyResult >> rollbackToken: aToken [
+  rollbackToken := aToken
 ]
 
 { #category : 'private' }

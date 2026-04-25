@@ -37,17 +37,22 @@ SmallChatWorkspaceEditApplier >> applyTextEdits: anArray to: aString [
 
 { #category : 'execution' }
 SmallChatWorkspaceEditApplier >> applyWorkspaceEdit: aWorkspaceEdit [
-  "Read sources from disk for every URI mentioned in aWorkspaceEdit, run
-   the in-memory transform, and on success write each new source back through
-   the injected FileSystem. Returns SmallChatApplyResult."
-  | sources result |
+  "Read sources from disk, snapshot originals, run the in-memory transform,
+   and on success write each new source back through the injected FileSystem.
+   The result carries a rollback token (uri -> original bytes) the caller can
+   pass to rollback: to restore."
+  | sources snapshot result |
   sources := Dictionary new.
-  (self urisFromWorkspaceEdit: aWorkspaceEdit) do: [ :uri |
-    sources at: uri put: (self readSourceFor: uri) ].
+  snapshot := Dictionary new.
+  (self urisFromWorkspaceEdit: aWorkspaceEdit) do: [ :uri | | original |
+    original := self readSourceFor: uri.
+    sources at: uri put: original.
+    snapshot at: uri put: original ].
   result := self applyWorkspaceEdit: aWorkspaceEdit withSources: sources.
   result isSuccess ifFalse: [ ^ result ].
   sources keysDo: [ :uri |
     self writeSource: (result newSourceFor: uri) to: uri ].
+  result rollbackToken: snapshot.
   ^ result
 ]
 
@@ -115,6 +120,14 @@ SmallChatWorkspaceEditApplier >> overlapsAmong: anArray inSource: aString [
 SmallChatWorkspaceEditApplier >> readSourceFor: aUri [
   "Read aUri's file content through the injected FileSystem, returning a String."
   ^ (self fileFromUri: aUri) readStreamDo: [ :s | s upToEnd ]
+]
+
+{ #category : 'rollback' }
+SmallChatWorkspaceEditApplier >> rollback: aToken [
+  "Restore each URI in aToken (Dictionary uri -> original bytes) by writing
+   the snapshot back through the same FileSystem the apply used."
+  aToken keysAndValuesDo: [ :uri :original |
+    self writeSource: original to: uri ]
 ]
 
 { #category : 'private' }
