@@ -167,7 +167,9 @@ SmallChatFamixImporter >> populateImportsFromText: aText intoUri: aUri [
   "Parse aText with the TSX grammar, walk import_statements, and emit one
    SmallChatFamixImport per top-level import. Entity name is the module
    specifier (the string between the quotes); sourceAnchor covers the whole
-   import_statement byte range."
+   import_statement byte range. Each Import is then resolved via
+   textDocument/definition (resolvedUri + classification populated) -- aUri
+   must already be open on the LSP client for this to work."
   | tree specs |
   tree := parser parseTsxString: aText.
   specs := walker importSpecifiersIn: tree rootNode source: aText.
@@ -177,7 +179,12 @@ SmallChatFamixImporter >> populateImportsFromText: aText intoUri: aUri [
     imp sourceAnchor: (SmallChatFamixSourceAnchor
       fileUri: aUri
       startByte: (spec at: 'startByte')
-      endByte: (spec at: 'endByte')) ]
+      endByte: (spec at: 'endByte')).
+    self
+      resolveImport: imp
+      atSpecifierStartByte: (spec at: 'specifierStartByte')
+      inSourceText: aText
+      onUri: aUri ]
 ]
 
 { #category : 'population' }

@@ -62,6 +62,47 @@ SmallChatFamixImporterImportResolutionTest >> testImportCarriesResolvedUriAndCla
   self assert: imp classification equals: #srcLocal
 ]
 
+{ #category : 'tests - resolution' }
+SmallChatFamixImporterImportResolutionTest >> testPopulateImportsResolvesEachImportAndClassifiesAsNodeModules [
+  "populateImportsFromText:intoUri: walks tree-sitter for imports AND
+   issues textDocument/definition for each one, populating resolvedUri /
+   classification on the resulting Import entities. A node_modules
+   resolution buckets as #nodeModules even when the resolved path lives
+   under the project root. Source anchor covers the whole import_statement."
+  | model importer transport text uri imp project done fork sentReq anchor |
+  model := SmallChatFamixModel new.
+  project := model newProject.
+  project rootUri: 'file:///proj'.
+  transport := SmallChatLSPStubTransport new.
+  importer := self newImporterWithTransport: transport onModel: model.
+  uri := 'file:///proj/src/Foo.ts'.
+  text := 'import React from "react";'.
+  importer client openDocumentUri: uri languageId: 'typescript' text: text.
+  done := Semaphore new.
+  fork := [
+    importer populateImportsFromText: text intoUri: uri.
+    done signal ] forkAt: Processor activePriority - 1.
+  self assert: (self waitFor: [ transport sentMessages size >= 2 ] upTo: 1000).
+  sentReq := transport sentMessages last.
+  self assert: (sentReq at: 'method') equals: 'textDocument/definition'.
+  transport enqueueServerMessage: (Dictionary new
+    at: 'jsonrpc' put: '2.0';
+    at: 'id' put: (sentReq at: 'id');
+    at: 'result' put: { self lspLocationUri: 'file:///proj/node_modules/react/index.d.ts' };
+    yourself).
+  importer client pumpOneMessage.
+  done wait.
+  self assert: (model allWithType: SmallChatFamixImport) size equals: 1.
+  imp := (model allWithType: SmallChatFamixImport) first.
+  self assert: imp name equals: 'react'.
+  anchor := imp sourceAnchor.
+  self assert: anchor fileUri equals: uri.
+  self assert: anchor startByte equals: 0.
+  self assert: anchor endByte equals: text size.
+  self assert: imp resolvedUri equals: 'file:///proj/node_modules/react/index.d.ts'.
+  self assert: imp classification equals: #nodeModules
+]
+
 { #category : 'tests - project slots' }
 SmallChatFamixImporterImportResolutionTest >> testProjectCarriesRootUri [
   "SmallChatFamixProject carries a rootUri (workspace root URI) -- nil on a
