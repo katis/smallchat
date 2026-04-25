@@ -20,6 +20,19 @@ SmallChatMCPCapabilityTransportTest >> testDispatchErrorResultProducesIsErrorRep
 ]
 
 { #category : 'tests' }
+SmallChatMCPCapabilityTransportTest >> testDispatchImageResultBase64sBytes [
+	"Image result becomes {content: [{type: 'image', mimeType, data: <b64>}]}.
+	 Matches SmallChatToolResult>>toMcpContentDict for the image variant."
+	| reply content |
+	reply := SmallChatMCPCapabilityTransport new dispatch: 'test.fake.image' with: Dictionary new.
+	content := reply at: 'content'.
+	self assert: content size equals: 1.
+	self assert: (content first at: 'type') equals: 'image'.
+	self assert: (content first at: 'mimeType') equals: 'image/png'.
+	self assert: (content first at: 'data') equals: 'iVBORw=='
+]
+
+{ #category : 'tests' }
 SmallChatMCPCapabilityTransportTest >> testDispatchTextResultProducesContentDict [
 	"A capability returning a #text result becomes the standard MCP
 	 tools/call reply: {content: [{type: 'text', text: ...}]}."

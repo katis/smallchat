@@ -22,9 +22,8 @@ SmallChatMCPCapabilityTransport >> dispatch: aName with: anArgsDict [
 
 { #category : 'private' }
 SmallChatMCPCapabilityTransport >> mcpReplyFor: aResult [
-	"Translate a SmallChatCapabilityResult to the MCP tools/call reply dict
-	 ({content: [...], isError? }). Mirrors today's SmallChatToolResult
-	 toMcpReplyDict / SmallChatToolRegistry errorResult: shapes."
+	"Translate a SmallChatCapabilityResult to the MCP tools/call reply dict.
+	 Mirrors today's SmallChatToolResult shapes."
 	| kind |
 	kind := aResult kind.
 	(kind = #text or: [ kind = #error ]) ifTrue: [
@@ -37,5 +36,13 @@ SmallChatMCPCapabilityTransport >> mcpReplyFor: aResult [
 			yourself.
 		kind = #error ifTrue: [ reply at: 'isError' put: true ].
 		^ reply ].
+	kind = #image ifTrue: [
+		^ Dictionary new
+			at: 'content' put: { Dictionary new
+				at: 'type' put: 'image';
+				at: 'mimeType' put: aResult mimeType;
+				at: 'data' put: (Base64MimeConverter mimeEncode: aResult bytes readStream) contents;
+				yourself };
+			yourself ].
 	self error: 'mcpReplyFor: not yet implemented for kind ' , kind printString
 ]
