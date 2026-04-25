@@ -94,6 +94,52 @@ SmallChatWorkspaceEditApplierTest >> testEmptyChangesLeaveSourceUnchanged [
 ]
 
 { #category : 'tests' }
+SmallChatWorkspaceEditApplierTest >> testMultiFileEditFailureLeavesAllFilesUnchanged [
+  "When one URI in a multi-file edit has overlapping edits the whole apply
+   must fail without writing anything to disk. Both files keep their
+   original bytes; no partial state is observable."
+  | applier fs uri1 uri2 file1 file2 edit result |
+  fs := FileSystem memory.
+  file1 := fs / '/a.txt'.
+  file2 := fs / '/b.txt'.
+  file1 writeStreamDo: [ :s | s nextPutAll: 'alpha original' ].
+  file2 writeStreamDo: [ :s | s nextPutAll: 'beta original' ].
+  uri1 := 'file://' , file1 fullName.
+  uri2 := 'file://' , file2 fullName.
+  applier := SmallChatWorkspaceEditApplier new fileSystem: fs; yourself.
+  edit := Dictionary new
+    at: 'changes' put: (Dictionary new
+      at: uri1 put: (Array with: (Dictionary new
+        at: 'range' put: (Dictionary new
+          at: 'start' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 0; yourself);
+          at: 'end' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 5; yourself);
+          yourself);
+        at: 'newText' put: 'ALPHA';
+        yourself));
+      at: uri2 put: (Array
+        with: (Dictionary new
+          at: 'range' put: (Dictionary new
+            at: 'start' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 0; yourself);
+            at: 'end' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 4; yourself);
+            yourself);
+          at: 'newText' put: 'X';
+          yourself)
+        with: (Dictionary new
+          at: 'range' put: (Dictionary new
+            at: 'start' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 2; yourself);
+            at: 'end' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 6; yourself);
+            yourself);
+          at: 'newText' put: 'Y';
+          yourself));
+      yourself);
+    yourself.
+  result := applier applyWorkspaceEdit: edit.
+  self deny: result isSuccess.
+  self assert: (file1 readStreamDo: [ :s | s upToEnd ]) equals: 'alpha original'.
+  self assert: (file2 readStreamDo: [ :s | s upToEnd ]) equals: 'beta original'
+]
+
+{ #category : 'tests' }
 SmallChatWorkspaceEditApplierTest >> testMultipleEditsAppliedInReverseOrder [
   "Two non-overlapping edits at line 0 cols 7-12 and 14-19 in
    'Hello, World, Earth!' rewrite to 'Hello, there, friend!'. The applier
