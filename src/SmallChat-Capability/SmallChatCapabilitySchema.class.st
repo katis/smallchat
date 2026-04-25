@@ -48,6 +48,17 @@ SmallChatCapabilitySchema >> asOpenAIFunctionSchemaName: aName description: aDes
 		yourself
 ]
 
+{ #category : 'building' }
+SmallChatCapabilitySchema >> boolean: aName required: aBoolean description: aDescription [
+	"Append a #boolean field. Same shape as #string:required:description:."
+	fields add: (SmallChatCapabilitySchemaField
+		name: aName
+		type: #boolean
+		required: aBoolean
+		description: aDescription).
+	^ self
+]
+
 { #category : 'accessing' }
 SmallChatCapabilitySchema >> fields [
 	"Ordered collection of SmallChatCapabilitySchemaField. Order is the

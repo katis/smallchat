@@ -6,6 +6,22 @@ Class {
 }
 
 { #category : 'tests-emitters' }
+SmallChatCapabilitySchemaTest >> testBooleanFieldBuilder [
+	"#boolean:required:description: appends a #boolean field that emits as
+	 {type: 'boolean'} in the JSON Schema property."
+	| s json prop |
+	s := SmallChatCapabilitySchema empty
+		boolean: 'debug_first_failure'
+		required: false
+		description: 'Re-run the first failing test under the debug evaluator'.
+	json := s asJsonSchema.
+	prop := (json at: 'properties') at: 'debug_first_failure'.
+	self assert: (prop at: 'type') equals: 'boolean'.
+	self assert: (prop at: 'description') equals: 'Re-run the first failing test under the debug evaluator'.
+	self assert: (json at: 'required') asArray equals: #()
+]
+
+{ #category : 'tests-emitters' }
 SmallChatCapabilitySchemaTest >> testEmptySchemaEmitsObjectWithEmptyPropertiesAndRequired [
 	"Matches today's no-arg SmallChatTool>>inputSchema shape exactly."
 	| s |
