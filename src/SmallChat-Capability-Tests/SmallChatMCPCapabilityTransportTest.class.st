@@ -39,6 +39,19 @@ SmallChatMCPCapabilityTransportTest >> testDispatchErrorResultProducesIsErrorRep
 ]
 
 { #category : 'tests' }
+SmallChatMCPCapabilityTransportTest >> testDispatchFallsThroughToLegacyToolRegistry [
+	"During migration, capability registry not finding the name must fall
+	 through to the legacy SmallChatToolRegistry so unmigrated tools
+	 (e.g. 'status') keep working until their capability lands."
+	| reply |
+	reply := SmallChatMCPCapabilityTransport new dispatch: 'status' with: Dictionary new.
+	"#status currently returns its working-copy dict via SmallChatToolRegistry
+	 -- assert the reply has the standard MCP content envelope."
+	self assert: (reply includesKey: 'content').
+	self assert: (reply at: 'content') notEmpty
+]
+
+{ #category : 'tests' }
 SmallChatMCPCapabilityTransportTest >> testDispatchImageResultBase64sBytes [
 	"Image result becomes {content: [{type: 'image', mimeType, data: <b64>}]}.
 	 Matches SmallChatToolResult>>toMcpContentDict for the image variant."

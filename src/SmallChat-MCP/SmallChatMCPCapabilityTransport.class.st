@@ -8,16 +8,15 @@ Class {
 { #category : 'dispatching' }
 SmallChatMCPCapabilityTransport >> dispatch: aName with: anArgsDict [
 	"Look up aName in the capability registry, run, and translate the result
-	 to the MCP tools/call reply shape. Returns nil if no capability matches
-	 -- transports decide whether to surface an error or fall through to a
-	 legacy registry."
+	 to the MCP tools/call reply shape. Falls through to the legacy
+	 SmallChatToolRegistry while the 16 tools migrate one at a time."
 	| call result |
 	call := SmallChatCapabilityCall
 		name: aName
 		argumentsJson: (STONJSON toString: anArgsDict).
 	result := SmallChatCapabilityRegistry default run: aName with: call.
-	result ifNil: [ ^ nil ].
-	^ self mcpReplyFor: result
+	result ifNotNil: [ ^ self mcpReplyFor: result ].
+	^ SmallChatToolRegistry default run: aName with: anArgsDict
 ]
 
 { #category : 'private' }
