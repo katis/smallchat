@@ -16,6 +16,17 @@ SmallChatWorkspace class >> kind [
 ]
 
 { #category : 'accessing' }
+SmallChatWorkspace >> describeAsDict [
+	"A Dictionary describing this workspace, suitable for JSON encoding by
+	 workspace.* capabilities. Subclasses extend the result with their own
+	 keys (path, branch, attachedAt, ...) but always include name + kind."
+	^ Dictionary new
+		at: 'name' put: (self name ifNil: [ '<unnamed>' ]);
+		at: 'kind' put: self kind asString;
+		yourself
+]
+
+{ #category : 'accessing' }
 SmallChatWorkspace >> kind [
 	"Symbol identifying the workspace kind. Delegates to the class."
 	^ self class kind
