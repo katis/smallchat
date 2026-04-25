@@ -43,6 +43,27 @@ SmallChatTSNodeWalkerTest >> testClassSelectorsOnButtonModuleCssReturnsThree [
 	self assert: selectors size equals: 3
 ]
 
+{ #category : 'tests - imports' }
+SmallChatTSNodeWalkerTest >> testImportSpecifiersIncludeSpecifierByteRange [
+  "importSpecifiersIn:source: returns the import_statement byte range
+   (startByte / endByte) AND the specifier string contents byte range
+   (specifierStartByte / specifierEndByte). The specifier range covers
+   only the contents between the quotes, which is what tsgo expects as
+   the position for textDocument/definition."
+  | parser walker tree spec text |
+  parser := SmallChatTSParser new.
+  walker := SmallChatTSNodeWalker new.
+  text := 'import React from "react";'.
+  tree := parser parseTsxString: text.
+  spec := (walker importSpecifiersIn: tree rootNode source: text) first.
+  self assert: (spec at: 'specifier') equals: 'react'.
+  self assert: (spec at: 'startByte') equals: 0.
+  self assert: (spec at: 'endByte') equals: text size.
+  "the contents between the quotes is bytes 19..24"
+  self assert: (spec at: 'specifierStartByte') equals: 19.
+  self assert: (spec at: 'specifierEndByte') equals: 24
+]
+
 { #category : 'tests' }
 SmallChatTSNodeWalkerTest >> testImportStatementsOnButtonTsxReturnsOneImport [
 	| source tree imports |

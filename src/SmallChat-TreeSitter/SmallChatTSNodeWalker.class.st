@@ -61,11 +61,13 @@ SmallChatTSNodeWalker >> functionBodyReturnsJsx: aFunctionDeclNode [
 { #category : 'walking' }
 SmallChatTSNodeWalker >> importSpecifiersIn: aRootNode source: aSource [
   "Return an Array of (Dictionary at: 'specifier' put: String;
-   at: 'startByte' put: Integer; at: 'endByte' put: Integer) for every
-   top-level import_statement. The byte range covers the whole import_statement
-   (`import ... from 'mod';`); the specifier is the source string contents
-   (without quotes), extracted from the import_statement's `string` named
-   child's `string_fragment` first child."
+   at: 'startByte' put: Integer; at: 'endByte' put: Integer;
+   at: 'specifierStartByte' put: Integer; at: 'specifierEndByte' put:
+   Integer) for every top-level import_statement. startByte/endByte
+   span the whole import_statement (`import ... from 'mod';`);
+   specifierStartByte/specifierEndByte span the contents between the
+   quotes (the string_fragment node), which tsgo expects as the
+   position for textDocument/definition."
   | imports |
   imports := self importStatements: aRootNode.
   ^ imports collect: [ :imp | | sourceString fragment |
@@ -75,6 +77,8 @@ SmallChatTSNodeWalker >> importSpecifiersIn: aRootNode source: aSource [
       at: 'specifier' put: (fragment textFromSourceText: aSource);
       at: 'startByte' put: imp startByte;
       at: 'endByte' put: imp endByte;
+      at: 'specifierStartByte' put: fragment startByte;
+      at: 'specifierEndByte' put: fragment endByte;
       yourself ]
 ]
 
