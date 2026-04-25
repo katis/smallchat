@@ -1,6 +1,9 @@
 Class {
 	#name : 'SmallChatFamixEntity',
 	#superclass : 'MooseEntity',
+	#instVars : [
+		'sourceAnchor'
+	],
 	#category : 'SmallChat-Famix-Entities',
 	#package : 'SmallChat-Famix',
 	#tag : 'Entities'
@@ -28,4 +31,14 @@ SmallChatFamixEntity class >> metamodel [
 
 	<generated>
 	^ SmallChatFamixModel metamodel
+]
+
+{ #category : 'accessing' }
+SmallChatFamixEntity >> sourceAnchor [
+	^ sourceAnchor
+]
+
+{ #category : 'accessing' }
+SmallChatFamixEntity >> sourceAnchor: anAnchor [
+	sourceAnchor := anAnchor
 ]

@@ -6,6 +6,26 @@ Class {
 }
 
 { #category : 'tests' }
+SmallChatFamixMetamodelGeneratorTest >> testEntitiesAcceptSourceAnchor [
+	"sourceAnchor lives on the SmallChatFamixEntity root, so every
+	 generated subclass inherits the slot + accessors."
+	| anchor names |
+	SmallChatFamixMetamodelGenerator new generate.
+	anchor := SmallChatFamixSourceAnchor
+		fileUri: 'file:///abs/x.tsx'
+		startByte: 1 endByte: 2.
+	names := #(SmallChatFamixModule SmallChatFamixClass SmallChatFamixFunction
+		SmallChatFamixMethod SmallChatFamixField SmallChatFamixImport
+		SmallChatFamixJSXComponent SmallChatFamixCSSModuleFile
+		SmallChatFamixCSSClass SmallChatFamixCSSClassReference).
+	names do: [ :n |
+		| inst |
+		inst := (Smalltalk globals at: n) new.
+		inst sourceAnchor: anchor.
+		self assert: inst sourceAnchor equals: anchor ]
+]
+
+{ #category : 'tests' }
 SmallChatFamixMetamodelGeneratorTest >> testGenerateEmitsProjectAndModuleClasses [
 	"After generate, the prefix-concatenated entity classes exist in the
 	 image as proper Pharo classes."
