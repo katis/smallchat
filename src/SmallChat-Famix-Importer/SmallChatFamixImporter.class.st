@@ -39,6 +39,27 @@ SmallChatFamixImporter >> anchorForSymbol: aSymbol uri: aUri text: aText [
     endByte: range endByte
 ]
 
+{ #category : 'orchestration' }
+SmallChatFamixImporter >> bindingNameFor: aSpecifier inRootNode: aRootNode source: aText [
+  "Find the default-import binding name for a given specifier in aText:
+   walk import_statements, locate the one whose string_fragment equals
+   aSpecifier, and read the import_clause > identifier text. Returns nil
+   if the matching import has no default-import identifier (e.g. named-
+   only `import { x } from 'mod'`)."
+  | importStatements |
+  importStatements := walker importStatements: aRootNode.
+  importStatements do: [ :imp | | sourceString fragment importClause idChild |
+    sourceString := imp namedChildren detect: [ :c | c type = 'string' ] ifNone: [ nil ].
+    sourceString ifNotNil: [
+      fragment := sourceString namedChildren first.
+      (fragment textFromSourceText: aText) = aSpecifier ifTrue: [
+        importClause := imp namedChildren detect: [ :c | c type = 'import_clause' ] ifNone: [ nil ].
+        importClause ifNotNil: [
+          idChild := importClause namedChildren detect: [ :c | c type = 'identifier' ] ifNone: [ nil ].
+          idChild ifNotNil: [ ^ idChild textFromSourceText: aText ] ] ] ] ].
+  ^ nil
+]
+
 { #category : 'accessing' }
 SmallChatFamixImporter >> client [ ^ client
 ]
@@ -152,6 +173,69 @@ SmallChatFamixImporter >> languageIdForUri: aUri [
   (aUri endsWith: '.js') ifTrue: [ ^ 'javascript' ].
   (aUri endsWith: '.jsx') ifTrue: [ ^ 'javascriptreact' ].
   ^ 'typescript'
+]
+
+{ #category : 'orchestration' }
+SmallChatFamixImporter >> linkCssReferencesForImportSpec: aSpec inUri: aUri rootNode: aRootNode text: aText [
+  "Per-import worker: find the CSSModuleFile via the corresponding Import
+   entity's resolvedUri, walk member_expressions for the binding, emit one
+   CSSClassReference per access. If the Import or CSSModuleFile is missing,
+   skip (the bridge tolerates partial model state)."
+  | bindingName imp cssFile cssClasses members |
+  bindingName := self bindingNameFor: (aSpec at: 'specifier')
+    inRootNode: aRootNode source: aText.
+  bindingName ifNil: [ ^ self ].
+  imp := (model allWithType: SmallChatFamixImport)
+    detect: [ :i | i name = (aSpec at: 'specifier')
+      and: [ i sourceAnchor notNil
+      and: [ i sourceAnchor fileUri = aUri ] ] ]
+    ifNone: [ ^ self ].
+  imp resolvedUri ifNil: [ ^ self ].
+  cssFile := (model allWithType: SmallChatFamixCSSModuleFile)
+    detect: [ :f | f sourceAnchor notNil
+      and: [ f sourceAnchor fileUri = imp resolvedUri ] ]
+    ifNone: [ ^ self ].
+  cssClasses := (model allWithType: SmallChatFamixCSSClass)
+    select: [ :c | c file == cssFile ].
+  members := walker
+    memberExpressionsFor: aRootNode
+    objectName: bindingName
+    inSource: aText.
+  members do: [ :m | | propertyName matched ref |
+    propertyName := (m namedChildren second textFromSourceText: aText).
+    matched := cssClasses detect: [ :c | c name = propertyName ] ifNone: [ nil ].
+    ref := model newCSSClassReference.
+    ref name: propertyName.
+    ref sourceAnchor: (SmallChatFamixSourceAnchor
+      fileUri: aUri
+      startByte: m startByte
+      endByte: m endByte).
+    matched
+      ifNotNil: [ ref referent: matched. ref unresolved: false ]
+      ifNil: [ ref referent: nil. ref unresolved: true ] ]
+]
+
+{ #category : 'orchestration' }
+SmallChatFamixImporter >> linkCssReferencesInTsUri: aUri text: aText [
+  "Walk aText for CSS-module imports (default import of a .module.css
+   specifier), look up each import's resolvedUri (set by S2 resolution)
+   to find the SmallChatFamixCSSModuleFile in the model, then emit one
+   SmallChatFamixCSSClassReference per `bindingName.X` member_expression.
+   Resolved references back-point to the matching SmallChatFamixCSSClass;
+   unresolved (typo) references carry referent = nil and unresolved = true.
+   Caller is responsible for pre-running CSS import + TS import resolution
+   so the model state is in place."
+  | tree root specs cssImports |
+  tree := parser parseTsxString: aText.
+  root := tree rootNode.
+  specs := walker importSpecifiersIn: root source: aText.
+  cssImports := specs select: [ :spec |
+    (spec at: 'specifier') endsWith: '.module.css' ].
+  cssImports do: [ :spec | self
+    linkCssReferencesForImportSpec: spec
+    inUri: aUri
+    rootNode: root
+    text: aText ]
 ]
 
 { #category : 'resolution' }
