@@ -30,7 +30,7 @@ BaselineOfSmallChat >> baseline: spec [
 			package: 'SmallChat-TreeSitter'       with: [ spec requires: #('SmallChat') ];
 			package: 'SmallChat-Famix'            with: [ spec requires: #('SmallChat' 'SmallChat-TreeSitter') ];
 			package: 'SmallChat-Famix-Importer'   with: [ spec requires: #('SmallChat' 'SmallChat-LSP' 'SmallChat-TreeSitter' 'SmallChat-Famix') ];
-			package: 'SmallChat-Refactoring'      with: [ spec requires: #('SmallChat' 'SmallChat-TreeSitter') ];
+			package: 'SmallChat-Refactoring'      with: [ spec requires: #('SmallChat' 'SmallChat-TreeSitter' 'SmallChat-Famix') ];
 			package: 'SmallChat-Tests'            with: [ spec requires: #('SmallChat' 'SmallChat-LM' 'SmallChat-MCP') ];
 			package: 'SmallChat-Capability-Tests' with: [ spec requires: #('SmallChat-Capability' 'SmallChat-Tests') ];
 			package: 'SmallChat-NavTests'         with: [ spec requires: #('SmallChat-Nav' 'SmallChat-Tests') ];
