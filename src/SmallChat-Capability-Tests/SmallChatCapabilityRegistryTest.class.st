@@ -50,3 +50,17 @@ SmallChatCapabilityRegistryTest >> testRunDispatchesToCapability [
 	self assert: result kind equals: #text.
 	self assert: result text equals: 'ok'
 ]
+
+{ #category : 'tests-wrap' }
+SmallChatCapabilityRegistryTest >> testRunResumesNotificationsBeforeOuterHandlerSees [
+	"Wrap must intercept Notifications inside #run:with: so the default handler
+	 (writes to Transcript / stdout) never runs and outer code never sees them."
+	| reachedOuter call result |
+	reachedOuter := false.
+	call := SmallChatCapabilityCall name: 'test.fake.signalling' argumentsJson: ''.
+	[ result := SmallChatCapabilityRegistry default run: 'test.fake.signalling' with: call ]
+		on: Notification
+		do: [ :n | reachedOuter := true. n resume ].
+	self deny: reachedOuter description: 'wrap must resume Notifications before any outer handler'.
+	self assert: result text equals: 'ok-after-notification'
+]

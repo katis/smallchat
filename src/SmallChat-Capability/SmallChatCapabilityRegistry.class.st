@@ -39,11 +39,15 @@ SmallChatCapabilityRegistry >> capabilityNamed: aString [
 SmallChatCapabilityRegistry >> run: aName with: aCall [
 	"Dispatch aCall to the named capability under the universal cross-cutting
 	 wrap. Returns nil for unknown names so transports can fall through.
-	 Wrap captures uncaught exceptions and rewrites them as #error results."
+	 Wrap captures uncaught exceptions as #error results and resumes any
+	 Notification (Pharo's default handler writes to Transcript/stdout, which
+	 would corrupt MCP framing if it reached the host process)."
 	| cap |
 	cap := self capabilityNamed: aName.
 	cap ifNil: [ ^ nil ].
-	^ [ cap run: aCall ]
+	^ [ [ cap run: aCall ]
+			on: Notification
+			do: [ :n | n resume ] ]
 		on: Error
 		do: [ :e |
 			SmallChatCapabilityResult error:
