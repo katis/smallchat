@@ -50,6 +50,25 @@ SmallChatCapabilityResult class >> text: aString [
 	^ self new setKind: #text text: aString
 ]
 
+{ #category : 'transport-rendering' }
+SmallChatCapabilityResult >> asTextForLM [
+	"Flatten this result to plain text for the LM-native transport. Image and
+	 debugSession variants collapse to readable placeholders since the LM
+	 has no image rendering and no resume protocol."
+	kind = #text ifTrue: [ ^ text ].
+	kind = #error ifTrue: [ ^ text ].
+	kind = #image ifTrue: [
+		^ '<image:' , mimeType , ' ' , bytes size asString , ' bytes>' ].
+	kind = #debugSession ifTrue: [
+		| ex |
+		ex := [ debugSession exception ] on: Error do: [ :_ | nil ].
+		^ '<debug session captured: ' ,
+			(ex
+				ifNil: [ '<no exception>' ]
+				ifNotNil: [ ex class name , ' ' , (ex messageText ifNil: [ '' ]) ]) , '>' ].
+	^ '<unknown result kind: ' , kind printString , '>'
+]
+
 { #category : 'accessing' }
 SmallChatCapabilityResult >> bytes [
 	"Raw bytes for #image results, nil otherwise."

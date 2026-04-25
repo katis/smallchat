@@ -5,6 +5,23 @@ Class {
 	#package : 'SmallChat-Capability-Tests'
 }
 
+{ #category : 'tests-lm' }
+SmallChatCapabilityResultTest >> testAsTextForLMRendersErrorResult [
+	self assert: (SmallChatCapabilityResult error: 'boom') asTextForLM equals: 'boom'
+]
+
+{ #category : 'tests-lm' }
+SmallChatCapabilityResultTest >> testAsTextForLMRendersImagePlaceholder [
+	| r |
+	r := SmallChatCapabilityResult image: #(0 1 2) asByteArray mimeType: 'image/png'.
+	self assert: r asTextForLM equals: '<image:image/png 3 bytes>'
+]
+
+{ #category : 'tests-lm' }
+SmallChatCapabilityResultTest >> testAsTextForLMRendersTextResult [
+	self assert: (SmallChatCapabilityResult text: 'hi') asTextForLM equals: 'hi'
+]
+
 { #category : 'tests' }
 SmallChatCapabilityResultTest >> testDebugSessionResultCarriesSession [
 	"The captured debug session is a SmallChatDebugSession (registry id, etc.).
