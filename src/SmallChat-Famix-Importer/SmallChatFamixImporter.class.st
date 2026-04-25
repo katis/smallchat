@@ -25,6 +25,23 @@ SmallChatFamixImporter >> anchorForSymbol: aSymbol uri: aUri text: aText [
 SmallChatFamixImporter >> client [ ^ client
 ]
 
+{ #category : 'population' }
+SmallChatFamixImporter >> ensureModuleForUri: aUri text: aText [
+  "Create a SmallChatFamixModule for aUri. Module name is the URI's last
+   path segment (the bare filename); source anchor covers the whole text.
+   Caller is responsible for not double-importing a URI -- regeneration (S5)
+   adds the de-dup pass."
+  | filename module |
+  filename := aUri copyAfterLast: $/.
+  module := model newModule.
+  module name: filename.
+  module sourceAnchor: (SmallChatFamixSourceAnchor
+    fileUri: aUri
+    startByte: 0
+    endByte: aText size).
+  ^ module
+]
+
 { #category : 'symbol mapping' }
 SmallChatFamixImporter >> entityForSymbol: aSymbol ifAbsent: aBlock [
   | factory |
@@ -91,7 +108,10 @@ SmallChatFamixImporter >> parser [ ^ parser
 SmallChatFamixImporter >> populateFromDocumentSymbols: aSymbolList intoUri: aUri text: aText [
   "Walk a hierarchical DocumentSymbol[] response, creating one Famix entity per
    recognised SymbolKind. Source anchors are bytes derived from the LSP UTF-16
-   range against aText."
+   range against aText. Emits one SmallChatFamixModule per URI as the file-level
+   container; symbol entities use the same URI in their own anchors so queries
+   can find them by file."
+  self ensureModuleForUri: aUri text: aText.
   aSymbolList do: [ :sym | self processSymbol: sym intoUri: aUri text: aText owner: nil ]
 ]
 

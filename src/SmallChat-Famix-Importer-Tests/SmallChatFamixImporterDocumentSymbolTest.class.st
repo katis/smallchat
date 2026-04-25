@@ -105,6 +105,33 @@ SmallChatFamixImporterDocumentSymbolTest >> testCreatesInterfaceFromTopLevelSymb
   self assert: iface name equals: 'IUser'
 ]
 
+{ #category : 'tests - module' }
+SmallChatFamixImporterDocumentSymbolTest >> testImportTsFileCreatesModulePerFile [
+  "Per-file importer must emit one SmallChatFamixModule per imported URI, with
+   the module name derived from the URI's last path segment and a source anchor
+   covering the whole text."
+  | model importer text uri symbols modules module |
+  model := SmallChatFamixModel new.
+  importer := self newImporterOn: model.
+  text := 'class Button {}'.
+  uri := 'file:///t/Button.ts'.
+  symbols := { self
+    symbolNamed: 'Button'
+    kind: 5
+    range: (self lspRangeStartLine: 0 character: 0 endLine: 0 character: 15) }.
+  importer
+    populateFromDocumentSymbols: symbols
+    intoUri: uri
+    text: text.
+  modules := model allWithType: SmallChatFamixModule.
+  self assert: modules size equals: 1.
+  module := modules first.
+  self assert: module name equals: 'Button.ts'.
+  self assert: module sourceAnchor fileUri equals: uri.
+  self assert: module sourceAnchor startByte equals: 0.
+  self assert: module sourceAnchor endByte equals: text size
+]
+
 { #category : 'tests - kinds' }
 SmallChatFamixImporterDocumentSymbolTest >> testNestedConstructorEmitsMethodWithOwningClass [
   "LSP SymbolKind 9 (Constructor) folds into SmallChatFamixMethod -- v1
