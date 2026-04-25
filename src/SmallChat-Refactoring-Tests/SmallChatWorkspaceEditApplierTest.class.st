@@ -5,6 +5,51 @@ Class {
 	#package : 'SmallChat-Refactoring-Tests'
 }
 
+{ #category : 'helpers' }
+SmallChatWorkspaceEditApplierTest >> helperEditFor: aUri start: aStart end: anEnd newText: aNewText [
+  ^ Dictionary new
+    at: 'changes' put: (Dictionary new
+      at: aUri put: (Array with: (Dictionary new
+        at: 'range' put: (Dictionary new
+          at: 'start' put: (Dictionary new at: 'line' put: 0; at: 'character' put: aStart; yourself);
+          at: 'end' put: (Dictionary new at: 'line' put: 0; at: 'character' put: anEnd; yourself);
+          yourself);
+        at: 'newText' put: aNewText;
+        yourself));
+      yourself);
+    yourself
+]
+
+{ #category : 'helpers' }
+SmallChatWorkspaceEditApplierTest >> helperFsAndUriFor: aPath text: aText [
+  "Build a fresh in-memory FileSystem with aPath written from aText, return
+   { fs. uri. fileRef. }."
+  | fs file uri |
+  fs := FileSystem memory.
+  file := fs / aPath.
+  file writeStreamDo: [ :s | s nextPutAll: aText ].
+  uri := 'file://' , file fullName.
+  ^ { fs. uri. file }
+]
+
+{ #category : 'tests' }
+SmallChatWorkspaceEditApplierTest >> testApplyWorkspaceEditWritesNewBytesToDisk [
+  "applyWorkspaceEdit: (no withSources:) reads the URI from disk through the
+   injected FileSystem, applies the edit, and writes new bytes back. Tests
+   read the file afterwards to confirm."
+  | applier triple uri file edit result |
+  triple := self helperFsAndUriFor: '/a.txt' text: 'Hello, World!'.
+  uri := triple second.
+  file := triple third.
+  applier := SmallChatWorkspaceEditApplier new
+    fileSystem: triple first;
+    yourself.
+  edit := self helperEditFor: uri start: 7 end: 12 newText: 'there'.
+  result := applier applyWorkspaceEdit: edit.
+  self assert: result isSuccess.
+  self assert: (file readStreamDo: [ :s | s upToEnd ]) equals: 'Hello, there!'
+]
+
 { #category : 'tests' }
 SmallChatWorkspaceEditApplierTest >> testEditAcrossBmpNonAsciiUsesUtf16PositionsCorrectly [
   "BMP non-ASCII (here: GREEK SMALL LETTER PI, U+03C0 -- 1 UTF-16 code unit,

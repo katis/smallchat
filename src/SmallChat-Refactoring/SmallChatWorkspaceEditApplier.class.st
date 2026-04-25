@@ -1,6 +1,9 @@
 Class {
 	#name : 'SmallChatWorkspaceEditApplier',
 	#superclass : 'Object',
+	#instVars : [
+		'fileSystem'
+	],
 	#category : 'SmallChat-Refactoring',
 	#package : 'SmallChat-Refactoring'
 }
@@ -33,6 +36,22 @@ SmallChatWorkspaceEditApplier >> applyTextEdits: anArray to: aString [
 ]
 
 { #category : 'execution' }
+SmallChatWorkspaceEditApplier >> applyWorkspaceEdit: aWorkspaceEdit [
+  "Read sources from disk for every URI mentioned in aWorkspaceEdit, run
+   the in-memory transform, and on success write each new source back through
+   the injected FileSystem. Returns SmallChatApplyResult."
+  | sources result |
+  sources := Dictionary new.
+  (self urisFromWorkspaceEdit: aWorkspaceEdit) do: [ :uri |
+    sources at: uri put: (self readSourceFor: uri) ].
+  result := self applyWorkspaceEdit: aWorkspaceEdit withSources: sources.
+  result isSuccess ifFalse: [ ^ result ].
+  sources keysDo: [ :uri |
+    self writeSource: (result newSourceFor: uri) to: uri ].
+  ^ result
+]
+
+{ #category : 'execution' }
 SmallChatWorkspaceEditApplier >> applyWorkspaceEdit: aWorkspaceEdit withSources: aSources [
   "Apply a WorkspaceEdit changes-form against aSources (uri -> string).
    Returns SmallChatApplyResult with isSuccess=false and an errorReason
@@ -56,6 +75,28 @@ SmallChatWorkspaceEditApplier >> editStartByte: anEditDict inSource: aString [
   ^ (SmallChatTSRange fromLSPPositionRange: (anEditDict at: 'range') source: aString) startByte
 ]
 
+{ #category : 'private' }
+SmallChatWorkspaceEditApplier >> fileFromUri: aUri [
+  "Strip the file:// prefix and resolve against the injected FileSystem.
+   We don't support non-file URIs (http, in-memory tsgo virtual modules) at
+   this layer; the caller filtered to disk-resident files."
+  | path |
+  (aUri beginsWith: 'file://') ifFalse: [
+    self error: 'Unsupported URI scheme for applier: ' , aUri ].
+  path := aUri copyFrom: 'file://' size + 1 to: aUri size.
+  ^ self fileSystem / path
+]
+
+{ #category : 'accessing' }
+SmallChatWorkspaceEditApplier >> fileSystem [
+  ^ fileSystem ifNil: [ fileSystem := FileSystem disk ]
+]
+
+{ #category : 'accessing' }
+SmallChatWorkspaceEditApplier >> fileSystem: aFileSystem [
+  fileSystem := aFileSystem
+]
+
 { #category : 'execution' }
 SmallChatWorkspaceEditApplier >> overlapsAmong: anArray inSource: aString [
   "Return true when any two edits in anArray have overlapping byte ranges
@@ -68,4 +109,24 @@ SmallChatWorkspaceEditApplier >> overlapsAmong: anArray inSource: aString [
   sorted asArray overlappingPairsDo: [ :a :b |
     a endByte > b startByte ifTrue: [ ^ true ] ].
   ^ false
+]
+
+{ #category : 'private' }
+SmallChatWorkspaceEditApplier >> readSourceFor: aUri [
+  "Read aUri's file content through the injected FileSystem, returning a String."
+  ^ (self fileFromUri: aUri) readStreamDo: [ :s | s upToEnd ]
+]
+
+{ #category : 'private' }
+SmallChatWorkspaceEditApplier >> urisFromWorkspaceEdit: aWorkspaceEdit [
+  "Return the set of URIs touched by aWorkspaceEdit. Currently supports the
+   'changes' form only; 'documentChanges' lands when a refactoring needs it."
+  ^ (aWorkspaceEdit at: 'changes' ifAbsent: [ Dictionary new ]) keys
+]
+
+{ #category : 'private' }
+SmallChatWorkspaceEditApplier >> writeSource: aString to: aUri [
+  "Overwrite the file at aUri with aString, going through the injected FileSystem."
+  (self fileFromUri: aUri)
+    writeStreamDo: [ :s | s nextPutAll: aString ]
 ]
