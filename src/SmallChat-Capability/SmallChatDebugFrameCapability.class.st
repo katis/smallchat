@@ -1,45 +1,33 @@
-"
-MCP tool: detailed view of one frame -- receiver, selector, args,
-temps, source.
-"
 Class {
-	#name : 'SmallChatDebugFrameTool',
-	#superclass : 'SmallChatTool',
-	#category : 'SmallChat-MCP',
-	#package : 'SmallChat-MCP'
+	#name : 'SmallChatDebugFrameCapability',
+	#superclass : 'SmallChatCapability',
+	#category : 'SmallChat-Capability',
+	#package : 'SmallChat-Capability'
 }
 
-{ #category : 'accessing - metadata' }
-SmallChatDebugFrameTool class >> description [
+{ #category : 'metadata' }
+SmallChatDebugFrameCapability class >> capabilityName [ ^ 'debug.frame'
+]
+
+{ #category : 'metadata' }
+SmallChatDebugFrameCapability class >> description [
 	^ 'Detailed view of one frame: receiver, selector, args, temps, source.'
 ]
 
-{ #category : 'accessing - metadata' }
-SmallChatDebugFrameTool class >> inputSchema [
-	^ Dictionary new
-		at: 'type' put: 'object';
-		at: 'properties' put: (Dictionary new
-			at: 'sessionId' put: (Dictionary new at: 'type' put: 'string'; yourself);
-			at: 'index' put: (Dictionary new at: 'type' put: 'integer'; yourself);
-			yourself);
-		at: 'required' put: #('sessionId' 'index');
-		yourself
-]
-
-{ #category : 'accessing - metadata' }
-SmallChatDebugFrameTool class >> toolName [
-	^ 'debug_frame'
+{ #category : 'metadata' }
+SmallChatDebugFrameCapability class >> mcpAliases [ ^ #('debug_frame')
 ]
 
 { #category : 'execution' }
-SmallChatDebugFrameTool >> run: args [
-	| sid idx session stack ctx safePrint dict |
+SmallChatDebugFrameCapability class >> run: aCapabilityCall [
+	| args sid idx session stack ctx safePrint dict |
+	args := aCapabilityCall arguments.
 	sid := args at: 'sessionId'.
 	idx := args at: 'index'.
 	session := SmallChatDebugSessionRegistry default at: sid.
 	stack := [ session debugSession stack ] on: Error do: [ :_ | #() ].
 	(idx < 0 or: [ idx >= stack size ]) ifTrue: [
-		^ SmallChatToolResult text: (STONJSON toString: (Dictionary new
+		^ SmallChatCapabilityResult text: (STONJSON toString: (Dictionary new
 			at: 'error' put: 'frame index ' , idx asString , ' out of range';
 			yourself)) ].
 	ctx := stack at: idx + 1.
@@ -57,5 +45,12 @@ SmallChatDebugFrameTool >> run: args [
 			td ] on: Error do: [ :_ | Dictionary new ]);
 		at: 'source' put: ([ ctx method sourceCode ] on: Error do: [ :_ | '' ]);
 		yourself.
-	^ SmallChatToolResult text: (STONJSON toString: dict)
+	^ SmallChatCapabilityResult text: (STONJSON toString: dict)
+]
+
+{ #category : 'metadata' }
+SmallChatDebugFrameCapability class >> schema [
+	^ SmallChatCapabilitySchema empty
+		string: 'sessionId' required: true description: 'Captured session id.';
+		integer: 'index' required: true description: 'Stack index (0 = signaller).'
 ]
