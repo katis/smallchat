@@ -31,8 +31,9 @@ SmallChatCapabilitySchema >> array: aName of: aItemTypeSymbol required: aBoolean
 
 { #category : 'emitting' }
 SmallChatCapabilitySchema >> asJsonSchema [
-	"Emit a JSON Schema dictionary matching today's SmallChatTool>>inputSchema
-	 shape: { type: 'object', properties: { ... }, required: #(...) }."
+	"Emit a JSON Schema dictionary: { type: 'object', properties: { ... },
+	 required: #(...) }. The MCP transport feeds this verbatim into the
+	 tools/list response per-tool inputSchema field."
 	| properties required |
 	properties := Dictionary new.
 	required := OrderedCollection new.

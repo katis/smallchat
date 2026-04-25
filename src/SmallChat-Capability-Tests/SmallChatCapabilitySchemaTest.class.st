@@ -41,7 +41,8 @@ SmallChatCapabilitySchemaTest >> testBooleanFieldBuilder [
 
 { #category : 'tests-emitters' }
 SmallChatCapabilitySchemaTest >> testEmptySchemaEmitsObjectWithEmptyPropertiesAndRequired [
-	"Matches today's no-arg SmallChatTool>>inputSchema shape exactly."
+	"No-arg capability schemas serialise to {type: 'object', properties: {},
+	 required: #()} -- the canonical empty MCP inputSchema shape."
 	| s |
 	s := SmallChatCapabilitySchema empty asJsonSchema.
 	self assert: (s at: 'type') equals: 'object'.

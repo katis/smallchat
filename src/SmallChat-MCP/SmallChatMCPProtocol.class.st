@@ -103,8 +103,8 @@ SmallChatMCPProtocol >> handleToolsCall: params [
 
 { #category : 'tools' }
 SmallChatMCPProtocol >> handleToolsList: params [
-	"Returns the union of registered SmallChatCapability classes plus any
-	 not-yet-migrated SmallChatTool subclasses, via the transport adapter."
+	"Returns the union of registered SmallChatCapability classes plus their
+	 declared #mcpAliases entries, via the transport adapter."
 	^ Dictionary new
 		at: 'tools' put: SmallChatMCPCapabilityTransport default toolSpecs;
 		yourself

@@ -174,11 +174,14 @@ SmallChatMCPCapabilityTransportTest >> testToolSpecsExcludesTestFixtures [
 ]
 
 { #category : 'tests' }
-SmallChatMCPCapabilityTransportTest >> testToolSpecsIncludesLegacyTools [
-	"During migration, toolSpecs must include the not-yet-migrated legacy
-	 SmallChatTool subclasses so tools/list still advertises them to MCP."
+SmallChatMCPCapabilityTransportTest >> testToolSpecsIncludesProductionCapabilities [
+	"toolSpecs must surface every registered production capability so
+	 tools/list advertises them to the MCP client. Both the canonical
+	 prefixed name and any declared bare-name alias appear."
 	| names |
 	names := (SmallChatMCPCapabilityTransport new toolSpecs collect: [ :s | s at: 'name' ]) asArray.
+	self assert: (names includes: 'vcs.status').
 	self assert: (names includes: 'status').
+	self assert: (names includes: 'eval.smalltalk').
 	self assert: (names includes: 'evaluate')
 ]
