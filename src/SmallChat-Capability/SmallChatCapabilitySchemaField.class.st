@@ -19,6 +19,15 @@ SmallChatCapabilitySchemaField class >> name: aName type: aTypeSymbol required: 
 		setName: aName type: aTypeSymbol required: aBoolean description: aDescriptionString
 ]
 
+{ #category : 'emitting' }
+SmallChatCapabilitySchemaField >> asJsonSchemaProperty [
+	"The per-property dict that goes under #properties in the parent object."
+	^ Dictionary new
+		at: 'type' put: type asString;
+		at: 'description' put: description;
+		yourself
+]
+
 { #category : 'accessing' }
 SmallChatCapabilitySchemaField >> description [ ^ description
 ]

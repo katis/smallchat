@@ -5,6 +5,16 @@ Class {
 	#package : 'SmallChat-Capability-Tests'
 }
 
+{ #category : 'tests-emitters' }
+SmallChatCapabilitySchemaTest >> testEmptySchemaEmitsObjectWithEmptyPropertiesAndRequired [
+	"Matches today's no-arg SmallChatTool>>inputSchema shape exactly."
+	| s |
+	s := SmallChatCapabilitySchema empty asJsonSchema.
+	self assert: (s at: 'type') equals: 'object'.
+	self assert: (s at: 'properties') isEmpty.
+	self assert: (s at: 'required') asArray equals: #()
+]
+
 { #category : 'tests' }
 SmallChatCapabilitySchemaTest >> testEmptySchemaHasNoFields [
 	"Capabilities that take no arguments use SmallChatCapabilitySchema empty."

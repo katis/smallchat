@@ -14,6 +14,23 @@ SmallChatCapabilitySchema class >> empty [
 	^ self new
 ]
 
+{ #category : 'emitting' }
+SmallChatCapabilitySchema >> asJsonSchema [
+	"Emit a JSON Schema dictionary matching today's SmallChatTool>>inputSchema
+	 shape: { type: 'object', properties: { ... }, required: #(...) }."
+	| properties required |
+	properties := Dictionary new.
+	required := OrderedCollection new.
+	fields do: [ :f |
+		properties at: f name put: f asJsonSchemaProperty.
+		f required ifTrue: [ required add: f name ] ].
+	^ Dictionary new
+		at: 'type' put: 'object';
+		at: 'properties' put: properties;
+		at: 'required' put: required asArray;
+		yourself
+]
+
 { #category : 'accessing' }
 SmallChatCapabilitySchema >> fields [
 	"Ordered collection of SmallChatCapabilitySchemaField. Order is the
