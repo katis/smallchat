@@ -3,11 +3,24 @@ Class {
 	#superclass : 'Object',
 	#instVars : [
 		'kind',
-		'text'
+		'text',
+		'debugSession'
 	],
 	#category : 'SmallChat-Capability',
 	#package : 'SmallChat-Capability'
 }
+
+{ #category : 'instance creation' }
+SmallChatCapabilityResult class >> debugSession: aSmallChatDebugSession [
+	"Construct a debug-session-shaped result. Carried object is the
+	 SmallChatDebugSession the evaluator captured; transport renders the
+	 reply with id + frame metadata so the agent can drive debug_*."
+	| r |
+	r := self new.
+	r setKind: #debugSession text: nil.
+	r privateDebugSession: aSmallChatDebugSession.
+	^ r
+]
 
 { #category : 'instance creation' }
 SmallChatCapabilityResult class >> error: aString [
@@ -24,10 +37,21 @@ SmallChatCapabilityResult class >> text: aString [
 ]
 
 { #category : 'accessing' }
+SmallChatCapabilityResult >> debugSession [
+	"SmallChatDebugSession instance for #debugSession results, nil otherwise."
+	^ debugSession
+]
+
+{ #category : 'accessing' }
 SmallChatCapabilityResult >> kind [
 	"#text / #json / #image / #debugSession / #error. Discriminator for
 	 transport-side rendering."
 	^ kind
+]
+
+{ #category : 'private' }
+SmallChatCapabilityResult >> privateDebugSession: aSession [
+	debugSession := aSession
 ]
 
 { #category : 'private' }

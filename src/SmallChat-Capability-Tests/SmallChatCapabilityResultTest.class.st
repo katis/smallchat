@@ -6,6 +6,17 @@ Class {
 }
 
 { #category : 'tests' }
+SmallChatCapabilityResultTest >> testDebugSessionResultCarriesSession [
+	"The captured debug session is a SmallChatDebugSession (registry id, etc.).
+	 Transport renders it differently from text."
+	| stub r |
+	stub := Object new.
+	r := SmallChatCapabilityResult debugSession: stub.
+	self assert: r kind equals: #debugSession.
+	self assert: r debugSession == stub
+]
+
+{ #category : 'tests' }
 SmallChatCapabilityResultTest >> testErrorResultCarriesTextWithErrorKind [
 	| r |
 	r := SmallChatCapabilityResult error: 'boom'.
