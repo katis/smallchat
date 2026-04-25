@@ -39,6 +39,22 @@ SmallChatTSGrammarTest >> testTsxIsCachedSingleton [
 ]
 
 { #category : 'tests' }
+SmallChatTSGrammarTest >> testTsxLanguageIsResolvedFromDylibOnEachAccess [
+  "Image save/restart nils FFI handles, leaving cached TSLanguage wrappers with
+   a NULL ExternalAddress. The fix: `language` re-resolves from the dylib on
+   every access, so the cached SmallChatTSGrammar wrapper never holds a stale
+   handle. Different wrapper objects per call, same underlying C pointer."
+  | a b |
+  self isAvailable ifFalse: [ ^ self skip ].
+  SmallChatTSGrammar reset.
+  a := SmallChatTSGrammar tsx language.
+  b := SmallChatTSGrammar tsx language.
+  self deny: a == b.
+  self assert: a getHandle = b getHandle.
+  self deny: a getHandle isNull
+]
+
+{ #category : 'tests' }
 SmallChatTSGrammarTest >> testTsxReturnsNonNilLanguagePointer [
 	self isAvailable ifFalse: [ ^ self skip ].
 	self assert: SmallChatTSGrammar tsx language isNil not
