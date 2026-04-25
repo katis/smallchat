@@ -39,9 +39,10 @@ SmallChatWorkspaceEditApplier >> applyTextEdits: anArray to: aString [
 SmallChatWorkspaceEditApplier >> applyWorkspaceEdit: aWorkspaceEdit [
   "Read sources from disk, snapshot originals, run the in-memory transform,
    and on success write each new source back through the injected FileSystem.
-   The result carries a rollback token (uri -> original bytes) the caller can
-   pass to rollback: to restore."
-  | sources snapshot result |
+   Rolls back already-written URIs if any write fails mid-batch and returns
+   an error result. Successful applies attach the snapshot dictionary as
+   rollbackToken on the result."
+  | sources snapshot result writtenUris |
   sources := Dictionary new.
   snapshot := Dictionary new.
   (self urisFromWorkspaceEdit: aWorkspaceEdit) do: [ :uri | | original |
@@ -50,8 +51,16 @@ SmallChatWorkspaceEditApplier >> applyWorkspaceEdit: aWorkspaceEdit [
     snapshot at: uri put: original ].
   result := self applyWorkspaceEdit: aWorkspaceEdit withSources: sources.
   result isSuccess ifFalse: [ ^ result ].
-  sources keysDo: [ :uri |
-    self writeSource: (result newSourceFor: uri) to: uri ].
+  writtenUris := OrderedCollection new.
+  [
+    sources keysDo: [ :uri |
+      self writeSource: (result newSourceFor: uri) to: uri.
+      writtenUris add: uri ]
+  ] on: Error do: [ :e |
+    writtenUris do: [ :uri |
+      [ self writeSource: (snapshot at: uri) to: uri ]
+        on: Error do: [ :_ | "best-effort restore" ] ].
+    ^ SmallChatApplyResult errorReason: 'Write failed: ' , e messageText ].
   result rollbackToken: snapshot.
   ^ result
 ]

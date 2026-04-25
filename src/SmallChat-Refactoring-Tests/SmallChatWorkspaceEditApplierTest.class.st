@@ -246,3 +246,45 @@ SmallChatWorkspaceEditApplierTest >> testSingleTextEditReplacesRange [
   self assert: result isSuccess.
   self assert: (result newSourceFor: 'file:///t/a.txt') equals: 'Hello, there!'
 ]
+
+{ #category : 'tests' }
+SmallChatWorkspaceEditApplierTest >> testWriteFailureMidBatchRestoresAlreadyWrittenFiles [
+  "When the write loop fails partway through (here: a stub applier raises on
+   URI 2's write) any URI written before the failure must be restored from
+   its snapshot. Applier returns an error result; URI 1 is back to its
+   original bytes; URI 2 still holds its original."
+  | applier fs file1 file2 uri1 uri2 edit result |
+  fs := FileSystem memory.
+  file1 := fs / '/a.txt'.
+  file2 := fs / '/b.txt'.
+  file1 writeStreamDo: [ :s | s nextPutAll: 'alpha original' ].
+  file2 writeStreamDo: [ :s | s nextPutAll: 'beta original' ].
+  uri1 := 'file://' , file1 fullName.
+  uri2 := 'file://' , file2 fullName.
+  applier := SmallChatWorkspaceEditApplierWriteFailureStub new
+    fileSystem: fs;
+    failOnUri: uri2;
+    yourself.
+  edit := Dictionary new
+    at: 'changes' put: (Dictionary new
+      at: uri1 put: (Array with: (Dictionary new
+        at: 'range' put: (Dictionary new
+          at: 'start' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 0; yourself);
+          at: 'end' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 5; yourself);
+          yourself);
+        at: 'newText' put: 'ALPHA';
+        yourself));
+      at: uri2 put: (Array with: (Dictionary new
+        at: 'range' put: (Dictionary new
+          at: 'start' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 0; yourself);
+          at: 'end' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 4; yourself);
+          yourself);
+        at: 'newText' put: 'BETA';
+        yourself));
+      yourself);
+    yourself.
+  result := applier applyWorkspaceEdit: edit.
+  self deny: result isSuccess.
+  self assert: (file1 readStreamDo: [ :s | s upToEnd ]) equals: 'alpha original'.
+  self assert: (file2 readStreamDo: [ :s | s upToEnd ]) equals: 'beta original'
+]
