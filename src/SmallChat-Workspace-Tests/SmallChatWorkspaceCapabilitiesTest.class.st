@@ -15,6 +15,14 @@ SmallChatWorkspaceCapabilitiesTest >> callAttachWith: anArgsDict [
 	^ SmallChatCapabilityRegistry default run: 'workspace.attach-ts' with: call
 ]
 
+{ #category : 'helpers' }
+SmallChatWorkspaceCapabilitiesTest >> callDetachWith: anArgsDict [
+	| call |
+	call := SmallChatCapabilityCall name: 'workspace.detach'
+		argumentsJson: (STONJSON toString: anArgsDict).
+	^ SmallChatCapabilityRegistry default run: 'workspace.detach' with: call
+]
+
 { #category : 'running' }
 SmallChatWorkspaceCapabilitiesTest >> setUp [
 	super setUp.
@@ -87,6 +95,40 @@ SmallChatWorkspaceCapabilitiesTest >> testCurrentReturnsPharoDescribe [
 	json := STONJSON fromString: result text.
 	self assert: (json at: 'kind') equals: 'pharo'.
 	self assert: (json at: 'name') equals: 'pharo'
+]
+
+{ #category : 'tests' }
+SmallChatWorkspaceCapabilitiesTest >> testDetachRefusesPharoWorkspace [
+	| result |
+	result := self callDetachWith: (Dictionary new at: 'name' put: 'pharo'; yourself).
+	self assert: result kind equals: #error.
+	self assert: (result text includesSubstring: 'pharo').
+	self assert: SmallChatCapabilityRegistry default mountedWorkspaces size equals: 1
+]
+
+{ #category : 'tests' }
+SmallChatWorkspaceCapabilitiesTest >> testDetachShutsDownTsWorkspace [
+	"After detaching, the LSP transport should have seen shutdown."
+	| stub stubClient ws result |
+	stub := SmallChatLSPStubTransport new.
+	stubClient := SmallChatLSPClient new transport: stub.
+	SmallChatTsWorkspace launcherBlock: [ :p | stubClient ].
+	self callAttachWith: (Dictionary new at: 'path' put: '/tmp/smallchat-detach-1'; at: 'name' put: 'to-detach'; yourself).
+	ws := SmallChatCapabilityRegistry default mountedWorkspaceNamed: 'to-detach'.
+	self assert: ws notNil.
+	self deny: stub shutdownCalled.
+	result := self callDetachWith: (Dictionary new at: 'name' put: 'to-detach'; yourself).
+	self assert: result kind equals: #text.
+	self assert: stub shutdownCalled.
+	self assert: (SmallChatCapabilityRegistry default mountedWorkspaceNamed: 'to-detach') isNil
+]
+
+{ #category : 'tests' }
+SmallChatWorkspaceCapabilitiesTest >> testDetachUnknownNameErrors [
+	| result |
+	result := self callDetachWith: (Dictionary new at: 'name' put: 'nope'; yourself).
+	self assert: result kind equals: #error.
+	self assert: (result text includesSubstring: 'nope')
 ]
 
 { #category : 'tests' }

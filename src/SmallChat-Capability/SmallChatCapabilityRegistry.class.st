@@ -137,6 +137,16 @@ SmallChatCapabilityRegistry >> uiProcessProvider: aBlock [
 	uiProcessProvider := aBlock
 ]
 
+{ #category : 'workspaces' }
+SmallChatCapabilityRegistry >> unmountWorkspace: aWorkspace [
+	"Remove aWorkspace from mountedWorkspaces. If it is the current workspace,
+	 fall back to the Pharo workspace. Returns aWorkspace."
+	self mountedWorkspaces remove: aWorkspace ifAbsent: [ nil ].
+	(currentWorkspace == aWorkspace)
+		ifTrue: [ currentWorkspace := SmallChatPharoWorkspace default ].
+	^ aWorkspace
+]
+
 { #category : 'execution' }
 SmallChatCapabilityRegistry >> workspaceFor: aCall [
 	"Resolve the workspace this call should dispatch against.
