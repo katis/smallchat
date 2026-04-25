@@ -66,6 +66,30 @@ SmallChatCapabilityRegistry >> currentWorkspace: aWorkspace [
 	currentWorkspace := aWorkspace
 ]
 
+{ #category : 'workspaces' }
+SmallChatCapabilityRegistry >> mountWorkspace: aWorkspace [
+	"Append aWorkspace to mountedWorkspaces. Caller is responsible for
+	 path/name uniqueness checks -- this is a low-level append."
+	self mountedWorkspaces addLast: aWorkspace.
+	^ aWorkspace
+]
+
+{ #category : 'workspaces' }
+SmallChatCapabilityRegistry >> mountedWorkspaceForPath: aFileReference [
+	"Return an already-mounted TS workspace whose canonical path matches
+	 aFileReference, or nil. Comparison uses resolved canonical refs so
+	 /var vs /private/var on macOS hit the same entry."
+	^ self mountedWorkspaces detect: [ :ws |
+		(ws kind = #ts) and: [ ([ ws path resolve = aFileReference resolve ] on: Error do: [ :_ | false ]) ] ]
+		ifNone: [ nil ]
+]
+
+{ #category : 'workspaces' }
+SmallChatCapabilityRegistry >> mountedWorkspaceNamed: aString [
+	"Return any mounted workspace whose name equals aString, or nil."
+	^ self mountedWorkspaces detect: [ :ws | ws name = aString ] ifNone: [ nil ]
+]
+
 { #category : 'accessing' }
 SmallChatCapabilityRegistry >> mountedWorkspaces [
 	"Workspaces this registry knows about. The Pharo workspace is always

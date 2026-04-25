@@ -79,6 +79,15 @@ SmallChatTsWorkspace >> attachedAt: aDateAndTime [ attachedAt := aDateAndTime
 ]
 
 { #category : 'accessing' }
+SmallChatTsWorkspace >> describeAsDict [
+	| dict |
+	dict := super describeAsDict.
+	path ifNotNil: [ dict at: 'path' put: path fullName ].
+	attachedAt ifNotNil: [ dict at: 'attachedAt' put: attachedAt printString ].
+	^ dict
+]
+
+{ #category : 'accessing' }
 SmallChatTsWorkspace >> lspClient [ ^ lspClient
 ]
 
