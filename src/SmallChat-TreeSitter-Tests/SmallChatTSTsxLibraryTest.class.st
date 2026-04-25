@@ -12,7 +12,10 @@ SmallChatTSTsxLibraryTest class >> isAvailable [
 
 { #category : 'availability' }
 SmallChatTSTsxLibraryTest >> isAvailable [
-	"Skip when libtree-sitter-tsx is not staged in the VM Plugins dir."
+	"Skip when libtree-sitter-tsx is not staged in the VM Plugins dir,
+	or when the TreeSitter binding (TSLanguage etc.) is not loaded -- the
+	FFI call's TSLanguage* return type requires the Pharo class."
+	(Smalltalk globals includesKey: #TSLanguage) ifFalse: [ ^ false ].
 	^ [ FFIMacLibraryFinder findAnyLibrary: #( 'libtree-sitter-tsx.dylib' ). true ]
 		on: Error
 		do: [ :_ | false ]
