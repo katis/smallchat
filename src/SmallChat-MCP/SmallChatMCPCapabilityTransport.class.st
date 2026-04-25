@@ -101,3 +101,33 @@ SmallChatMCPCapabilityTransport >> resolveAlias: aName [
 	 alias is registered."
 	^ self aliases at: aName ifAbsent: [ aName ]
 ]
+
+{ #category : 'tools-list' }
+SmallChatMCPCapabilityTransport >> specDictForCapability: aCapability [
+	"One spec dict per capability: name + description + inputSchema."
+	^ Dictionary new
+		at: 'name' put: aCapability capabilityName;
+		at: 'description' put: aCapability description;
+		at: 'inputSchema' put: aCapability schema asJsonSchema;
+		yourself
+]
+
+{ #category : 'tools-list' }
+SmallChatMCPCapabilityTransport >> toolSpecs [
+	"Combined tools/list response: spec dicts for every registered
+	 production capability plus every legacy SmallChatTool. Test fixtures
+	 are filtered via #isTestFixture."
+	| specs seen |
+	specs := OrderedCollection new.
+	seen := Set new.
+	SmallChatCapabilityRegistry default allCapabilities do: [ :cap |
+		cap isTestFixture ifFalse: [
+			specs add: (self specDictForCapability: cap).
+			seen add: cap capabilityName ] ].
+	"Legacy tools not yet migrated: include their specs verbatim from the
+	 old registry. Aliases collide on a name we've already added; skip."
+	SmallChatToolRegistry default toolSpecs do: [ :legacy |
+		(seen includes: (legacy at: 'name'))
+			ifFalse: [ specs add: legacy ] ].
+	^ specs asArray
+]

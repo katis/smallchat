@@ -88,3 +88,22 @@ SmallChatMCPCapabilityTransportTest >> testDispatchTextResultProducesContentDict
 	self assert: (content first at: 'text') equals: 'ok'.
 	self deny: (reply includesKey: 'isError')
 ]
+
+{ #category : 'tests' }
+SmallChatMCPCapabilityTransportTest >> testToolSpecsExcludesTestFixtures [
+	"Test-only capability subclasses are tagged via #isTestFixture and must
+	 never appear in tools/list -- they're internal scaffolding."
+	| names |
+	names := (SmallChatMCPCapabilityTransport new toolSpecs collect: [ :s | s at: 'name' ]) asArray.
+	self assert: (names noneSatisfy: [ :n | n beginsWith: 'test.fake.' ])
+]
+
+{ #category : 'tests' }
+SmallChatMCPCapabilityTransportTest >> testToolSpecsIncludesLegacyTools [
+	"During migration, toolSpecs must include the not-yet-migrated legacy
+	 SmallChatTool subclasses so tools/list still advertises them to MCP."
+	| names |
+	names := (SmallChatMCPCapabilityTransport new toolSpecs collect: [ :s | s at: 'name' ]) asArray.
+	self assert: (names includes: 'status').
+	self assert: (names includes: 'evaluate')
+]

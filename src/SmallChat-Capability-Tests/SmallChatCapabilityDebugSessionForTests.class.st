@@ -16,6 +16,10 @@ SmallChatCapabilityDebugSessionForTests class >> capabilityName [ ^ 'test.fake.d
 SmallChatCapabilityDebugSessionForTests class >> description [ ^ 'Returns a stub debugSession result. For tests.'
 ]
 
+{ #category : 'metadata' }
+SmallChatCapabilityDebugSessionForTests class >> isTestFixture [ ^ true
+]
+
 { #category : 'execution' }
 SmallChatCapabilityDebugSessionForTests class >> run: aCapabilityCall [
 	^ SmallChatCapabilityResult debugSession: session

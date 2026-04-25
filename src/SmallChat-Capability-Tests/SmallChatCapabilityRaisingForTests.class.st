@@ -13,6 +13,10 @@ SmallChatCapabilityRaisingForTests class >> capabilityName [ ^ 'test.fake.raisin
 SmallChatCapabilityRaisingForTests class >> description [ ^ 'Always raises. For wrap tests.'
 ]
 
+{ #category : 'metadata' }
+SmallChatCapabilityRaisingForTests class >> isTestFixture [ ^ true
+]
+
 { #category : 'execution' }
 SmallChatCapabilityRaisingForTests class >> run: aCapabilityCall [
 	"Always raises -- exercises the registry's exception capture wrap."

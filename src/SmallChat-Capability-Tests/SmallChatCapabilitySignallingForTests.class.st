@@ -13,6 +13,10 @@ SmallChatCapabilitySignallingForTests class >> capabilityName [ ^ 'test.fake.sig
 SmallChatCapabilitySignallingForTests class >> description [ ^ 'Signals a Notification, then succeeds. For wrap tests.'
 ]
 
+{ #category : 'metadata' }
+SmallChatCapabilitySignallingForTests class >> isTestFixture [ ^ true
+]
+
 { #category : 'execution' }
 SmallChatCapabilitySignallingForTests class >> run: aCapabilityCall [
 	"Signals a Notification (Pharo's default handler writes to stdout --

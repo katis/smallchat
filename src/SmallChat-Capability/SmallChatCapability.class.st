@@ -26,6 +26,14 @@ SmallChatCapability class >> isAbstract [
 	^ self == SmallChatCapability
 ]
 
+{ #category : 'metadata' }
+SmallChatCapability class >> isTestFixture [
+	"Override to true on test-only subclasses so transports can filter them
+	 out of agent-facing surfaces (tools/list, LM tool catalog). Production
+	 capabilities leave this at false."
+	^ false
+]
+
 { #category : 'execution' }
 SmallChatCapability class >> run: aCapabilityCall [
 	"Receive a SmallChatCapabilityCall and return a SmallChatCapabilityResult.

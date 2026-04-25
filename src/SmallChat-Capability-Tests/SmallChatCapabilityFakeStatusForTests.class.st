@@ -13,6 +13,10 @@ SmallChatCapabilityFakeStatusForTests class >> capabilityName [ ^ 'test.fake.sta
 SmallChatCapabilityFakeStatusForTests class >> description [ ^ 'Fake capability for registry tests.'
 ]
 
+{ #category : 'metadata' }
+SmallChatCapabilityFakeStatusForTests class >> isTestFixture [ ^ true
+]
+
 { #category : 'execution' }
 SmallChatCapabilityFakeStatusForTests class >> run: aCapabilityCall [ ^ SmallChatCapabilityResult text: 'ok'
 ]

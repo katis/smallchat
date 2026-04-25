@@ -13,6 +13,10 @@ SmallChatCapabilityImageForTests class >> capabilityName [ ^ 'test.fake.image'
 SmallChatCapabilityImageForTests class >> description [ ^ 'Returns a tiny PNG-prefix byte array.'
 ]
 
+{ #category : 'metadata' }
+SmallChatCapabilityImageForTests class >> isTestFixture [ ^ true
+]
+
 { #category : 'execution' }
 SmallChatCapabilityImageForTests class >> run: aCapabilityCall [
 	^ SmallChatCapabilityResult image: #(137 80 78 71) asByteArray mimeType: 'image/png'
