@@ -6,6 +6,16 @@ Class {
 }
 
 { #category : 'tests' }
+SmallChatMCPCapabilityTransportTest >> testCapabilityMcpAliasesAreResolvedByTransport [
+	"Capability declares aliases via class-side #mcpAliases; transport
+	 resolves them through the capability registry."
+	| transport reply |
+	transport := SmallChatMCPCapabilityTransport new.
+	reply := transport dispatch: 'legacy.fake.alias.target' with: Dictionary new.
+	self assert: ((reply at: 'content') first at: 'text') equals: 'ok'
+]
+
+{ #category : 'tests' }
 SmallChatMCPCapabilityTransportTest >> testDispatchDebugSessionResultProducesDebugReply [
 	"Mirrors today's SmallChatToolResult>>toMcpReplyDict for debugSession:
 	 isError: true, content text is debug dict printString, debugSession key

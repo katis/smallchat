@@ -147,9 +147,12 @@ SmallChatMCPCapabilityTransport >> mcpReplyFor: aResult [
 
 { #category : 'aliases' }
 SmallChatMCPCapabilityTransport >> resolveAlias: aName [
-	"Map a name through the alias dict. Returns the original name if no
-	 alias is registered."
-	^ self aliases at: aName ifAbsent: [ aName ]
+	"Map a name through the alias dict and through capability-declared
+	 mcpAliases. Returns the original name if no alias matches."
+	(self aliases includesKey: aName) ifTrue: [ ^ self aliases at: aName ].
+	SmallChatCapabilityRegistry default allCapabilities do: [ :cap |
+		(cap mcpAliases includes: aName) ifTrue: [ ^ cap capabilityName ] ].
+	^ aName
 ]
 
 { #category : 'tools-list' }

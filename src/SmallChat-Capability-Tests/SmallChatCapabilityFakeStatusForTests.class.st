@@ -17,6 +17,13 @@ SmallChatCapabilityFakeStatusForTests class >> description [ ^ 'Fake capability 
 SmallChatCapabilityFakeStatusForTests class >> isTestFixture [ ^ true
 ]
 
+{ #category : 'metadata' }
+SmallChatCapabilityFakeStatusForTests class >> mcpAliases [
+	"For tests: declare an alias for the capability. Production capabilities
+	 declare their bare-name alias here when migrated."
+	^ #('legacy.fake.alias.target')
+]
+
 { #category : 'execution' }
 SmallChatCapabilityFakeStatusForTests class >> run: aCapabilityCall [ ^ SmallChatCapabilityResult text: 'ok'
 ]
