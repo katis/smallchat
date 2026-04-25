@@ -52,6 +52,22 @@ SmallChatCapabilityRegistryTest >> testRunDispatchesToCapability [
 ]
 
 { #category : 'tests-wrap' }
+SmallChatCapabilityRegistryTest >> testRunRaisesWhenOnUiProcess [
+	"Hard rule: capability dispatch must never run on Morphic. The wrap
+	 asserts and fails loudly so accidental wiring is caught immediately
+	 (the LM-side chat window relies on this -- a UI-process deadlock would
+	 freeze MCP and the chat transcript at once)."
+	| registry call |
+	registry := SmallChatCapabilityRegistry new.
+	registry uiProcessProvider: [ Processor activeProcess ].
+	call := SmallChatCapabilityCall name: 'test.fake.status' argumentsJson: ''.
+	self
+		should: [ registry run: 'test.fake.status' with: call ]
+		raise: Error
+		description: 'wrap should refuse to dispatch from the UI process'
+]
+
+{ #category : 'tests-wrap' }
 SmallChatCapabilityRegistryTest >> testRunResumesNotificationsBeforeOuterHandlerSees [
 	"Wrap must intercept Notifications inside #run:with: so the default handler
 	 (writes to Transcript / stdout) never runs and outer code never sees them."

@@ -1,6 +1,9 @@
 Class {
 	#name : 'SmallChatCapabilityRegistry',
 	#superclass : 'Object',
+	#instVars : [
+		'uiProcessProvider'
+	],
 	#classInstVars : [
 		'default'
 	],
@@ -39,10 +42,11 @@ SmallChatCapabilityRegistry >> capabilityNamed: aString [
 SmallChatCapabilityRegistry >> run: aName with: aCall [
 	"Dispatch aCall to the named capability under the universal cross-cutting
 	 wrap. Returns nil for unknown names so transports can fall through.
-	 Wrap captures uncaught exceptions as #error results and resumes any
-	 Notification (Pharo's default handler writes to Transcript/stdout, which
-	 would corrupt MCP framing if it reached the host process)."
+	 Wrap (1) refuses to run on the Morphic UI process, (2) resumes any
+	 Notification, (3) captures Errors as #error results."
 	| cap |
+	Processor activeProcess == self uiProcessProvider value
+		ifTrue: [ self error: 'SmallChatCapability dispatch on UI process: ' , aName ].
 	cap := self capabilityNamed: aName.
 	cap ifNil: [ ^ nil ].
 	^ [ [ cap run: aCall ]
@@ -52,4 +56,16 @@ SmallChatCapabilityRegistry >> run: aName with: aCall [
 		do: [ :e |
 			SmallChatCapabilityResult error:
 				'Error: ' , e class name , ' ' , (e messageText ifNil: [ '' ]) ]
+]
+
+{ #category : 'accessing' }
+SmallChatCapabilityRegistry >> uiProcessProvider [
+	"Block returning the process that must NOT dispatch capabilities
+	 (Morphic's UI process). Test seam."
+	^ uiProcessProvider ifNil: [ uiProcessProvider := [ UIManager default uiProcess ] ]
+]
+
+{ #category : 'accessing' }
+SmallChatCapabilityRegistry >> uiProcessProvider: aBlock [
+	uiProcessProvider := aBlock
 ]
