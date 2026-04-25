@@ -104,3 +104,113 @@ SmallChatFamixImporterDocumentSymbolTest >> testCreatesInterfaceFromTopLevelSymb
   iface := (model allWithType: SmallChatFamixInterface) first.
   self assert: iface name equals: 'IUser'
 ]
+
+{ #category : 'tests - kinds' }
+SmallChatFamixImporterDocumentSymbolTest >> testNestedConstructorEmitsMethodWithOwningClass [
+  "LSP SymbolKind 9 (Constructor) folds into SmallChatFamixMethod -- v1
+   doesn't carry an isConstructor flag (deferred per S6 / plan 03 Â§non-goals)."
+  | model importer text classSym ctorSym method |
+  model := SmallChatFamixModel new.
+  importer := self newImporterOn: model.
+  text := 'class Greeter { constructor() {} }'.
+  ctorSym := self
+    symbolNamed: 'constructor'
+    kind: 9
+    range: (self lspRangeStartLine: 0 character: 16 endLine: 0 character: 32).
+  classSym := (self
+    symbolNamed: 'Greeter'
+    kind: 5
+    range: (self lspRangeStartLine: 0 character: 0 endLine: 0 character: 34))
+    at: 'children' put: { ctorSym };
+    yourself.
+  importer
+    populateFromDocumentSymbols: { classSym }
+    intoUri: 'file:///t/Greeter.ts'
+    text: text.
+  self assert: (model allWithType: SmallChatFamixMethod) size equals: 1.
+  method := (model allWithType: SmallChatFamixMethod) first.
+  self assert: method name equals: 'constructor'.
+  self assert: method owningClass equals: (model allWithType: SmallChatFamixClass) first
+]
+
+{ #category : 'tests - nesting' }
+SmallChatFamixImporterDocumentSymbolTest >> testNestedMethodLinksToOwningClass [
+  "A Class with a nested Method DocumentSymbol child should produce a
+   SmallChatFamixClass and a SmallChatFamixMethod, with the method's
+   owningClass slot pointing back at the class."
+  | model importer text classSym methodSym famixClass method |
+  model := SmallChatFamixModel new.
+  importer := self newImporterOn: model.
+  text := 'class Greeter { greet() {} }'.
+  methodSym := self
+    symbolNamed: 'greet'
+    kind: 6
+    range: (self lspRangeStartLine: 0 character: 16 endLine: 0 character: 26).
+  classSym := (self
+    symbolNamed: 'Greeter'
+    kind: 5
+    range: (self lspRangeStartLine: 0 character: 0 endLine: 0 character: 28))
+    at: 'children' put: { methodSym };
+    yourself.
+  importer
+    populateFromDocumentSymbols: { classSym }
+    intoUri: 'file:///t/Greeter.ts'
+    text: text.
+  self assert: (model allWithType: SmallChatFamixClass) size equals: 1.
+  self assert: (model allWithType: SmallChatFamixMethod) size equals: 1.
+  famixClass := (model allWithType: SmallChatFamixClass) first.
+  method := (model allWithType: SmallChatFamixMethod) first.
+  self assert: method name equals: 'greet'.
+  self assert: method owningClass identicalTo: famixClass.
+  self assert: method sourceAnchor startByte equals: 16.
+  self assert: method sourceAnchor endByte equals: 26
+]
+
+{ #category : 'tests - kinds' }
+SmallChatFamixImporterDocumentSymbolTest >> testNestedPropertyEmitsField [
+  "LSP SymbolKind 7 (Property) -- fires for class fields, interface members,
+   object-literal keys -- maps to SmallChatFamixField (one entity, no Property
+   distinction in v1 per S6)."
+  | model importer text classSym propSym field |
+  model := SmallChatFamixModel new.
+  importer := self newImporterOn: model.
+  text := 'class Box { width = 0 }'.
+  propSym := self
+    symbolNamed: 'width'
+    kind: 7
+    range: (self lspRangeStartLine: 0 character: 12 endLine: 0 character: 21).
+  classSym := (self
+    symbolNamed: 'Box'
+    kind: 5
+    range: (self lspRangeStartLine: 0 character: 0 endLine: 0 character: 23))
+    at: 'children' put: { propSym };
+    yourself.
+  importer
+    populateFromDocumentSymbols: { classSym }
+    intoUri: 'file:///t/Box.ts'
+    text: text.
+  self assert: (model allWithType: SmallChatFamixField) size equals: 1.
+  field := (model allWithType: SmallChatFamixField) first.
+  self assert: field name equals: 'width'
+]
+
+{ #category : 'tests - kinds' }
+SmallChatFamixImporterDocumentSymbolTest >> testUnknownSymbolKindIsSilentlySkipped [
+  "Variable / Namespace / Constant / TypeParameter etc. are routed through
+   tree-sitter (or skipped). The walker must skip the symbol entirely *and*
+   not crash, but still recurse into children -- nested known kinds inside an
+   ignored Variable still get picked up."
+  | model importer varSym text |
+  model := SmallChatFamixModel new.
+  importer := self newImporterOn: model.
+  text := 'const x = 1'.
+  varSym := self
+    symbolNamed: 'x'
+    kind: 13
+    range: (self lspRangeStartLine: 0 character: 0 endLine: 0 character: 11).
+  importer
+    populateFromDocumentSymbols: { varSym }
+    intoUri: 'file:///t/x.ts'
+    text: text.
+  self assert: (model allWithType: SmallChatFamixEntity) size equals: 0
+]
