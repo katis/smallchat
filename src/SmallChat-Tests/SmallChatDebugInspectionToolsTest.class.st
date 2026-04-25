@@ -46,13 +46,13 @@ SmallChatDebugInspectionToolsTest >> testDebugFrameReturnsFrameDetails [
 
 { #category : 'tests' }
 SmallChatDebugInspectionToolsTest >> testDebugSessionsListsActiveSessions [
-    | sid listResult list |
-    sid := self captureZeroDivide.
-    listResult := SmallChatToolRegistry default run: 'debug_sessions' with: (Dictionary new).
-    list := (STONJSON fromString: ((listResult at: 'content') first at: 'text')) at: 'sessions'.
-    self assert: list size equals: 1.
-    self assert: (list first at: 'id') equals: sid.
-    self assert: (list first at: 'exceptionClass') equals: 'ZeroDivide'
+	| sid listResult list |
+	sid := self captureZeroDivide.
+	listResult := SmallChatMCPCapabilityTransport default dispatch: 'debug.sessions' with: (Dictionary new).
+	list := (STONJSON fromString: ((listResult at: 'content') first at: 'text')) at: 'sessions'.
+	self assert: list size equals: 1.
+	self assert: (list first at: 'id') equals: sid.
+	self assert: (list first at: 'exceptionClass') equals: 'ZeroDivide'
 ]
 
 { #category : 'tests' }
