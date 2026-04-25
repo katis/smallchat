@@ -22,6 +22,19 @@ SmallChatCapabilitySchemaTest >> testEmptySchemaHasNoFields [
 ]
 
 { #category : 'tests-emitters' }
+SmallChatCapabilitySchemaTest >> testOptionalFieldExcludedFromRequired [
+	"Optional fields appear in #properties but not in the #required list."
+	| s json |
+	s := SmallChatCapabilitySchema empty
+		string: 'packagePattern'
+		required: false
+		description: 'Default SmallChat.*'.
+	json := s asJsonSchema.
+	self assert: ((json at: 'properties') includesKey: 'packagePattern').
+	self assert: (json at: 'required') asArray equals: #()
+]
+
+{ #category : 'tests-emitters' }
 SmallChatCapabilitySchemaTest >> testRequiredStringFieldEmitsCorrectJsonSchema [
 	"Required scalar lands in #required; per-property carries type + description."
 	| s json props |
