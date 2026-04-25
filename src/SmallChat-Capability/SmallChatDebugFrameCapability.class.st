@@ -14,10 +14,6 @@ SmallChatDebugFrameCapability class >> description [
 	^ 'Detailed view of one frame: receiver, selector, args, temps, source.'
 ]
 
-{ #category : 'metadata' }
-SmallChatDebugFrameCapability class >> mcpAliases [ ^ #('debug_frame')
-]
-
 { #category : 'execution' }
 SmallChatDebugFrameCapability class >> run: aCapabilityCall [
 	| args sid idx session stack ctx safePrint dict |

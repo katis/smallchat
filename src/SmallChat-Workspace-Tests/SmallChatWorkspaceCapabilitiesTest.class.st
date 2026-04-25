@@ -86,18 +86,6 @@ SmallChatWorkspaceCapabilitiesTest >> testAttachTsRequiresPathArgument [
 ]
 
 { #category : 'tests' }
-SmallChatWorkspaceCapabilitiesTest >> testCurrentReturnsPharoDescribe [
-	| call result json |
-	SmallChatCapabilityRegistry reset.
-	call := SmallChatCapabilityCall name: 'workspace.current' argumentsJson: '{}'.
-	result := SmallChatCapabilityRegistry default run: 'workspace.current' with: call.
-	self assert: result kind equals: #text.
-	json := STONJSON fromString: result text.
-	self assert: (json at: 'kind') equals: 'pharo'.
-	self assert: (json at: 'name') equals: 'pharo'
-]
-
-{ #category : 'tests' }
 SmallChatWorkspaceCapabilitiesTest >> testDetachRefusesPharoWorkspace [
 	| result |
 	result := self callDetachWith: (Dictionary new at: 'name' put: 'pharo'; yourself).

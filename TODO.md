@@ -280,8 +280,10 @@ See `plans/06`. Depends on: M4, M5.
 
 - [x] `SmallChatWorkspace` abstract + `SmallChatPharoWorkspace`
   default. (2026-04-25)
-- [x] `workspace.list` / `workspace.current` capabilities.
-  (2026-04-25)
+- [x] `workspace.list` capability. (2026-04-25; once shipped alongside
+  a strict-subset `workspace.current`, which was removed in the MCP
+  alias-cleanup pass — `workspace.list` returns `{current, mounted[]}`
+  and supersedes it.)
 - [x] `SmallChatTsWorkspace` attach/detach. (2026-04-25;
   `workspace.attach-ts` is idempotent on canonical path; `workspace.detach`
   shuts down the LSP client and refuses the Pharo workspace.)

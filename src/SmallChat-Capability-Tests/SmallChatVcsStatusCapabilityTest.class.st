@@ -6,18 +6,6 @@ Class {
 }
 
 { #category : 'tests' }
-SmallChatVcsStatusCapabilityTest >> testBareStatusAliasReachesCapability [
-	"Phase 5 plan: legacy bare names 'status' / 'evaluate' / ... continue
-	 to work via aliases declared on the migrated capability. Both paths
-	 return identical content."
-	| transport viaAlias viaPrefix |
-	transport := SmallChatMCPCapabilityTransport new.
-	viaAlias := transport dispatch: 'status' with: Dictionary new.
-	viaPrefix := transport dispatch: 'vcs.status' with: Dictionary new.
-	self assert: viaAlias equals: viaPrefix
-]
-
-{ #category : 'tests' }
 SmallChatVcsStatusCapabilityTest >> testRunReturnsExpectedJsonShapeWhenRepoPresent [
 	"In the dev image the Iceberg repo is registered and the body is JSON.
 	 In the verifier no repo exists; the body is the no-repo placeholder.
@@ -34,11 +22,3 @@ SmallChatVcsStatusCapabilityTest >> testRunReturnsExpectedJsonShapeWhenRepoPrese
 	self assert: (parsed at: 'name') equals: 'smallchat'
 ]
 
-{ #category : 'tests' }
-SmallChatVcsStatusCapabilityTest >> testStatusBareNameResolvesToVcsStatus [
-	"Migrated capability declares 'status' as its MCP alias so existing
-	 mcp__smallchat__status calls continue to land on vcs.status."
-	| transport |
-	transport := SmallChatMCPCapabilityTransport new.
-	self assert: (transport resolveAlias: 'status') equals: 'vcs.status'
-]

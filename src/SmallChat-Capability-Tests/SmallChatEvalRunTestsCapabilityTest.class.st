@@ -6,13 +6,6 @@ Class {
 }
 
 { #category : 'tests' }
-SmallChatEvalRunTestsCapabilityTest >> testRunTestsAlias [
-	| transport |
-	transport := SmallChatMCPCapabilityTransport new.
-	self assert: (transport resolveAlias: 'run_tests') equals: 'eval.run-tests'
-]
-
-{ #category : 'tests' }
 SmallChatEvalRunTestsCapabilityTest >> testRunWithNoMatchingPackagesReturnsZeroCounts [
 	"Predictable degenerate case: a regex that matches nothing.
 	 Easier to keep stable than running real tests inside a test."

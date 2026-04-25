@@ -14,10 +14,6 @@ SmallChatDebugRestartCapability class >> description [
 	^ 'Restart a frame of a captured debugger session, re-executing from its method entry with the same receiver/args. Default index is 0 (signaller). After a fix, restart the caller frame to retry.'
 ]
 
-{ #category : 'metadata' }
-SmallChatDebugRestartCapability class >> mcpAliases [ ^ #('debug_restart')
-]
-
 { #category : 'execution' }
 SmallChatDebugRestartCapability class >> run: aCapabilityCall [
 	| args sid idx session outcome |

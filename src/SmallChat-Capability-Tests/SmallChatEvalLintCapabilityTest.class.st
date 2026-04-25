@@ -6,13 +6,6 @@ Class {
 }
 
 { #category : 'tests' }
-SmallChatEvalLintCapabilityTest >> testLintBareNameAliasesToEvalLint [
-	| transport |
-	transport := SmallChatMCPCapabilityTransport new.
-	self assert: (transport resolveAlias: 'lint') equals: 'eval.lint'
-]
-
-{ #category : 'tests' }
 SmallChatEvalLintCapabilityTest >> testRunReturnsJsonWithCritiquesArrayAndPackagesScanned [
 	"Run with a no-match regex so the result is fast and predictable."
 	| call result parsed |

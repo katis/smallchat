@@ -62,12 +62,6 @@ SmallChatVcsStatusCapability class >> description [
 	^ 'Working-copy + git status for the smallchat Iceberg repo. Reports the current branch, ahead/behind, whether the working copy diverges from HEAD, and a per-change summary (package, file kind, change type). Read-only.'
 ]
 
-{ #category : 'metadata' }
-SmallChatVcsStatusCapability class >> mcpAliases [
-	"'status' was the legacy bare name this capability inherits."
-	^ #('status')
-]
-
 { #category : 'private' }
 SmallChatVcsStatusCapability class >> repository [
 	| iceRepo |

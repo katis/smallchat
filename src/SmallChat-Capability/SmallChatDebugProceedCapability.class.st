@@ -14,10 +14,6 @@ SmallChatDebugProceedCapability class >> description [
 	^ 'Resume a captured debugger session without substituting a value. Equivalent to debug_return nil -- the signalling expression evaluates to nil, execution continues.'
 ]
 
-{ #category : 'metadata' }
-SmallChatDebugProceedCapability class >> mcpAliases [ ^ #('debug_proceed')
-]
-
 { #category : 'execution' }
 SmallChatDebugProceedCapability class >> run: aCapabilityCall [
 	| sid session outcome |

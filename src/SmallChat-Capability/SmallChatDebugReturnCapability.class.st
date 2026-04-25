@@ -14,10 +14,6 @@ SmallChatDebugReturnCapability class >> description [
 	^ 'Resume a captured debugger session, substituting the value of `expression` for the signalling expression. If the resumed code completes, returns the final result. If it raises again, returns a new debugSession.'
 ]
 
-{ #category : 'metadata' }
-SmallChatDebugReturnCapability class >> mcpAliases [ ^ #('debug_return')
-]
-
 { #category : 'execution' }
 SmallChatDebugReturnCapability class >> run: aCapabilityCall [
 	| args sid expr session value outcome |
@@ -26,7 +22,7 @@ SmallChatDebugReturnCapability class >> run: aCapabilityCall [
 	expr := args at: 'expression'.
 	session := SmallChatDebugSessionRegistry default at: sid.
 	session stepped ifTrue: [
-		^ self error: 'debug_return is not valid on a stepped session (no live signalling expression to substitute). Use debug_proceed to continue, or debug_terminate to drop.' ].
+		^ self error: 'debug.return is not valid on a stepped session (no live signalling expression to substitute). Use debug.proceed to continue, or debug.terminate to drop.' ].
 	value := OpalCompiler new source: expr; evaluate.
 	outcome := SmallChatDebugEvaluator resume: session with: value.
 	outcome key = #result ifTrue: [ ^ SmallChatCapabilityResult text: outcome value ].

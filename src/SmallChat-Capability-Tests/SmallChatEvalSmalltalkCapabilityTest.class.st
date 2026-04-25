@@ -6,13 +6,6 @@ Class {
 }
 
 { #category : 'tests' }
-SmallChatEvalSmalltalkCapabilityTest >> testEvaluateAlias [
-	| transport |
-	transport := SmallChatMCPCapabilityTransport new.
-	self assert: (transport resolveAlias: 'evaluate') equals: 'eval.smalltalk'
-]
-
-{ #category : 'tests' }
 SmallChatEvalSmalltalkCapabilityTest >> testRunCapturesDebugSessionOnException [
 	| call result |
 	SmallChatDebugSessionRegistry reset.

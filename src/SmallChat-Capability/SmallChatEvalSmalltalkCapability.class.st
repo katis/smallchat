@@ -14,10 +14,6 @@ SmallChatEvalSmalltalkCapability class >> description [
 	^ 'Evaluate a Smalltalk expression in the running Pharo image and return its printString. Uncaught exceptions land in a captured debug session (see debug_* tools). Use for reading state, invoking methods, or running one-shot scripts.'
 ]
 
-{ #category : 'metadata' }
-SmallChatEvalSmalltalkCapability class >> mcpAliases [ ^ #('evaluate')
-]
-
 { #category : 'execution' }
 SmallChatEvalSmalltalkCapability class >> run: aCapabilityCall [
 	"Migrated from SmallChatEvaluateTool>>run:. Outcome key #result -> text;

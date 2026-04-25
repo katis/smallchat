@@ -93,38 +93,38 @@ transports advertise it.
 
 Naming convention: prefixed lowercase identifier, dot-separated
 namespace, hyphenated within the leaf
-(`vcs.commit-files`, `eval.run-tests`, `debug.step-over`). The MCP
-transport accepts an additional bare-name alias per capability via
-`#mcpAliases` (e.g. `'status' -> vcs.status`); the LM transport
-never inherits aliases.
+(`vcs.commit-files`, `eval.run-tests`, `debug.step-over`). One canonical
+name per capability — no aliases. Claude Code renders dots as underscores
+in MCP tool names, so `eval.smalltalk` shows up as
+`mcp__smallchat__eval_smalltalk`.
 
 Core:
 
-| Capability (alias) | Purpose |
+| Capability | Purpose |
 | --- | --- |
-| `eval.smalltalk` (`evaluate`) | Run arbitrary Smalltalk; returns `printString` of the result. Uncaught exceptions land in a captured debug session. The workhorse — all compile/inspect/refactor goes through here. |
-| `eval.run-tests` (`run_tests`) | SUnit over packages matching a regex (default `SmallChat.*`). Returns `{passed, failed, errored, failures[], errors[]}`. Pass `debug_first_failure: true` to capture the first failing test as a debug session. Reflects in-image state, not disk. |
-| `eval.lint` (`lint`) | ReCriticEngine over matching packages. Returns `{critiques[]}`. |
-| `vcs.status` (`status`) | Iceberg working-copy status: branch, dirty flag, `{changeType, target, definitionClass}` changes. |
-| `vcs.commit` (`commit`) | Refreshes Tonel from in-image state and runs `commitChanges:withMessage:`. Uses `~/.gitconfig`. **No automated green guard.** |
-| `vcs.commit-files` (`commit_files`) | Shell `git add` + `git commit` for non-Iceberg-managed files (CLAUDE.md, justfile, baselines, …) followed by an Iceberg working-copy re-anchor. |
+| `eval.smalltalk` | Run arbitrary Smalltalk; returns `printString` of the result. Uncaught exceptions land in a captured debug session. The workhorse — all compile/inspect/refactor goes through here. |
+| `eval.run-tests` | SUnit over packages matching a regex (default `SmallChat.*`). Returns `{passed, failed, errored, failures[], errors[]}`. Pass `debug_first_failure: true` to capture the first failing test as a debug session. Reflects in-image state, not disk. |
+| `eval.lint` | ReCriticEngine over matching packages. Returns `{critiques[]}`. |
+| `vcs.status` | Iceberg working-copy status: branch, dirty flag, `{changeType, target, definitionClass}` changes. |
+| `vcs.commit` | Refreshes Tonel from in-image state and runs `commitChanges:withMessage:`. Uses `~/.gitconfig`. **No automated green guard.** |
+| `vcs.commit-files` | Shell `git add` + `git commit` for non-Iceberg-managed files (CLAUDE.md, justfile, baselines, …) followed by an Iceberg working-copy re-anchor. |
 
 Debug-session capabilities (operate on sessions captured by
 `eval.smalltalk` always or `eval.run-tests debug_first_failure: true`
 opt-in):
 
-| Capability (alias) | Purpose |
+| Capability | Purpose |
 | --- | --- |
-| `debug.sessions` (`debug_sessions`) | List active sessions: `[{id, exceptionClass, messageText, topFrame, createdAtMs}]`. |
-| `debug.stack` (`debug_stack`) | Stack summary (args: `sessionId`, optional `limit`). |
-| `debug.frame` (`debug_frame`) | Frame detail at index — receiver, selector, args, temps, source. |
-| `debug.evaluate` (`debug_evaluate`) | Evaluate an expression in a frame's context (`self`/args/temps in scope). Sharpest tool for root-causing. |
-| `debug.return` (`debug_return`) | Resume, substituting `expression`'s value for the signalling expression. If user code finishes, returns its final result; re-raise captures a new session. Rejected on stepped sessions. |
-| `debug.proceed` (`debug_proceed`) | Resume with `nil`. |
-| `debug.restart` (`debug_restart`) | Restart a frame from its method entry (args: `sessionId`, optional `index`, default 0). Typically `index: 1` to retry the user frame after compiling a fix. |
-| `debug.step-over` (`debug_step_over`) | Advance one message-send past the current context, pausing at the new location. First call pops the handler+suspend frames (nil-substituting the signalling expression); subsequent calls advance further. Session keeps its id and is marked stepped. |
-| `debug.step-into` (`debug_step_into`) | Like `debug.step-over` but enters the called method. Two calls are typically needed from a post-capture DoIt: first reaches the next send-site, second enters the callee. |
-| `debug.terminate` (`debug_terminate`) | Drop the session and terminate its parked process. |
+| `debug.sessions` | List active sessions: `[{id, exceptionClass, messageText, topFrame, createdAtMs}]`. |
+| `debug.stack` | Stack summary (args: `sessionId`, optional `limit`). |
+| `debug.frame` | Frame detail at index — receiver, selector, args, temps, source. |
+| `debug.evaluate` | Evaluate an expression in a frame's context (`self`/args/temps in scope). Sharpest tool for root-causing. |
+| `debug.return` | Resume, substituting `expression`'s value for the signalling expression. If user code finishes, returns its final result; re-raise captures a new session. Rejected on stepped sessions. |
+| `debug.proceed` | Resume with `nil`. |
+| `debug.restart` | Restart a frame from its method entry (args: `sessionId`, optional `index`, default 0). Typically `index: 1` to retry the user frame after compiling a fix. |
+| `debug.step-over` | Advance one message-send past the current context, pausing at the new location. First call pops the handler+suspend frames (nil-substituting the signalling expression); subsequent calls advance further. Session keeps its id and is marked stepped. |
+| `debug.step-into` | Like `debug.step-over` but enters the called method. Two calls are typically needed from a post-capture DoIt: first reaches the next send-site, second enters the callee. |
+| `debug.terminate` | Drop the session and terminate its parked process. |
 
 `eval.smalltalk`'s protocol `instructions` string documents the
 Smalltalk navigation/compile/snapshot selectors. Anything the
@@ -139,9 +139,7 @@ methods, inspecting senders) composes on top of `eval.smalltalk`.
    `#description` (free-text), `#schema` (built via the DSL on
    `SmallChatCapabilitySchema empty`), and `#run: aCall` returning a
    `SmallChatCapabilityResult`.
-3. Optional class-side `#mcpAliases ^ #('bare-name')` if the bare
-   name should keep working through MCP.
-4. The registry is reflective — no registration call needed. Both
+3. The registry is reflective — no registration call needed. Both
    transports surface the new capability immediately.
 
 Cross-cutting behaviour the registry guarantees: dispatch refuses to

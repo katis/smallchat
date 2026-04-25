@@ -14,10 +14,6 @@ SmallChatDebugEvaluateInFrameCapability class >> description [
 	^ 'Evaluate a Smalltalk expression in the context of a captured frame. `self`, args, and temps of that frame are in scope -- ideal for probing state.'
 ]
 
-{ #category : 'metadata' }
-SmallChatDebugEvaluateInFrameCapability class >> mcpAliases [ ^ #('debug_evaluate')
-]
-
 { #category : 'execution' }
 SmallChatDebugEvaluateInFrameCapability class >> run: aCapabilityCall [
 	| args sid idx expr session stack ctx result |

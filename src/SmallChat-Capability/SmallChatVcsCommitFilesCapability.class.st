@@ -49,10 +49,6 @@ SmallChatVcsCommitFilesCapability class >> gitRunner: aBlock [
 	gitRunnerOverride := aBlock
 ]
 
-{ #category : 'metadata' }
-SmallChatVcsCommitFilesCapability class >> mcpAliases [ ^ #('commit_files')
-]
-
 { #category : 'private' }
 SmallChatVcsCommitFilesCapability class >> reanchorIceberg [
 	"Rebind the smallchat working copy to the on-disk HEAD."

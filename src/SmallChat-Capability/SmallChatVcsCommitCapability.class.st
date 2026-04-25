@@ -49,10 +49,6 @@ SmallChatVcsCommitCapability class >> errorResult: aString [
 		yourself))
 ]
 
-{ #category : 'metadata' }
-SmallChatVcsCommitCapability class >> mcpAliases [ ^ #('commit')
-]
-
 { #category : 'test seams' }
 SmallChatVcsCommitCapability class >> pharoCommitOverride [
 	"Test seam: optional block (workspace, message) -> SmallChatCapabilityResult.

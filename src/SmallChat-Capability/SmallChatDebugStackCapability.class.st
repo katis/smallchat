@@ -14,10 +14,6 @@ SmallChatDebugStackCapability class >> description [
 	^ 'Return a compact stack summary for a captured debugger session: up to `limit` frames (default 20), each with index, receiverClass, selector.'
 ]
 
-{ #category : 'metadata' }
-SmallChatDebugStackCapability class >> mcpAliases [ ^ #('debug_stack')
-]
-
 { #category : 'execution' }
 SmallChatDebugStackCapability class >> run: aCapabilityCall [
 	| args sid limit session stack frames |

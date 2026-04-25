@@ -2,7 +2,6 @@ Class {
 	#name : 'SmallChatMCPCapabilityTransport',
 	#superclass : 'Object',
 	#instVars : [
-		'aliases',
 		'debuggerWatch'
 	],
 	#classInstVars : [
@@ -22,31 +21,6 @@ SmallChatMCPCapabilityTransport class >> default [
 SmallChatMCPCapabilityTransport class >> reset [
 	"Test seam: drop the cached singleton."
 	default := nil
-]
-
-{ #category : 'aliases' }
-SmallChatMCPCapabilityTransport >> aliasFor: aLegacyName put: aCapabilityName [
-	self aliases at: aLegacyName put: aCapabilityName.
-	^ self
-]
-
-{ #category : 'tools-list' }
-SmallChatMCPCapabilityTransport >> aliasSpecDictFor: aCapability aliasName: aBareName [
-	"Spec for one bare-name alias. Same schema as the canonical capability;
-	 description suffixed with `` (alias for vcs.status)`` so new agents see
-	 the canonical name."
-	^ Dictionary new
-		at: 'name' put: aBareName;
-		at: 'description' put: aCapability description , ' (alias for ' , aCapability capabilityName , ')';
-		at: 'inputSchema' put: aCapability schema asJsonSchema;
-		yourself
-]
-
-{ #category : 'aliases' }
-SmallChatMCPCapabilityTransport >> aliases [
-	"Lazily-initialised dict from legacy bare name -> prefixed capability name.
-	 MCP-only -- the LM transport never inherits aliases."
-	^ aliases ifNil: [ aliases := Dictionary new ]
 ]
 
 { #category : 'stray-debugger' }
@@ -81,16 +55,14 @@ SmallChatMCPCapabilityTransport >> decorateReply: aReplyDict withStray: descript
 
 { #category : 'dispatching' }
 SmallChatMCPCapabilityTransport >> dispatch: aName with: anArgsDict [
-	"Resolve aliases, dispatch via the capability registry, translate the
-	 result to MCP shape, decorate with stray-debugger warning. Unknown
-	 names return an #error reply."
-	| resolved call result reply stray |
+	"Dispatch via the capability registry, translate the result to MCP shape,
+	 decorate with stray-debugger warning. Unknown names return an #error reply."
+	| call result reply stray |
 	stray := [ self debuggerWatch value ] on: Error do: [ :_ | #() ].
-	resolved := self resolveAlias: aName.
 	call := SmallChatCapabilityCall
-		name: resolved
+		name: aName
 		argumentsJson: (STONJSON toString: anArgsDict).
-	result := SmallChatCapabilityRegistry default run: resolved with: call.
+	result := SmallChatCapabilityRegistry default run: aName with: call.
 	result ifNil: [
 		result := SmallChatCapabilityResult error: 'Unknown capability: ' , aName ].
 	reply := self mcpReplyFor: result.
@@ -115,7 +87,7 @@ SmallChatMCPCapabilityTransport >> mcpDebugReplyFor: aSmallChatDebugSession [
 		at: 'stackSummary' put: ((stack collect: [ :ctx |
 			[ ctx method methodClass name , '>>' , ctx method selector asString ]
 				on: Error do: [ :_ | '<unprintable frame>' ] ]) asArray);
-		at: 'hint' put: 'Debugger captured. Inspect with debug_stack / debug_frame / debug_evaluate. Resume with debug_return / debug_proceed / debug_restart. Drop with debug_terminate.';
+		at: 'hint' put: 'Debugger captured. Inspect with debug.stack / debug.frame / debug.evaluate. Resume with debug.return / debug.proceed / debug.restart. Drop with debug.terminate.';
 		yourself.
 	^ Dictionary new
 		at: 'isError' put: true;
@@ -154,16 +126,6 @@ SmallChatMCPCapabilityTransport >> mcpReplyFor: aResult [
 	self error: 'mcpReplyFor: not yet implemented for kind ' , kind printString
 ]
 
-{ #category : 'aliases' }
-SmallChatMCPCapabilityTransport >> resolveAlias: aName [
-	"Map a name through the alias dict and through capability-declared
-	 mcpAliases. Returns the original name if no alias matches."
-	(self aliases includesKey: aName) ifTrue: [ ^ self aliases at: aName ].
-	SmallChatCapabilityRegistry default allCapabilities do: [ :cap |
-		(cap mcpAliases includes: aName) ifTrue: [ ^ cap capabilityName ] ].
-	^ aName
-]
-
 { #category : 'tools-list' }
 SmallChatMCPCapabilityTransport >> specDictForCapability: aCapability [
 	"One spec dict per capability: name + description + inputSchema."
@@ -176,14 +138,12 @@ SmallChatMCPCapabilityTransport >> specDictForCapability: aCapability [
 
 { #category : 'tools-list' }
 SmallChatMCPCapabilityTransport >> toolSpecs [
-	"One spec per registered production capability plus one per #mcpAliases
-	 entry. Test fixtures filter via #isTestFixture."
+	"One spec per registered production capability. Test fixtures filter via
+	 #isTestFixture."
 	| specs |
 	specs := OrderedCollection new.
 	SmallChatCapabilityRegistry default allCapabilities do: [ :cap |
 		cap isTestFixture ifFalse: [
-			specs add: (self specDictForCapability: cap).
-			cap mcpAliases do: [ :aliasName |
-				specs add: (self aliasSpecDictFor: cap aliasName: aliasName) ] ] ].
+			specs add: (self specDictForCapability: cap) ] ].
 	^ specs asArray
 ]

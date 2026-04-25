@@ -28,10 +28,6 @@ SmallChatEvalLintCapability class >> description [
 	^ 'Run ReCriticEngine over packages matching the pattern (default ''SmallChat.*'') and return structured critiques. Mirrors `just lint`, in-image.'
 ]
 
-{ #category : 'metadata' }
-SmallChatEvalLintCapability class >> mcpAliases [ ^ #('lint')
-]
-
 { #category : 'execution' }
 SmallChatEvalLintCapability class >> run: aCapabilityCall [
 	"Migrated from SmallChatLintTool>>run:."

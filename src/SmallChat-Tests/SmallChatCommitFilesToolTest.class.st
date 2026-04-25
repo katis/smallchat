@@ -74,12 +74,11 @@ SmallChatCommitFilesToolTest >> testGitCommitFailureSkipsResync [
 ]
 
 { #category : 'tests' }
-SmallChatCommitFilesToolTest >> testIsRegisteredAsCommitFiles [
-	"Now lives on the new transport: tools/list emits commit_files alias plus
-	 vcs.commit-files canonical entry."
+SmallChatCommitFilesToolTest >> testIsRegisteredAsVcsCommitFiles [
+	"tools/list emits the canonical vcs.commit-files entry."
 	| specs spec |
 	specs := SmallChatMCPCapabilityTransport new toolSpecs.
-	spec := specs detect: [ :s | (s at: 'name') = 'commit_files' ] ifNone: [ nil ].
+	spec := specs detect: [ :s | (s at: 'name') = 'vcs.commit-files' ] ifNone: [ nil ].
 	self assert: spec notNil.
 	self assert: (spec at: 'description') isString.
 	self assert: (spec at: 'description') isEmpty not.

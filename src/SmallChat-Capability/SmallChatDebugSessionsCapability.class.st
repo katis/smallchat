@@ -13,10 +13,6 @@ SmallChatDebugSessionsCapability class >> capabilityName [ ^ 'debug.sessions'
 SmallChatDebugSessionsCapability class >> description [ ^ 'List active captured debugger sessions (id, exception class, message, top frame, age).'
 ]
 
-{ #category : 'metadata' }
-SmallChatDebugSessionsCapability class >> mcpAliases [ ^ #('debug_sessions')
-]
-
 { #category : 'execution' }
 SmallChatDebugSessionsCapability class >> run: aCapabilityCall [
 	| sessions items |

@@ -16,12 +16,12 @@ SmallChatDebugReturnToolTest >> testReturnResumesAndCompletes [
 	| result sid returnResult session |
 	SmallChatDebugSessionRegistry reset.
 	result := SmallChatMCPCapabilityTransport default
-		dispatch: 'evaluate'
+		dispatch: 'eval.smalltalk'
 		with: (Dictionary new at: 'code' put: '1/0'; yourself).
 	sid := (result at: 'debugSession') at: 'id'.
 	session := SmallChatDebugSessionRegistry default at: sid.
 	returnResult := SmallChatMCPCapabilityTransport default
-		dispatch: 'debug_return'
+		dispatch: 'debug.return'
 		with: (Dictionary new
 			at: 'sessionId' put: sid;
 			at: 'expression' put: '42';

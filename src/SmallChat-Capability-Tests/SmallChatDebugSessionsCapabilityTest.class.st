@@ -6,13 +6,6 @@ Class {
 }
 
 { #category : 'tests' }
-SmallChatDebugSessionsCapabilityTest >> testDebugSessionsAlias [
-	| transport |
-	transport := SmallChatMCPCapabilityTransport new.
-	self assert: (transport resolveAlias: 'debug_sessions') equals: 'debug.sessions'
-]
-
-{ #category : 'tests' }
 SmallChatDebugSessionsCapabilityTest >> testRunReturnsSessionsArray [
 	| call result parsed |
 	call := SmallChatCapabilityCall name: 'debug.sessions' argumentsJson: ''.

@@ -54,10 +54,6 @@ SmallChatEvalRunTestsCapability class >> matchingTestClasses: packagePattern [
 	^ testClasses
 ]
 
-{ #category : 'metadata' }
-SmallChatEvalRunTestsCapability class >> mcpAliases [ ^ #('run_tests')
-]
-
 { #category : 'execution' }
 SmallChatEvalRunTestsCapability class >> run: aCapabilityCall [
 	"Migrated from SmallChatRunTestsTool>>run:."

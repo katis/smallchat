@@ -14,10 +14,6 @@ SmallChatDebugTerminateCapability class >> description [
 	^ 'Drop a captured debugger session and terminate its parked process. Use when the captured state isn''t worth investigating further or when cleanup is needed.'
 ]
 
-{ #category : 'metadata' }
-SmallChatDebugTerminateCapability class >> mcpAliases [ ^ #('debug_terminate')
-]
-
 { #category : 'execution' }
 SmallChatDebugTerminateCapability class >> run: aCapabilityCall [
 	| args sid session |

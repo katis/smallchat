@@ -34,14 +34,6 @@ SmallChatCapability class >> isTestFixture [
 	^ false
 ]
 
-{ #category : 'metadata' }
-SmallChatCapability class >> mcpAliases [
-	"Bare-name aliases the MCP transport accepts in addition to #capabilityName.
-	 Default: none. Migrated tools override to declare their legacy bare name
-	 (e.g. 'status' -> vcs.status) so existing Claude Code prompts keep working."
-	^ #()
-]
-
 { #category : 'execution' }
 SmallChatCapability class >> run: aCapabilityCall [
 	"Receive a SmallChatCapabilityCall and return a SmallChatCapabilityResult.

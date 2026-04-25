@@ -16,9 +16,9 @@ SmallChatDebugProceedRestartToolTest >> tearDown [
 SmallChatDebugProceedRestartToolTest >> testProceedReturnsNilAsFinalResult [
     | evaluateResult sid proceedResult |
     SmallChatDebugSessionRegistry reset.
-    evaluateResult := SmallChatMCPCapabilityTransport default dispatch: 'evaluate' with: (Dictionary new at: 'code' put: '1/0. 99'; yourself).
+    evaluateResult := SmallChatMCPCapabilityTransport default dispatch: 'eval.smalltalk' with: (Dictionary new at: 'code' put: '1/0. 99'; yourself).
     sid := (evaluateResult at: 'debugSession') at: 'id'.
-    proceedResult := SmallChatMCPCapabilityTransport default dispatch: 'debug_proceed' with: (Dictionary new at: 'sessionId' put: sid; yourself).
+    proceedResult := SmallChatMCPCapabilityTransport default dispatch: 'debug.proceed' with: (Dictionary new at: 'sessionId' put: sid; yourself).
     "After proceed, 1/0 -> nil. Then `. 99` runs and yields 99."
     self assert: ((proceedResult at: 'content') first at: 'text') equals: '99'.
     self should: [ SmallChatDebugSessionRegistry default at: sid ] raise: Error
@@ -29,12 +29,12 @@ SmallChatDebugProceedRestartToolTest >> testRestartRetriesFrameAfterFix [
     | evalResult sid restartResult |
     SmallChatDebugSessionRegistry reset.
     Smalltalk globals at: #TestRestartFlag put: false.
-    evalResult := SmallChatMCPCapabilityTransport default dispatch: 'evaluate' with: (Dictionary new
+    evalResult := SmallChatMCPCapabilityTransport default dispatch: 'eval.smalltalk' with: (Dictionary new
         at: 'code' put: '(Smalltalk globals at: #TestRestartFlag) ifTrue: [ 42 ] ifFalse: [ 1/0 ]';
         yourself).
     sid := (evalResult at: 'debugSession') at: 'id'.
     Smalltalk globals at: #TestRestartFlag put: true.
-    restartResult := SmallChatMCPCapabilityTransport default dispatch: 'debug_restart' with: (Dictionary new
+    restartResult := SmallChatMCPCapabilityTransport default dispatch: 'debug.restart' with: (Dictionary new
         at: 'sessionId' put: sid;
         at: 'index' put: 1;
         yourself).

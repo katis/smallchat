@@ -14,10 +14,6 @@ SmallChatDebugStepOverCapability class >> description [
 	^ 'Advance one message-send past the current ictx of a captured debugger session, pausing at the new location. First call pops the handler+suspend frames (nil-substituting the signalling expression); subsequent calls advance further. The session keeps the same id and is marked stepped; follow up with debug_step_over/into, debug_proceed, or debug_terminate. debug_return is rejected on stepped sessions.'
 ]
 
-{ #category : 'metadata' }
-SmallChatDebugStepOverCapability class >> mcpAliases [ ^ #('debug_step_over')
-]
-
 { #category : 'execution' }
 SmallChatDebugStepOverCapability class >> run: aCapabilityCall [
 	| sid session outcome |
