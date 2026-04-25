@@ -1,0 +1,65 @@
+Class {
+	#name : 'SmallChatFamixImporterDocumentSymbolTest',
+	#superclass : 'TestCase',
+	#category : 'SmallChat-Famix-Importer-Tests',
+	#package : 'SmallChat-Famix-Importer-Tests'
+}
+
+{ #category : 'helpers' }
+SmallChatFamixImporterDocumentSymbolTest >> lspRangeStartLine: sl character: sc endLine: el character: ec [
+  ^ Dictionary new
+    at: 'start' put: (Dictionary new
+      at: 'line' put: sl;
+      at: 'character' put: sc;
+      yourself);
+    at: 'end' put: (Dictionary new
+      at: 'line' put: el;
+      at: 'character' put: ec;
+      yourself);
+    yourself
+]
+
+{ #category : 'helpers' }
+SmallChatFamixImporterDocumentSymbolTest >> newImporterOn: aModel [
+  ^ SmallChatFamixImporter new
+    model: aModel
+    client: nil
+    parser: nil
+    walker: nil
+]
+
+{ #category : 'helpers' }
+SmallChatFamixImporterDocumentSymbolTest >> symbolNamed: aName kind: aKind range: aRange [
+  ^ Dictionary new
+    at: 'name' put: aName;
+    at: 'kind' put: aKind;
+    at: 'range' put: aRange;
+    yourself
+]
+
+{ #category : 'tests - kinds' }
+SmallChatFamixImporterDocumentSymbolTest >> testCreatesClassFromTopLevelSymbol [
+  "Plain top-level `class Button {}` -- LSP SymbolKind 5 maps to
+   SmallChatFamixClass with name from the symbol and a source anchor
+   covering the symbol's range bytes."
+  | model importer text symbol uri famixClass anchor |
+  model := SmallChatFamixModel new.
+  importer := self newImporterOn: model.
+  text := 'class Button {}'.
+  uri := 'file:///test/Button.ts'.
+  symbol := self
+    symbolNamed: 'Button'
+    kind: 5
+    range: (self lspRangeStartLine: 0 character: 0 endLine: 0 character: 15).
+  importer
+    populateFromDocumentSymbols: { symbol }
+    intoUri: uri
+    text: text.
+  self assert: (model allWithType: SmallChatFamixClass) size equals: 1.
+  famixClass := (model allWithType: SmallChatFamixClass) first.
+  self assert: famixClass name equals: 'Button'.
+  anchor := famixClass sourceAnchor.
+  self assert: anchor fileUri equals: uri.
+  self assert: anchor startByte equals: 0.
+  self assert: anchor endByte equals: 15
+]
