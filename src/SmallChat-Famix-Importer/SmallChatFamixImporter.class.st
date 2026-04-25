@@ -11,6 +11,24 @@ Class {
 	#package : 'SmallChat-Famix-Importer'
 }
 
+{ #category : 'classification' }
+SmallChatFamixImporter class >> classifyResolvedUri: aResolvedUri againstRoot: aRootUri [
+  "Bucket a textDocument/definition resolution into one of:
+   #unresolved (nil or empty), #nodeModules (node_modules anywhere on the
+   path -- check before #srcLocal because node_modules typically lives
+   inside the project root), #srcLocal (under aRootUri),
+   #virtualModule (resolved but outside the project root and not in
+   node_modules; covers Cloudflare cloudflare:workers and similar virtual
+   specifiers per S6)."
+  (aResolvedUri isNil or: [ aResolvedUri isEmpty ])
+    ifTrue: [ ^ #unresolved ].
+  (aResolvedUri includesSubstring: 'node_modules/')
+    ifTrue: [ ^ #nodeModules ].
+  (aRootUri notNil and: [ aResolvedUri beginsWith: aRootUri ])
+    ifTrue: [ ^ #srcLocal ].
+  ^ #virtualModule
+]
+
 { #category : 'symbol mapping' }
 SmallChatFamixImporter >> anchorForSymbol: aSymbol uri: aUri text: aText [
   | range |
