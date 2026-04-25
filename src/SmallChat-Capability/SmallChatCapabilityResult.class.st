@@ -4,7 +4,9 @@ Class {
 	#instVars : [
 		'kind',
 		'text',
-		'debugSession'
+		'debugSession',
+		'bytes',
+		'mimeType'
 	],
 	#category : 'SmallChat-Capability',
 	#package : 'SmallChat-Capability'
@@ -30,10 +32,28 @@ SmallChatCapabilityResult class >> error: aString [
 ]
 
 { #category : 'instance creation' }
+SmallChatCapabilityResult class >> image: aByteArray mimeType: aMimeTypeString [
+	"Construct an image-shaped result. Bytes are raw image data (PNG/SVG/...);
+	 mime type tells transports how to label the payload (image/png,
+	 image/svg+xml, ...). MCP transport base64-encodes the bytes."
+	| r |
+	r := self new.
+	r setKind: #image text: nil.
+	r privateBytes: aByteArray mimeType: aMimeTypeString.
+	^ r
+]
+
+{ #category : 'instance creation' }
 SmallChatCapabilityResult class >> text: aString [
 	"Construct a text-shaped result. The most common variant: any
 	 capability returning a printable string, JSON-encoded payload, etc."
 	^ self new setKind: #text text: aString
+]
+
+{ #category : 'accessing' }
+SmallChatCapabilityResult >> bytes [
+	"Raw bytes for #image results, nil otherwise."
+	^ bytes
 ]
 
 { #category : 'accessing' }
@@ -47,6 +67,18 @@ SmallChatCapabilityResult >> kind [
 	"#text / #json / #image / #debugSession / #error. Discriminator for
 	 transport-side rendering."
 	^ kind
+]
+
+{ #category : 'accessing' }
+SmallChatCapabilityResult >> mimeType [
+	"MIME type for #image results, nil otherwise."
+	^ mimeType
+]
+
+{ #category : 'private' }
+SmallChatCapabilityResult >> privateBytes: aByteArray mimeType: aString [
+	bytes := aByteArray.
+	mimeType := aString
 ]
 
 { #category : 'private' }

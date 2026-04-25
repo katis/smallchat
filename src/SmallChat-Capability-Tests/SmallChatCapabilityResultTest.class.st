@@ -25,6 +25,16 @@ SmallChatCapabilityResultTest >> testErrorResultCarriesTextWithErrorKind [
 ]
 
 { #category : 'tests' }
+SmallChatCapabilityResultTest >> testImageResultCarriesBytesAndMimeType [
+	| bytes r |
+	bytes := #(137 80 78 71) asByteArray.
+	r := SmallChatCapabilityResult image: bytes mimeType: 'image/png'.
+	self assert: r kind equals: #image.
+	self assert: r bytes equals: bytes.
+	self assert: r mimeType equals: 'image/png'
+]
+
+{ #category : 'tests' }
 SmallChatCapabilityResultTest >> testTextResultCarriesText [
 	| r |
 	r := SmallChatCapabilityResult text: 'hi'.
