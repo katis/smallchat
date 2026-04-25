@@ -93,3 +93,20 @@ SmallChatCapabilityRegistryTest >> testRunResumesNotificationsBeforeOuterHandler
 	self deny: reachedOuter description: 'wrap must resume Notifications before any outer handler'.
 	self assert: result text equals: 'ok-after-notification'
 ]
+
+{ #category : 'tests' }
+SmallChatCapabilityRegistryTest >> testRunReturnsApplicabilityErrorWhenWorkspaceKindMismatches [
+	"Dispatch a TS-only capability under the default Pharo current workspace.
+	 The registry must short-circuit with a structured error -- not invoke the
+	 capability."
+	| call result text |
+	SmallChatCapabilityRegistry reset.
+	call := SmallChatCapabilityCall name: 'test.ts.only' argumentsJson: '{}'.
+	result := SmallChatCapabilityRegistry default run: 'test.ts.only' with: call.
+	self assert: result kind equals: #error.
+	text := result text.
+	self assert: (text includesSubstring: 'not applicable').
+	self assert: (text includesSubstring: 'pharo').
+	self assert: (text includesSubstring: 'ts').
+	self assert: (text includesSubstring: 'workspace.attach-ts')
+]

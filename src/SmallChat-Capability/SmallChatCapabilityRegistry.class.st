@@ -32,6 +32,20 @@ SmallChatCapabilityRegistry >> allCapabilities [
 	^ SmallChatCapability allSubclasses reject: [ :c | c isAbstract ]
 ]
 
+{ #category : 'execution' }
+SmallChatCapabilityRegistry >> applicabilityErrorFor: aCapabilityClass workspace: aWorkspace [
+	"Structured error returned when a capability is dispatched against a
+	 workspace whose kind it does not support. Names the capability, the
+	 actual workspace + kind, the supported kinds, and the remediation."
+	| supported |
+	supported := (aCapabilityClass supportedWorkspaces collect: [ :s | s asString ]) asArray.
+	^ 'Capability ' , aCapabilityClass capabilityName ,
+		' is not applicable to workspace ' , (aWorkspace name ifNil: [ '<unnamed>' ]) ,
+		' (kind: ' , aWorkspace kind asString , ').' ,
+		' Supported kinds: [' , (Character space join: supported) , '].' ,
+		' Attach a matching workspace via workspace.attach-ts.'
+]
+
 { #category : 'accessing' }
 SmallChatCapabilityRegistry >> capabilityNamed: aString [
 	"Look up a capability class by its agent-facing identifier. Returns
@@ -65,12 +79,17 @@ SmallChatCapabilityRegistry >> run: aName with: aCall [
 	"Dispatch aCall to the named capability under the universal cross-cutting
 	 wrap. Returns nil for unknown names so transports can fall through.
 	 Wrap (1) refuses to run on the Morphic UI process, (2) resumes any
-	 Notification, (3) captures Errors as #error results."
-	| cap |
+	 Notification, (3) captures Errors as #error results, and (4) refuses
+	 to run a capability whose #supportedWorkspaces does not include the
+	 resolved workspace's kind."
+	| cap ws |
 	Processor activeProcess == self uiProcessProvider value
 		ifTrue: [ self error: 'SmallChatCapability dispatch on UI process: ' , aName ].
 	cap := self capabilityNamed: aName.
 	cap ifNil: [ ^ nil ].
+	ws := self workspaceFor: aCall.
+	(cap supportedWorkspaces includes: ws kind) ifFalse: [
+		^ SmallChatCapabilityResult error: (self applicabilityErrorFor: cap workspace: ws) ].
 	^ [ [ cap run: aCall ]
 			on: Notification
 			do: [ :n | n resume ] ]
@@ -90,4 +109,12 @@ SmallChatCapabilityRegistry >> uiProcessProvider [
 { #category : 'accessing' }
 SmallChatCapabilityRegistry >> uiProcessProvider: aBlock [
 	uiProcessProvider := aBlock
+]
+
+{ #category : 'execution' }
+SmallChatCapabilityRegistry >> workspaceFor: aCall [
+	"Resolve the workspace this call should dispatch against.
+	 Per-call workspace overrides the registry default. Either way,
+	 nil is impossible -- currentWorkspace lazily falls back to Pharo."
+	^ aCall workspace ifNil: [ self currentWorkspace ]
 ]
