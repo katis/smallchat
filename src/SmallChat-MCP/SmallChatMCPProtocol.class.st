@@ -84,8 +84,10 @@ SmallChatMCPProtocol >> handleMessage: aDictionary [
 			  ifNotNil: [ self errorReplyTo: id code: -32603 message: 'Internal error: ', e class name ] ]
 ]
 
-{ #category : 'handlers' }
+{ #category : 'tools' }
 SmallChatMCPProtocol >> handleToolsCall: params [
+	"Dispatch via SmallChatMCPCapabilityTransport: capability registry first,
+	 fall through to the legacy SmallChatToolRegistry for unmigrated tools."
 	| name args |
 	name := params at: 'name' ifAbsent: [
 		^ Dictionary new
@@ -96,13 +98,15 @@ SmallChatMCPProtocol >> handleToolsCall: params [
 				yourself };
 			yourself ].
 	args := params at: 'arguments' ifAbsent: [ Dictionary new ].
-	^ SmallChatToolRegistry default run: name with: args
+	^ SmallChatMCPCapabilityTransport default dispatch: name with: args
 ]
 
-{ #category : 'handlers' }
+{ #category : 'tools' }
 SmallChatMCPProtocol >> handleToolsList: params [
+	"Returns the union of registered SmallChatCapability classes plus any
+	 not-yet-migrated SmallChatTool subclasses, via the transport adapter."
 	^ Dictionary new
-		at: 'tools' put: SmallChatToolRegistry default toolSpecs asArray;
+		at: 'tools' put: SmallChatMCPCapabilityTransport default toolSpecs;
 		yourself
 ]
 

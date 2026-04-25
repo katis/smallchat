@@ -115,6 +115,19 @@ SmallChatMCPCapabilityTransportTest >> testDispatchTextResultProducesContentDict
 ]
 
 { #category : 'tests' }
+SmallChatMCPCapabilityTransportTest >> testProtocolHandleToolsCallRoutesThroughCapabilityTransport [
+	"After the rewire, SmallChatMCPProtocol>>handleToolsCall: dispatches via
+	 SmallChatMCPCapabilityTransport default, so a registered fake capability
+	 is reachable through the JSON-RPC entry point."
+	| reply |
+	reply := SmallChatMCPProtocol new handleToolsCall: (Dictionary new
+		at: 'name' put: 'test.fake.status';
+		at: 'arguments' put: Dictionary new;
+		yourself).
+	self assert: ((reply at: 'content') first at: 'text') equals: 'ok'
+]
+
+{ #category : 'tests' }
 SmallChatMCPCapabilityTransportTest >> testToolSpecsExcludesTestFixtures [
 	"Test-only capability subclasses are tagged via #isTestFixture and must
 	 never appear in tools/list -- they're internal scaffolding."

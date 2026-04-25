@@ -5,9 +5,24 @@ Class {
 		'aliases',
 		'debuggerWatch'
 	],
+	#classInstVars : [
+		'default'
+	],
 	#category : 'SmallChat-MCP',
 	#package : 'SmallChat-MCP'
 }
+
+{ #category : 'accessing' }
+SmallChatMCPCapabilityTransport class >> default [
+	"Singleton instance. Reset via #reset for tests."
+	^ default ifNil: [ default := self new ]
+]
+
+{ #category : 'accessing' }
+SmallChatMCPCapabilityTransport class >> reset [
+	"Test seam: drop the cached singleton."
+	default := nil
+]
 
 { #category : 'aliases' }
 SmallChatMCPCapabilityTransport >> aliasFor: aLegacyName put: aCapabilityName [
