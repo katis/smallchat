@@ -36,12 +36,11 @@ BaselineOfSmallChat >> baseline: spec [
 			package: 'SmallChat-Famix-Tests'      with: [ spec requires: #('SmallChat-Famix' 'SmallChat-Tests') ];
 			package: 'SmallChat-Famix-Importer-Tests' with: [ spec requires: #('SmallChat-Famix-Importer' 'SmallChat-Tests') ].
 		spec
-			"SmallChat-Famix lives in 'dev' only -- it subclasses FamixMetamodelGenerator,
-			 so loading it without Famix in the image fails at superclass resolution.
-			 TreeSitter is loaded in default so just test exercises the binding for real;
-			 leaving it out lets walker tests skip silently via isAvailable, which hid
-			 a NULL-handle regression for the entire M3 phase."
-			group: 'default' with: #('SmallChat' 'SmallChat-Nav' 'SmallChat-LM' 'SmallChat-MCP' 'SmallChat-LSP' 'SmallChat-TreeSitter' 'SmallChat-Tests' 'SmallChat-NavTests' 'SmallChat-LSP-Tests' 'SmallChat-TreeSitter-Tests' 'TreeSitter');
+			"All bindings (TreeSitter, Famix) load in default so just test exercises
+			 them for real. Leaving a binding out lets isAvailable-guarded tests
+			 skip silently in CI; the M3 phase hit a NULL-handle regression that
+			 hid for weeks because walker tests skipped under the verifier image."
+			group: 'default' with: #('SmallChat' 'SmallChat-Nav' 'SmallChat-LM' 'SmallChat-MCP' 'SmallChat-LSP' 'SmallChat-TreeSitter' 'SmallChat-Famix' 'SmallChat-Famix-Importer' 'SmallChat-Tests' 'SmallChat-NavTests' 'SmallChat-LSP-Tests' 'SmallChat-TreeSitter-Tests' 'SmallChat-Famix-Tests' 'SmallChat-Famix-Importer-Tests' 'TreeSitter' 'Famix');
 			group: 'core'    with: #('SmallChat' 'SmallChat-LM');
 			group: 'tests'   with: #('SmallChat-Tests' 'SmallChat-NavTests' 'SmallChat-LSP-Tests' 'SmallChat-TreeSitter-Tests' 'SmallChat-Famix-Tests' 'SmallChat-Famix-Importer-Tests');
 			group: 'mcp'     with: #('SmallChat' 'SmallChat-LM' 'SmallChat-MCP');
