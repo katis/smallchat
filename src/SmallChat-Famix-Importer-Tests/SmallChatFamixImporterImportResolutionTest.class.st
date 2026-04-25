@@ -39,3 +39,16 @@ SmallChatFamixImporterImportResolutionTest >> testImportCarriesResolvedUriAndCla
   self assert: imp resolvedUri equals: 'file:///proj/src/X.ts'.
   self assert: imp classification equals: #srcLocal
 ]
+
+{ #category : 'tests - project slots' }
+SmallChatFamixImporterImportResolutionTest >> testProjectCarriesRootUri [
+  "SmallChatFamixProject carries a rootUri (workspace root URI) -- nil on a
+   fresh entity, round-trips via the accessors. The classifier uses it as
+   the prefix for #srcLocal classification."
+  | model project |
+  model := SmallChatFamixModel new.
+  project := model newProject.
+  self assert: project rootUri equals: nil.
+  project rootUri: 'file:///proj'.
+  self assert: project rootUri equals: 'file:///proj'
+]
