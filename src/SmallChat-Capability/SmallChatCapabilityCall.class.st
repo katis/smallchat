@@ -5,7 +5,8 @@ Class {
 		'capabilityName',
 		'argumentsJson',
 		'arguments',
-		'session'
+		'session',
+		'workspace'
 	],
 	#category : 'SmallChat-Capability',
 	#package : 'SmallChat-Capability'
@@ -56,4 +57,16 @@ SmallChatCapabilityCall >> setName: aString argumentsJson: aJsonString [
 	capabilityName := aString.
 	argumentsJson := aJsonString.
 	^ self
+]
+
+{ #category : 'accessing' }
+SmallChatCapabilityCall >> workspace [
+	"The workspace this call should dispatch against. nil means the registry
+	 falls back to its current workspace at #run:with: time."
+	^ workspace
+]
+
+{ #category : 'accessing' }
+SmallChatCapabilityCall >> workspace: aWorkspace [
+	workspace := aWorkspace
 ]

@@ -47,3 +47,12 @@ SmallChatCapabilityCallTest >> testSessionDefaultsToNilAndCanBeSet [
 	c session: stub.
 	self assert: c session == stub
 ]
+
+{ #category : 'tests' }
+SmallChatCapabilityCallTest >> testWorkspaceIsNilByDefault [
+	| call |
+	call := SmallChatCapabilityCall name: 'dummy' argumentsJson: '{}'.
+	self assert: call workspace isNil.
+	call workspace: SmallChatPharoWorkspace default.
+	self assert: call workspace == SmallChatPharoWorkspace default
+]
