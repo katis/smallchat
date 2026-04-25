@@ -148,7 +148,12 @@ SmallChatWorkspaceEditApplier >> urisFromWorkspaceEdit: aWorkspaceEdit [
 
 { #category : 'private' }
 SmallChatWorkspaceEditApplier >> writeSource: aString to: aUri [
-  "Overwrite the file at aUri with aString, going through the injected FileSystem."
-  (self fileFromUri: aUri)
-    writeStreamDo: [ :s | s nextPutAll: aString ]
+  "Overwrite the file at aUri with aString. ensureDelete first because
+   writeStreamDo: with an empty string does not truncate; the file would
+   keep its original bytes (Pharo's stream-close logic skips the flush
+   when zero bytes were written)."
+  | file |
+  file := self fileFromUri: aUri.
+  file ensureDelete.
+  file writeStreamDo: [ :s | s nextPutAll: aString ]
 ]

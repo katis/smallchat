@@ -71,6 +71,128 @@ SmallChatRefactoringCommandTest >> testStubCommandApplyReturnsSuccessOutcomeWith
 ]
 
 { #category : 'tests' }
+SmallChatRefactoringCommandTest >> testTsCodeActionAppliesReturnedEdit [
+  "End-to-end: stub LSP client returns a textDocument/codeAction list
+   whose first action carries an edit; the command runs the applier on
+   it. File content reflects the edit; outcome carries a rollback token."
+  | fs file uri stubClient applier workspaceEdit codeActionList cmd outcome request |
+  fs := FileSystem memory.
+  file := fs / '/foo.ts'.
+  file writeStreamDo: [ :s | s nextPutAll: 'const x = 1 + 2 + 3;' ].
+  uri := 'file://' , file fullName.
+  applier := SmallChatWorkspaceEditApplier new fileSystem: fs; yourself.
+  workspaceEdit := Dictionary new
+    at: 'changes' put: (Dictionary new
+      at: uri put: (Array with: (Dictionary new
+        at: 'range' put: (Dictionary new
+          at: 'start' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 10; yourself);
+          at: 'end' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 19; yourself);
+          yourself);
+        at: 'newText' put: 'sum()';
+        yourself));
+      yourself);
+    yourself.
+  codeActionList := Array with: (Dictionary new
+    at: 'title' put: 'Extract to function';
+    at: 'kind' put: 'refactor.extract.function';
+    at: 'edit' put: workspaceEdit;
+    yourself).
+  stubClient := SmallChatStubLSPClient new
+    cannedResponse: 'textDocument/codeAction' is: codeActionList;
+    yourself.
+  cmd := SmallChatTsCodeActionCommand new
+    client: stubClient;
+    applier: applier;
+    fileUri: uri;
+    startLine: 0;
+    startCharacter: 10;
+    endLine: 0;
+    endCharacter: 19;
+    kind: 'refactor.extract.function';
+    yourself.
+  outcome := cmd apply.
+  self assert: outcome isSuccess.
+  self assert: outcome rollbackToken notNil.
+  self assert: (file readStreamDo: [ :s | s upToEnd ]) equals: 'const x = sum();'.
+  request := stubClient requestLog detect: [ :r | (r at: 'method') = 'textDocument/codeAction' ].
+  self assert: ((((request at: 'params') at: 'context') at: 'only') first) equals: 'refactor.extract.function'
+]
+
+{ #category : 'tests' }
+SmallChatRefactoringCommandTest >> testTsCodeActionEmptyResponseFailsOutcome [
+  "An empty action list (tsgo refuses the refactor at this position) -> failed outcome, file untouched."
+  | fs file uri stubClient applier cmd outcome |
+  fs := FileSystem memory.
+  file := fs / '/foo.ts'.
+  file writeStreamDo: [ :s | s nextPutAll: 'const x = 1;' ].
+  uri := 'file://' , file fullName.
+  applier := SmallChatWorkspaceEditApplier new fileSystem: fs; yourself.
+  stubClient := SmallChatStubLSPClient new
+    cannedResponse: 'textDocument/codeAction' is: #();
+    yourself.
+  cmd := SmallChatTsCodeActionCommand new
+    client: stubClient; applier: applier;
+    fileUri: uri;
+    startLine: 0; startCharacter: 0; endLine: 0; endCharacter: 12;
+    kind: 'refactor.extract.function';
+    yourself.
+  outcome := cmd apply.
+  self deny: outcome isSuccess.
+  self assert: outcome errorReason notNil.
+  self assert: (file readStreamDo: [ :s | s upToEnd ]) equals: 'const x = 1;'
+]
+
+{ #category : 'tests' }
+SmallChatRefactoringCommandTest >> testTsCodeActionMoveToFileMultiUriEditAtomic [
+  "Move-to-file refactor returns a multi-URI WorkspaceEdit (text removed
+   from old file, added to new file). Applier applies both atomically."
+  | fs srcFile dstFile srcUri dstUri stubClient applier workspaceEdit cmd outcome |
+  fs := FileSystem memory.
+  srcFile := fs / '/from.ts'.
+  dstFile := fs / '/to.ts'.
+  srcFile writeStreamDo: [ :s | s nextPutAll: 'export function moveMe() { return 1; }' ].
+  dstFile writeStreamDo: [ :s | s nextPutAll: '// existing content' ].
+  srcUri := 'file://' , srcFile fullName.
+  dstUri := 'file://' , dstFile fullName.
+  applier := SmallChatWorkspaceEditApplier new fileSystem: fs; yourself.
+  workspaceEdit := Dictionary new
+    at: 'changes' put: (Dictionary new
+      at: srcUri put: (Array with: (Dictionary new
+        at: 'range' put: (Dictionary new
+          at: 'start' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 0; yourself);
+          at: 'end' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 38; yourself);
+          yourself);
+        at: 'newText' put: '';
+        yourself));
+      at: dstUri put: (Array with: (Dictionary new
+        at: 'range' put: (Dictionary new
+          at: 'start' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 19; yourself);
+          at: 'end' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 19; yourself);
+          yourself);
+        at: 'newText' put: ' export function moveMe() { return 1; }';
+        yourself));
+      yourself);
+    yourself.
+  stubClient := SmallChatStubLSPClient new
+    cannedResponse: 'textDocument/codeAction' is: (Array with: (Dictionary new
+      at: 'title' put: 'Move to to.ts';
+      at: 'kind' put: 'refactor.move.toFile';
+      at: 'edit' put: workspaceEdit;
+      yourself));
+    yourself.
+  cmd := SmallChatTsCodeActionCommand new
+    client: stubClient; applier: applier;
+    fileUri: srcUri;
+    startLine: 0; startCharacter: 0; endLine: 0; endCharacter: 38;
+    kind: 'refactor.move.toFile';
+    yourself.
+  outcome := cmd apply.
+  self assert: outcome isSuccess.
+  self assert: (srcFile readStreamDo: [ :s | s upToEnd ]) equals: ''.
+  self assert: (dstFile readStreamDo: [ :s | s upToEnd ]) equals: '// existing content export function moveMe() { return 1; }'
+]
+
+{ #category : 'tests' }
 SmallChatRefactoringCommandTest >> testTsRenameSymbolAppliesLspWorkspaceEditToDisk [
   "End-to-end: stub LSP client returns a canned WorkspaceEdit for
    textDocument/rename; the command opens the doc, sends rename, runs
