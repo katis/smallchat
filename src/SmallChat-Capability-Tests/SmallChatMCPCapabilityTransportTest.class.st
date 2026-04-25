@@ -65,6 +65,18 @@ SmallChatMCPCapabilityTransportTest >> testDispatchImageResultBase64sBytes [
 ]
 
 { #category : 'tests' }
+SmallChatMCPCapabilityTransportTest >> testDispatchResolvesAliasToCapability [
+	"Aliases let the transport accept a legacy bare name and route to its
+	 prefixed capability successor. Each migrated tool earns one alias
+	 entry; aliases live in the transport (MCP-only)."
+	| transport reply |
+	transport := SmallChatMCPCapabilityTransport new.
+	transport aliasFor: 'legacy.fake.status' put: 'test.fake.status'.
+	reply := transport dispatch: 'legacy.fake.status' with: Dictionary new.
+	self assert: ((reply at: 'content') first at: 'text') equals: 'ok'
+]
+
+{ #category : 'tests' }
 SmallChatMCPCapabilityTransportTest >> testDispatchTextResultProducesContentDict [
 	"A capability returning a #text result becomes the standard MCP
 	 tools/call reply: {content: [{type: 'text', text: ...}]}."

@@ -1,20 +1,38 @@
 Class {
 	#name : 'SmallChatMCPCapabilityTransport',
 	#superclass : 'Object',
+	#instVars : [
+		'aliases'
+	],
 	#category : 'SmallChat-MCP',
 	#package : 'SmallChat-MCP'
 }
 
+{ #category : 'aliases' }
+SmallChatMCPCapabilityTransport >> aliasFor: aLegacyName put: aCapabilityName [
+	self aliases at: aLegacyName put: aCapabilityName.
+	^ self
+]
+
+{ #category : 'aliases' }
+SmallChatMCPCapabilityTransport >> aliases [
+	"Lazily-initialised dict from legacy bare name -> prefixed capability name.
+	 MCP-only -- the LM transport never inherits aliases."
+	^ aliases ifNil: [ aliases := Dictionary new ]
+]
+
 { #category : 'dispatching' }
 SmallChatMCPCapabilityTransport >> dispatch: aName with: anArgsDict [
-	"Look up aName in the capability registry, run, and translate the result
-	 to the MCP tools/call reply shape. Falls through to the legacy
-	 SmallChatToolRegistry while the 16 tools migrate one at a time."
-	| call result |
+	"Look up aName (after alias resolution) in the capability registry,
+	 run, and translate the result to the MCP tools/call reply shape.
+	 Falls through to the legacy SmallChatToolRegistry while the 16 tools
+	 migrate one at a time."
+	| resolved call result |
+	resolved := self resolveAlias: aName.
 	call := SmallChatCapabilityCall
-		name: aName
+		name: resolved
 		argumentsJson: (STONJSON toString: anArgsDict).
-	result := SmallChatCapabilityRegistry default run: aName with: call.
+	result := SmallChatCapabilityRegistry default run: resolved with: call.
 	result ifNotNil: [ ^ self mcpReplyFor: result ].
 	^ SmallChatToolRegistry default run: aName with: anArgsDict
 ]
@@ -75,4 +93,11 @@ SmallChatMCPCapabilityTransport >> mcpReplyFor: aResult [
 			yourself ].
 	kind = #debugSession ifTrue: [ ^ self mcpDebugReplyFor: aResult debugSession ].
 	self error: 'mcpReplyFor: not yet implemented for kind ' , kind printString
+]
+
+{ #category : 'aliases' }
+SmallChatMCPCapabilityTransport >> resolveAlias: aName [
+	"Map a name through the alias dict. Returns the original name if no
+	 alias is registered."
+	^ self aliases at: aName ifAbsent: [ aName ]
 ]
