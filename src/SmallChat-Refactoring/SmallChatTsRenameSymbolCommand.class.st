@@ -7,7 +7,9 @@ Class {
 		'fileUri',
 		'line',
 		'character',
-		'newName'
+		'newName',
+		'diagnosticsBefore',
+		'diagnosticsAfter'
 	],
 	#category : 'SmallChat-Refactoring',
 	#package : 'SmallChat-Refactoring'
@@ -20,8 +22,9 @@ SmallChatTsRenameSymbolCommand >> applier: anApplier [
 
 { #category : 'execution' }
 SmallChatTsRenameSymbolCommand >> apply [
-  "Open the URI on the LSP client, send textDocument/rename, and run the
-   applier on the returned WorkspaceEdit. tsgo can refuse a rename
+  "Open the URI on the LSP client, capture pre-apply diagnostics, send
+   textDocument/rename, run the applier on the returned WorkspaceEdit,
+   then capture post-apply diagnostics. tsgo can refuse a rename
    (response nil) -- surface as a failed outcome with errorReason."
   | text response result |
   text := applier readSourceFor: fileUri.
@@ -29,6 +32,7 @@ SmallChatTsRenameSymbolCommand >> apply [
     openDocumentUri: fileUri
     languageId: (self languageIdForUri: fileUri)
     text: text.
+  diagnosticsBefore := self fetchDiagnostics.
   response := client
     request: (Dictionary new
       at: 'method' put: 'textDocument/rename';
@@ -46,6 +50,7 @@ SmallChatTsRenameSymbolCommand >> apply [
     ^ SmallChatRefactoringOutcome fromApplyResult:
       (SmallChatApplyResult errorReason: 'LSP rename returned no edit') ].
   result := applier applyWorkspaceEdit: response.
+  result isSuccess ifTrue: [ diagnosticsAfter := self fetchDiagnostics ].
   ^ SmallChatRefactoringOutcome fromApplyResult: result
 ]
 
@@ -57,6 +62,21 @@ SmallChatTsRenameSymbolCommand >> character: anInteger [
 { #category : 'configuring' }
 SmallChatTsRenameSymbolCommand >> client: aClient [
   client := aClient
+]
+
+{ #category : 'private' }
+SmallChatTsRenameSymbolCommand >> fetchDiagnostics [
+  "Issue textDocument/diagnostic for fileUri; returns the response (or
+   nil if the server doesn't implement it). Caller stores the result
+   for later delta computation."
+  ^ client
+    request: (Dictionary new
+      at: 'method' put: 'textDocument/diagnostic';
+      at: 'params' put: (Dictionary new
+        at: 'textDocument' put: (Dictionary new at: 'uri' put: fileUri; yourself);
+        yourself);
+      yourself)
+    onDocumentUri: fileUri
 ]
 
 { #category : 'configuring' }
@@ -86,4 +106,15 @@ SmallChatTsRenameSymbolCommand >> newName: aString [
 { #category : 'rollback' }
 SmallChatTsRenameSymbolCommand >> rollback: aToken [
   applier rollback: aToken
+]
+
+{ #category : 'verification' }
+SmallChatTsRenameSymbolCommand >> verify [
+  "Compute SmallChatRefactoringVerification from the pre/post diagnostic
+   captures taken around #apply. If apply didn't run or didn't capture
+   (e.g. nil response), return empty verification."
+  ^ SmallChatRefactoringVerification
+    fromBefore: diagnosticsBefore
+    after: diagnosticsAfter
+    forUri: fileUri
 ]

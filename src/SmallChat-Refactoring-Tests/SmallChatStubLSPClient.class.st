@@ -4,7 +4,8 @@ Class {
 	#instVars : [
 		'openedUris',
 		'cannedResponses',
-		'requestLog'
+		'requestLog',
+		'cannedSequences'
 	],
 	#category : 'SmallChat-Refactoring-Tests',
 	#package : 'SmallChat-Refactoring-Tests'
@@ -16,11 +17,18 @@ SmallChatStubLSPClient >> cannedResponse: aMethod is: aResponse [
   ^ self
 ]
 
+{ #category : 'configuring' }
+SmallChatStubLSPClient >> cannedSequence: aMethod is: aSequence [
+  cannedSequences at: aMethod put: aSequence asOrderedCollection.
+  ^ self
+]
+
 { #category : 'initialization' }
 SmallChatStubLSPClient >> initialize [
   super initialize.
   openedUris := OrderedCollection new.
   cannedResponses := Dictionary new.
+  cannedSequences := Dictionary new.
   requestLog := OrderedCollection new
 ]
 
@@ -46,6 +54,10 @@ SmallChatStubLSPClient >> request: aRequestDictionary onDocumentUri: aUri [
     at: 'uri' put: aUri;
     at: 'params' put: (aRequestDictionary at: 'params' ifAbsent: [ nil ]);
     yourself).
+  (cannedSequences includesKey: method) ifTrue: [
+    | queue |
+    queue := cannedSequences at: method.
+    queue isEmpty ifFalse: [ ^ queue removeFirst ] ].
   ^ cannedResponses at: method ifAbsent: [ nil ]
 ]
 

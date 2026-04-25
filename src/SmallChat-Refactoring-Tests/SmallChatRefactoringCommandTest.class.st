@@ -297,6 +297,56 @@ SmallChatRefactoringCommandTest >> testTsRenameSymbolRollbackRestoresOriginalTex
 ]
 
 { #category : 'tests' }
+SmallChatRefactoringCommandTest >> testTsRenameSymbolVerifyReportsDiagnosticsDelta [
+  "stub LSP returns 1 error pre-rename and 0 errors post-rename;
+   verify reports errorsBefore=1, errorsAfter=0. Tests the wire-up
+   of textDocument/diagnostic capture around apply."
+  | fs file uri stubClient applier workspaceEdit cmd outcome verification preDiag postDiag |
+  fs := FileSystem memory.
+  file := fs / '/Button.ts'.
+  file writeStreamDo: [ :s | s nextPutAll: 'const oldName = 1;' ].
+  uri := 'file://' , file fullName.
+  applier := SmallChatWorkspaceEditApplier new fileSystem: fs; yourself.
+  workspaceEdit := Dictionary new
+    at: 'changes' put: (Dictionary new
+      at: uri put: (Array with: (Dictionary new
+        at: 'range' put: (Dictionary new
+          at: 'start' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 6; yourself);
+          at: 'end' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 13; yourself);
+          yourself);
+        at: 'newText' put: 'newName';
+        yourself));
+      yourself);
+    yourself.
+  preDiag := Dictionary new
+    at: 'kind' put: 'full';
+    at: 'items' put: (Array with: (Dictionary new
+      at: 'severity' put: 1;
+      at: 'message' put: 'oldName is unused';
+      yourself));
+    yourself.
+  postDiag := Dictionary new
+    at: 'kind' put: 'full';
+    at: 'items' put: #();
+    yourself.
+  stubClient := SmallChatStubLSPClient new
+    cannedResponse: 'textDocument/rename' is: workspaceEdit;
+    cannedSequence: 'textDocument/diagnostic' is: { preDiag. postDiag };
+    yourself.
+  cmd := SmallChatTsRenameSymbolCommand new
+    client: stubClient; applier: applier;
+    fileUri: uri; line: 0; character: 7; newName: 'newName';
+    yourself.
+  outcome := cmd apply.
+  self assert: outcome isSuccess.
+  verification := cmd verify.
+  self assert: verification errorsBefore equals: 1.
+  self assert: verification errorsAfter equals: 0.
+  self assert: verification warningsBefore equals: 0.
+  self assert: verification warningsAfter equals: 0
+]
+
+{ #category : 'tests' }
 SmallChatRefactoringCommandTest >> testVerificationEmptyHasZeroCounts [
   "SmallChatRefactoringVerification empty is the default for commands
    that didn't capture diagnostics. All counts are zero, perUri is
