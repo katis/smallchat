@@ -15,6 +15,46 @@ SmallChatFamixImporterJsxTest >> newImporterOn: aModel [
 ]
 
 { #category : 'tests' }
+SmallChatFamixImporterJsxTest >> testConstArrowBlockBodyReturningJsxEmitsJsxComponent [
+  "Block-bodied arrow: `const Foo = () => { return <div/> }`."
+  | model importer text uri |
+  model := SmallChatFamixModel new.
+  importer := self newImporterOn: model.
+  text := 'const Foo = () => { return <div/> }'.
+  uri := 'file:///t/Foo.tsx'.
+  importer populateJsxComponentsFromText: text intoUri: uri.
+  self assert: (model allWithType: SmallChatFamixJSXComponent) size equals: 1.
+  self assert: (model allWithType: SmallChatFamixJSXComponent) first name equals: 'Foo'
+]
+
+{ #category : 'tests' }
+SmallChatFamixImporterJsxTest >> testConstArrowReturningJsxEmitsJsxComponent [
+  "Concise-body arrow: `const Foo = () => <div/>` -- arrow_function's last
+   named child is JSX directly."
+  | model importer text uri comp |
+  model := SmallChatFamixModel new.
+  importer := self newImporterOn: model.
+  text := 'const Foo = () => <div/>'.
+  uri := 'file:///t/Foo.tsx'.
+  importer populateJsxComponentsFromText: text intoUri: uri.
+  self assert: (model allWithType: SmallChatFamixJSXComponent) size equals: 1.
+  comp := (model allWithType: SmallChatFamixJSXComponent) first.
+  self assert: comp name equals: 'Foo'.
+  self assert: comp sourceAnchor startByte equals: 0.
+  self assert: comp sourceAnchor endByte equals: text size
+]
+
+{ #category : 'tests' }
+SmallChatFamixImporterJsxTest >> testConstArrowReturningNonJsxIsSkipped [
+  "`const x = () => 42` -- no JSX, no JSXComponent."
+  | model importer |
+  model := SmallChatFamixModel new.
+  importer := self newImporterOn: model.
+  importer populateJsxComponentsFromText: 'const x = () => 42' intoUri: 'file:///t/x.ts'.
+  self assert: (model allWithType: SmallChatFamixJSXComponent) size equals: 0
+]
+
+{ #category : 'tests' }
 SmallChatFamixImporterJsxTest >> testFunctionDeclarationReturningJsxEmitsJsxComponent [
   "A top-level function whose body returns a JSX element / self-closing
    element / fragment is detected as a JSXComponent. Name comes from the

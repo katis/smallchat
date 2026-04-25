@@ -19,6 +19,22 @@ SmallChatTSNodeWalker >> allNodesOfType: aTypeName under: aRootNode [
 	^ collected
 ]
 
+{ #category : 'walking - private' }
+SmallChatTSNodeWalker >> arrowReturnsJsx: anArrowFunctionNode [
+  "True iff the arrow_function has a JSX body. Two shapes:
+   concise body (last named child IS JSX) and block body (last named child
+   is a statement_block with a return_statement carrying a JSX argument)."
+  | jsxTypes body |
+  jsxTypes := #('jsx_element' 'jsx_self_closing_element' 'jsx_fragment').
+  body := anArrowFunctionNode namedChildren last.
+  body ifNil: [ ^ false ].
+  (jsxTypes includes: body type) ifTrue: [ ^ true ].
+  body type = 'statement_block' ifFalse: [ ^ false ].
+  ^ body namedChildren anySatisfy: [ :stmt |
+      stmt type = 'return_statement'
+        and: [ stmt namedChildren anySatisfy: [ :a | jsxTypes includes: a type ] ] ]
+]
+
 { #category : 'walking' }
 SmallChatTSNodeWalker >> classSelectors: aRootNode [
 	"Return every class_selector node under aRootNode. CSS class
@@ -87,21 +103,40 @@ SmallChatTSNodeWalker >> jsxAttributeValues: aRootNode [
 SmallChatTSNodeWalker >> jsxComponentDeclarationsIn: aRootNode source: aSource [
   "Return Array of (Dictionary at: 'name' put: String;
    at: 'startByte' put: Integer; at: 'endByte' put: Integer;
-   at: 'kind' put: Symbol). For now only top-level function_declaration
-   whose body contains a return_statement with a JSX child counts;
-   const-arrow and TanStack pair-arrow forms come in follow-up slices."
+   at: 'kind' put: Symbol). Two shapes today: top-level
+   function_declaration whose body returns JSX (#function), and top-level
+   const-arrow whose value is an arrow_function with a JSX body
+   (#arrow). The TanStack pair-arrow form comes in a follow-up slice.
+   Source anchor covers the whole top-level declaration node."
   | components |
   components := OrderedCollection new.
   aRootNode namedChildren do: [ :decl |
-    (decl type = 'function_declaration' and: [ self functionBodyReturnsJsx: decl ])
-      ifTrue: [ | nameNode |
-        nameNode := decl namedChildren detect: [ :c | c type = 'identifier' ].
-        components add: (Dictionary new
-          at: 'name' put: (nameNode textFromSourceText: aSource);
-          at: 'startByte' put: decl startByte;
-          at: 'endByte' put: decl endByte;
-          at: 'kind' put: #function;
-          yourself) ] ].
+    decl type = 'function_declaration'
+      ifTrue: [ (self functionBodyReturnsJsx: decl)
+        ifTrue: [ | nameNode |
+          nameNode := decl namedChildren detect: [ :c | c type = 'identifier' ].
+          components add: (Dictionary new
+            at: 'name' put: (nameNode textFromSourceText: aSource);
+            at: 'startByte' put: decl startByte;
+            at: 'endByte' put: decl endByte;
+            at: 'kind' put: #function;
+            yourself) ] ].
+    (#('lexical_declaration' 'variable_declaration') includes: decl type)
+      ifTrue: [
+        (decl namedChildren select: [ :c | c type = 'variable_declarator' ]) do: [ :vd |
+          | value |
+          value := vd namedChildren last.
+          (value notNil
+            and: [ value type = 'arrow_function'
+            and: [ self arrowReturnsJsx: value ] ])
+              ifTrue: [ | nameNode |
+                nameNode := vd namedChildren detect: [ :c | c type = 'identifier' ].
+                components add: (Dictionary new
+                  at: 'name' put: (nameNode textFromSourceText: aSource);
+                  at: 'startByte' put: decl startByte;
+                  at: 'endByte' put: decl endByte;
+                  at: 'kind' put: #arrow;
+                  yourself) ] ] ] ].
   ^ components asArray
 ]
 
