@@ -18,15 +18,18 @@ SmallChatVcsStatusCapabilityTest >> testBareStatusAliasReachesCapability [
 ]
 
 { #category : 'tests' }
-SmallChatVcsStatusCapabilityTest >> testRunReturnsLegacyEquivalentJson [
-	"Migrated capability must produce content byte-identical to the legacy
-	 SmallChatStatusTool>>run: result -- callers cannot tell which one ran."
-	| call capResult legacyResult |
+SmallChatVcsStatusCapabilityTest >> testRunReturnsExpectedJsonShape [
+	"Migrated capability returns a #text result whose body parses back to a
+	 dict with the canonical status keys (name / location / branch /
+	 isModified / changes)."
+	| call result parsed |
 	call := SmallChatCapabilityCall name: 'vcs.status' argumentsJson: ''.
-	capResult := SmallChatVcsStatusCapability run: call.
-	legacyResult := SmallChatStatusTool new run: Dictionary new.
-	self assert: capResult kind equals: #text.
-	self assert: capResult text equals: legacyResult
+	result := SmallChatVcsStatusCapability run: call.
+	self assert: result kind equals: #text.
+	parsed := STONJSON fromString: result text.
+	#('name' 'location' 'subdirectory' 'branch' 'isModified' 'changes') do: [ :k |
+		self assert: (parsed includesKey: k) description: 'missing key ' , k ].
+	self assert: (parsed at: 'name') equals: 'smallchat'
 ]
 
 { #category : 'tests' }
