@@ -353,6 +353,24 @@ SmallChatFamixImporter >> processSymbol: aSymbol intoUri: aUri text: aText owner
     self processSymbol: child intoUri: aUri text: aText owner: (entity ifNil: [ anOwner ]) ]
 ]
 
+{ #category : 'regeneration' }
+SmallChatFamixImporter >> reimportUris: aDictUriToText [
+  "Drop and re-import each URI in aDictUriToText, dispatching by file
+   extension: .module.css -> importCssFileUri:text:; .ts/.tsx ->
+   importTsFileUri:text: (LSP-blocking, caller must not run on UI).
+   Other extensions are dropped but not re-imported. Cross-file CSS
+   reference re-link (TS files importing a re-imported CSS module) is
+   the caller's responsibility for now -- include those URIs in the
+   dict to refresh references."
+  aDictUriToText keysAndValuesDo: [ :uri :text |
+    self dropEntitiesForUri: uri.
+    (uri endsWith: '.module.css')
+      ifTrue: [ self importCssFileUri: uri text: text ]
+      ifFalse: [ ((uri endsWith: '.ts') or: [ (uri endsWith: '.tsx')
+        or: [ (uri endsWith: '.js') or: [ uri endsWith: '.jsx' ] ] ])
+          ifTrue: [ self importTsFileUri: uri text: text ] ] ]
+]
+
 { #category : 'resolution' }
 SmallChatFamixImporter >> resolveImport: anImport atSpecifierStartByte: aByte inSourceText: aText onUri: aUri [
   "Issue textDocument/definition for the import specifier at aByte in aText

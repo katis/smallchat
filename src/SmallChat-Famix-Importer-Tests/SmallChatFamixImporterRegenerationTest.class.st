@@ -34,3 +34,53 @@ SmallChatFamixImporterRegenerationTest >> testDropEntitiesForUriRemovesAllAnchor
   self assert: (model allWithType: SmallChatFamixCSSClass) size equals: 1.
   self assert: (model allWithType: SmallChatFamixCSSModuleFile) first sourceAnchor fileUri equals: cssB
 ]
+
+{ #category : 'tests - reimport' }
+SmallChatFamixImporterRegenerationTest >> testReimportDoesNotTouchOtherUris [
+  "Re-importing one URI must not affect entities from other URIs."
+  | model importer keepUri changeUri reimportArg |
+  model := SmallChatFamixModel new.
+  importer := self newImporterOn: model.
+  keepUri := 'file:///t/Keep.module.css'.
+  changeUri := 'file:///t/Change.module.css'.
+  importer importCssFileUri: keepUri text: '.kept { }'.
+  importer importCssFileUri: changeUri text: '.old { }'.
+  reimportArg := Dictionary new at: changeUri put: '.new { }'; yourself.
+  importer reimportUris: reimportArg.
+  self assert: ((model allWithType: SmallChatFamixCSSClass) collect: [ :c | c name ]) asSet
+    equals: #('kept' 'new') asSet
+]
+
+{ #category : 'tests - reimport' }
+SmallChatFamixImporterRegenerationTest >> testReimportEmptyDictIsNoop [
+  "An empty reimport dict makes no model changes."
+  | model importer cssUri before |
+  model := SmallChatFamixModel new.
+  importer := self newImporterOn: model.
+  cssUri := 'file:///t/X.module.css'.
+  importer importCssFileUri: cssUri text: '.x { }'.
+  before := (model allWithType: SmallChatFamixCSSClass) size.
+  importer reimportUris: Dictionary new.
+  self assert: (model allWithType: SmallChatFamixCSSClass) size equals: before
+]
+
+{ #category : 'tests - reimport' }
+SmallChatFamixImporterRegenerationTest >> testReimportSingleCssFileReplacesItsEntities [
+  "reimportUris: aDict drops entities anchored at each URI in aDict, then
+   re-imports the URI's new text via the appropriate per-file path
+   (.module.css -> CSS importer). Old CSSClass entities for that URI are
+   gone; new ones reflect the updated source."
+  | model importer cssUri text2 reimportArg classes |
+  model := SmallChatFamixModel new.
+  importer := self newImporterOn: model.
+  cssUri := 'file:///t/Foo.module.css'.
+  importer importCssFileUri: cssUri text: '.A { } .B { }'.
+  self assert: (model allWithType: SmallChatFamixCSSClass) size equals: 2.
+  text2 := '.A { } .C { }'.
+  reimportArg := Dictionary new at: cssUri put: text2; yourself.
+  importer reimportUris: reimportArg.
+  self assert: (model allWithType: SmallChatFamixCSSModuleFile) size equals: 1.
+  classes := model allWithType: SmallChatFamixCSSClass.
+  self assert: classes size equals: 2.
+  self assert: (classes collect: [ :c | c name ]) asSet equals: #('A' 'C') asSet
+]
