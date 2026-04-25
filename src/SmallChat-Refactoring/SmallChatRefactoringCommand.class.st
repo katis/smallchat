@@ -24,3 +24,10 @@ SmallChatRefactoringCommand >> rollback: aToken [
    path explicitly."
   ^ self subclassResponsibility
 ]
+
+{ #category : 'verification' }
+SmallChatRefactoringCommand >> verify [
+  "Default: no verification performed. LSP-backed commands override to
+   compute a real diagnostics delta via SmallChatRefactoringVerification."
+  ^ SmallChatRefactoringVerification empty
+]

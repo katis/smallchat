@@ -295,3 +295,17 @@ SmallChatRefactoringCommandTest >> testTsRenameSymbolRollbackRestoresOriginalTex
   cmd rollback: outcome rollbackToken.
   self assert: (file readStreamDo: [ :s | s upToEnd ]) equals: 'const oldName = 1;'
 ]
+
+{ #category : 'tests' }
+SmallChatRefactoringCommandTest >> testVerificationEmptyHasZeroCounts [
+  "SmallChatRefactoringVerification empty is the default for commands
+   that didn't capture diagnostics. All counts are zero, perUri is
+   empty -- callers can safely query without nil-checking."
+  | v |
+  v := SmallChatRefactoringVerification empty.
+  self assert: v errorsBefore equals: 0.
+  self assert: v errorsAfter equals: 0.
+  self assert: v warningsBefore equals: 0.
+  self assert: v warningsAfter equals: 0.
+  self assert: v perUri isEmpty
+]
