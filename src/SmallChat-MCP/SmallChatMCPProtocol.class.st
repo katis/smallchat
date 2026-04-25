@@ -86,8 +86,8 @@ SmallChatMCPProtocol >> handleMessage: aDictionary [
 
 { #category : 'tools' }
 SmallChatMCPProtocol >> handleToolsCall: params [
-	"Dispatch via SmallChatMCPCapabilityTransport: capability registry first,
-	 fall through to the legacy SmallChatToolRegistry for unmigrated tools."
+	"Dispatch via SmallChatMCPCapabilityTransport: capability registry only;
+	 unknown names return a typed #error reply."
 	| name args |
 	name := params at: 'name' ifAbsent: [
 		^ Dictionary new

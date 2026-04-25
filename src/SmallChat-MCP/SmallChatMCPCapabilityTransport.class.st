@@ -64,8 +64,7 @@ SmallChatMCPCapabilityTransport >> debuggerWatch: aBlock [
 { #category : 'stray-debugger' }
 SmallChatMCPCapabilityTransport >> decorateReply: aReplyDict withStray: descriptors [
 	"Prepend a single-line warning about stray debugger windows to the first
-	 content text item. No-op when descriptors is empty. Mirrors today's
-	 SmallChatToolRegistry>>decorateReply:withStray: byte-for-byte."
+	 content text item. No-op when descriptors is empty."
 	| prefix content first text |
 	descriptors isEmpty ifTrue: [ ^ aReplyDict ].
 	prefix := '[smallchat: ' , descriptors size asString ,
@@ -102,7 +101,7 @@ SmallChatMCPCapabilityTransport >> dispatch: aName with: anArgsDict [
 SmallChatMCPCapabilityTransport >> mcpDebugReplyFor: aSmallChatDebugSession [
 	"Build the MCP reply for a captured debug session: isError, a printable
 	 content body, and the debugSession metadata the agent uses to drive
-	 debug.* capabilities. Mirrors SmallChatToolResult>>toMcpReplyDict."
+	 debug.* capabilities."
 	| stack dict |
 	stack := [ aSmallChatDebugSession debugSession stack
 		first: (10 min: aSmallChatDebugSession debugSession stack size) ]
@@ -130,8 +129,7 @@ SmallChatMCPCapabilityTransport >> mcpDebugReplyFor: aSmallChatDebugSession [
 
 { #category : 'private' }
 SmallChatMCPCapabilityTransport >> mcpReplyFor: aResult [
-	"Translate a SmallChatCapabilityResult to the MCP tools/call reply dict.
-	 Mirrors today's SmallChatToolResult shapes."
+	"Translate a SmallChatCapabilityResult to the MCP tools/call reply dict."
 	| kind |
 	kind := aResult kind.
 	(kind = #text or: [ kind = #error ]) ifTrue: [

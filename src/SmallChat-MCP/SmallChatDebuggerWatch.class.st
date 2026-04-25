@@ -1,28 +1,7 @@
 "
-Detects stray Pharo UI debugger windows in the live World and lets the
-MCP agent notice them.
+Detector for stray Pharo UI debugger windows -- the modal stuck-on-the-UI-process kind that block the dev image. The capability dispatch path (SmallChatMCPCapabilityTransport>>dispatch:with:) consults #openWindows after every reply and prepends a single-line warning so the agent sees them out-of-band even though they are invisible to debug_sessions.
 
-SmallChatDebugEvaluator catches uncaught exceptions on its own fork into a
-captured SmallChatDebugSession, but exceptions raised on *other* processes
-(the Morphic UI process, user-spawned forks, Morphic step methods,
-UIManager default defer: blocks) fall through to Pharo's default debug-
-request path and open an StDebugger window. That window sits on the UI
-process waiting for a human who isn't there. The MCP reader never sees it.
-
-The registry path (SmallChatToolRegistry>>run:with:) consults `openWindows`
-after each tool call and prepends a warning to the reply if any stray
-debugger windows are present. `closeAll` is a helper the agent can invoke
-via `evaluate` once it has seen the warning.
-
-The filter is tolerant: nil world (SMALLCHAT_NO_GUI=1), DNU on `model`,
-`label` faults -- all yield an empty result or a best-effort descriptor
-rather than throwing. The watcher is called from the reader path and MUST
-NOT throw.
-
-Matches any SystemWindow whose `model` class name includes the substring
-'Debugger'. This covers StDebugger and StMorphicDebugSession today, and
-any future debugger-presenter class that follows the Pharo naming
-convention.
+The debugger windows themselves live on the Morphic UI process; they are not registered with SmallChatDebugSessionRegistry and cannot be inspected via the debug.* capabilities. The agent must dismiss them via SmallChatDebuggerWatch closeAll once it has captured what it needs (e.g. via World imageForm).
 "
 Class {
 	#name : 'SmallChatDebuggerWatch',

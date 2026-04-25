@@ -17,9 +17,9 @@ SmallChatMCPCapabilityTransportTest >> testCapabilityMcpAliasesAreResolvedByTran
 
 { #category : 'tests' }
 SmallChatMCPCapabilityTransportTest >> testDispatchDebugSessionResultProducesDebugReply [
-	"Mirrors today's SmallChatToolResult>>toMcpReplyDict for debugSession:
-	 isError: true, content text is debug dict printString, debugSession key
-	 carries {id, exceptionClass, messageText, topFrame, stackSummary, hint}."
+	"Captured debug-session result becomes the standard MCP debug envelope:
+	 isError + content text (printed dict) + debugSession key with {id,
+	 exceptionClass, messageText, topFrame, stackSummary, hint}."
 	| stub err reply ds |
 	err := [ Error signal: 'demo failure' ] on: Error do: [ :e | e ].
 	stub := SmallChatDebugSessionStubForTests id: 'ds-stub-1' exception: err.
@@ -37,8 +37,7 @@ SmallChatMCPCapabilityTransportTest >> testDispatchDebugSessionResultProducesDeb
 { #category : 'tests' }
 SmallChatMCPCapabilityTransportTest >> testDispatchErrorResultProducesIsErrorReply [
 	"Error results land under the standard MCP error envelope:
-	 {content: [{type: 'text', text: msg}], isError: true}.
-	 Matches SmallChatToolRegistry>>errorResult: byte-for-byte."
+	 {content: [{type: 'text', text: msg}], isError: true}."
 	| reply content |
 	reply := SmallChatMCPCapabilityTransport new dispatch: 'test.fake.raising' with: Dictionary new.
 	self assert: (reply at: 'isError') equals: true.
@@ -49,22 +48,8 @@ SmallChatMCPCapabilityTransportTest >> testDispatchErrorResultProducesIsErrorRep
 ]
 
 { #category : 'tests' }
-SmallChatMCPCapabilityTransportTest >> testDispatchFallsThroughToLegacyToolRegistry [
-	"During migration, capability registry not finding the name must fall
-	 through to the legacy SmallChatToolRegistry so unmigrated tools
-	 (e.g. 'status') keep working until their capability lands."
-	| reply |
-	reply := SmallChatMCPCapabilityTransport new dispatch: 'status' with: Dictionary new.
-	"#status currently returns its working-copy dict via SmallChatToolRegistry
-	 -- assert the reply has the standard MCP content envelope."
-	self assert: (reply includesKey: 'content').
-	self assert: (reply at: 'content') notEmpty
-]
-
-{ #category : 'tests' }
 SmallChatMCPCapabilityTransportTest >> testDispatchImageResultBase64sBytes [
-	"Image result becomes {content: [{type: 'image', mimeType, data: <b64>}]}.
-	 Matches SmallChatToolResult>>toMcpContentDict for the image variant."
+	"Image result becomes {content: [{type: 'image', mimeType, data: <b64>}]}."
 	| reply content |
 	reply := SmallChatMCPCapabilityTransport new dispatch: 'test.fake.image' with: Dictionary new.
 	content := reply at: 'content'.
@@ -87,9 +72,8 @@ SmallChatMCPCapabilityTransportTest >> testDispatchOmitsStrayWarningWhenWatchRet
 
 { #category : 'tests' }
 SmallChatMCPCapabilityTransportTest >> testDispatchPrependsStrayDebuggerWarningWhenWatchReturnsDescriptors [
-	"When debuggerWatch returns non-empty descriptors, the transport prepends
-	 a single-line warning to the first content text item -- byte-identical
-	 to today's SmallChatToolRegistry>>decorateReply:withStray:."
+	"Non-empty descriptors -> single-line warning prepended to the first
+	 content text item."
 	| transport reply text |
 	transport := SmallChatMCPCapabilityTransport new.
 	transport debuggerWatch: [ { #stubA. #stubB } ].
@@ -113,8 +97,8 @@ SmallChatMCPCapabilityTransportTest >> testDispatchResolvesAliasToCapability [
 
 { #category : 'tests' }
 SmallChatMCPCapabilityTransportTest >> testDispatchTextResultProducesContentDict [
-	"A capability returning a #text result becomes the standard MCP
-	 tools/call reply: {content: [{type: 'text', text: ...}]}."
+	"#text result becomes the standard MCP content shape:
+	 {content: [{type: 'text', text: ...}]}."
 	| reply content |
 	reply := SmallChatMCPCapabilityTransport new dispatch: 'test.fake.status' with: Dictionary new.
 	content := reply at: 'content'.
