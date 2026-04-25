@@ -24,13 +24,18 @@ SmallChatMCPCapabilityTransport >> dispatch: aName with: anArgsDict [
 SmallChatMCPCapabilityTransport >> mcpReplyFor: aResult [
 	"Translate a SmallChatCapabilityResult to the MCP tools/call reply dict
 	 ({content: [...], isError? }). Mirrors today's SmallChatToolResult
-	 toMcpReplyDict / toMcpContentDict shape."
-	aResult kind = #text ifTrue: [
-		^ Dictionary new
+	 toMcpReplyDict / SmallChatToolRegistry errorResult: shapes."
+	| kind |
+	kind := aResult kind.
+	(kind = #text or: [ kind = #error ]) ifTrue: [
+		| reply |
+		reply := Dictionary new
 			at: 'content' put: { Dictionary new
 				at: 'type' put: 'text';
 				at: 'text' put: aResult text;
 				yourself };
-			yourself ].
-	self error: 'mcpReplyFor: not yet implemented for kind ' , aResult kind printString
+			yourself.
+		kind = #error ifTrue: [ reply at: 'isError' put: true ].
+		^ reply ].
+	self error: 'mcpReplyFor: not yet implemented for kind ' , kind printString
 ]
