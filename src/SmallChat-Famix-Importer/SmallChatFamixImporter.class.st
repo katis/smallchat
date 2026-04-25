@@ -96,6 +96,40 @@ SmallChatFamixImporter >> fetchDocumentSymbolsForUri: aUri [
 ]
 
 { #category : 'orchestration' }
+SmallChatFamixImporter >> importCssFileUri: aUri text: aText [
+  "Parse aUri (must end in .module.css; non-module CSS files are skipped
+   per plan 03 entity inventory) with the CSS grammar. Emit one
+   SmallChatFamixCSSModuleFile (anchor covers the whole text) and one
+   SmallChatFamixCSSClass per UNIQUE class_selector name; the same name
+   appearing in multiple rule_sets dedupes to a single entity. Each
+   CSSClass carries a file: back-pointer to the SmallChatFamixCSSModuleFile."
+  | filename file tree selectors seen |
+  (aUri endsWith: '.module.css') ifFalse: [ ^ self ].
+  filename := aUri copyAfterLast: $/.
+  file := model newCSSModuleFile.
+  file name: filename.
+  file sourceAnchor: (SmallChatFamixSourceAnchor
+    fileUri: aUri
+    startByte: 0
+    endByte: aText size).
+  tree := parser parseCssString: aText.
+  selectors := walker classSelectors: tree rootNode.
+  seen := Set new.
+  selectors do: [ :sel | | nameNode className cssClass |
+    nameNode := (sel namedChildren detect: [ :c | c type = 'class_name' ]) namedChildren first.
+    className := nameNode textFromSourceText: aText.
+    (seen includes: className) ifFalse: [
+      seen add: className.
+      cssClass := model newCSSClass.
+      cssClass name: className.
+      cssClass file: file.
+      cssClass sourceAnchor: (SmallChatFamixSourceAnchor
+        fileUri: aUri
+        startByte: sel startByte
+        endByte: sel endByte) ] ]
+]
+
+{ #category : 'orchestration' }
 SmallChatFamixImporter >> importTsFileUri: aUri text: aText [
   "Open aUri on the LSP client (so subsequent requests pre-flight cleanly),
    fetch documentSymbol, and turn the response into Famix entities. Then walk
