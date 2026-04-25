@@ -13,11 +13,22 @@ Class {
 	#superclass : 'Object',
 	#instVars : [
 		'conversation',
-		'client'
+		'client',
+		'inFlightWorkers'
 	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
 }
+
+{ #category : 'cancellation' }
+SmallChatLMSession >> cancelInFlight [
+	"Terminate any worker process this session forked for a capability call.
+	 Called by the chat window on close so a slow tool-call doesn't outlive
+	 the UI it was driving."
+	self inFlightWorkers asArray do: [ :p |
+		p isTerminated ifFalse: [ p terminate ].
+		self untrackInFlight: p ]
+]
 
 { #category : 'accessing' }
 SmallChatLMSession >> client [
@@ -36,10 +47,42 @@ SmallChatLMSession >> conversation [
 
 { #category : 'tool dispatch' }
 SmallChatLMSession >> dispatchToolCall: aToolCall [
-	| tool |
-	tool := self toolFor: aToolCall.
-	tool ifNil: [ ^ 'Error: unknown tool ' , aToolCall name printString ].
-	^ tool runWithArgumentsJSON: aToolCall arguments
+	"Resolve aToolCall via the capability registry on a fresh worker
+	 process; block on a Semaphore until the worker signals done. The fork
+	 is the cancellation seam: closing the chat window terminates every
+	 in-flight worker via #cancelInFlight."
+	| sem holder worker call |
+	sem := Semaphore new.
+	holder := Array new: 1.
+	call := SmallChatCapabilityCall
+		name: aToolCall name
+		argumentsJson: aToolCall arguments.
+	call session: self.
+	worker := [
+		| r |
+		r := [ SmallChatCapabilityRegistry default run: aToolCall name with: call ]
+			on: Error
+			do: [ :e |
+				SmallChatCapabilityResult error:
+					('Error: ' , e class name , ' ' , (e messageText ifNil: [ '' ])) ].
+		holder at: 1 put: r.
+		sem signal ] newProcess.
+	self trackInFlight: worker.
+	worker resume.
+	sem wait.
+	self untrackInFlight: worker.
+	^ (holder first
+		ifNil: [ SmallChatCapabilityResult error:
+			'Error: unknown tool ' , aToolCall name printString ])
+		asTextForLM
+]
+
+{ #category : 'cancellation' }
+SmallChatLMSession >> inFlightWorkers [
+	"IdentitySet of forked Process instances for currently in-flight
+	 capability dispatches. Lazy-initialised; cancelInFlight terminates
+	 each entry."
+	^ inFlightWorkers ifNil: [ inFlightWorkers := IdentitySet new ]
 ]
 
 { #category : 'initialization' }
@@ -154,13 +197,9 @@ SmallChatLMSession >> streamToolLoopUsingPlaceholder: initialPlaceholder onDelta
 		conversation addMessage: placeholder ]
 ]
 
-{ #category : 'tool dispatch' }
-SmallChatLMSession >> toolFor: aToolCall [
-	"Dispatch target lookup. Only #evaluate is wired today; anything else
-	 surfaces as a descriptive error string on the tool-result message so
-	 the model can course-correct instead of the session silently stalling."
-	aToolCall name = 'evaluate' ifTrue: [ ^ SmallChatLMEvaluateTool new ].
-	^ nil
+{ #category : 'cancellation' }
+SmallChatLMSession >> trackInFlight: aProcess [
+	self inFlightWorkers add: aProcess
 ]
 
 { #category : 'rendering' }
@@ -173,4 +212,9 @@ SmallChatLMSession >> transcriptText [
 				nextPutAll: msg content;
 				nextPut: Character lf;
 				nextPut: Character lf ] ]
+]
+
+{ #category : 'cancellation' }
+SmallChatLMSession >> untrackInFlight: aProcess [
+	self inFlightWorkers remove: aProcess ifAbsent: [ ]
 ]

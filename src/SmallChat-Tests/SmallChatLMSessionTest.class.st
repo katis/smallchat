@@ -29,12 +29,52 @@ SmallChatLMSessionTest >> sessionWithCannedReply: aString [
 ]
 
 { #category : 'tests' }
+SmallChatLMSessionTest >> testCancelInFlightTerminatesWorker [
+	"cancelInFlight terminates any process that #trackInFlight: has been
+	 told about. The chat window calls this on close so a slow capability
+	 doesn't outlive the UI it was driving."
+	| session worker |
+	session := SmallChatLMSession new.
+	worker := [ (Delay forSeconds: 60) wait ] newProcess.
+	session trackInFlight: worker.
+	worker resume.
+	self assert: (session inFlightWorkers includes: worker).
+	session cancelInFlight.
+	self assert: worker isTerminated.
+	self deny: (session inFlightWorkers includes: worker)
+]
+
+{ #category : 'tests' }
 SmallChatLMSessionTest >> testConversationSeededWithConfigSystemPrompt [
 	| session first |
 	session := SmallChatLMSession new.
 	first := session conversation messages first.
 	self assert: first role equals: #system.
 	self assert: first content equals: SmallChatConfig systemPrompt
+]
+
+{ #category : 'tests' }
+SmallChatLMSessionTest >> testDispatchToolCallReportsUnknownTool [
+	"Names not present in the capability registry surface as a descriptive
+	 error string -- the model can course-correct rather than the session
+	 silently stalling."
+	| session call result |
+	session := SmallChatLMSession new.
+	call := SmallChatLMToolCall id: 'c1' name: 'nope.does-not-exist' arguments: '{}'.
+	result := session dispatchToolCall: call.
+	self assert: (result includesSubstring: 'unknown tool')
+]
+
+{ #category : 'tests' }
+SmallChatLMSessionTest >> testDispatchToolCallRoutesViaCapabilityRegistry [
+	"After M4, SmallChatLMSession>>dispatchToolCall: looks up the tool name in
+	 SmallChatCapabilityRegistry and returns asTextForLM. eval.smalltalk is
+	 a real, registered capability."
+	| session call result |
+	session := SmallChatLMSession new.
+	call := SmallChatLMToolCall id: 'c1' name: 'eval.smalltalk' arguments: '{"code":"3 + 4"}'.
+	result := session dispatchToolCall: call.
+	self assert: result equals: '7'
 ]
 
 { #category : 'tests' }
@@ -63,7 +103,7 @@ SmallChatLMSessionTest >> testSendUserInputAppendsUserAndAssistantTurns [
 SmallChatLMSessionTest >> testSendUserInputDispatchesToolCallsAndLoopsToFinalAnswer [
 	| mock tc toolReply finalReply session result nonSystem roles |
 	mock := SmallChatLMMockClient new.
-	tc := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{"code":"3 + 4"}'.
+	tc := SmallChatLMToolCall id: 'c1' name: 'eval.smalltalk' arguments: '{"code":"3 + 4"}'.
 	toolReply := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc }.
 	finalReply := SmallChatLMMessage role: #assistant content: 'The answer is 7.'.
 	mock queueReply: toolReply.
@@ -83,7 +123,7 @@ SmallChatLMSessionTest >> testSendUserInputDispatchesToolCallsAndLoopsToFinalAns
 SmallChatLMSessionTest >> testSendUserInputOnDeltaStreamsContentAndDispatchesTools [
 	| mock tc toolReply finalReply session deltas result |
 	mock := SmallChatLMMockClient new.
-	tc := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{"code":"2 + 2"}'.
+	tc := SmallChatLMToolCall id: 'c1' name: 'eval.smalltalk' arguments: '{"code":"2 + 2"}'.
 	"tool-call reply has empty content -- no delta should fire for it"
 	toolReply := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc }.
 	finalReply := SmallChatLMMessage role: #assistant content: 'it is 4'.
@@ -101,7 +141,7 @@ SmallChatLMSessionTest >> testSendUserInputOnDeltaStreamsContentAndDispatchesToo
 SmallChatLMSessionTest >> testSendUserInputStopsAfterToolIterationBudget [
 	| mock session result tc replyWithCall |
 	mock := SmallChatLMMockClient new.
-	tc := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{"code":"1"}'.
+	tc := SmallChatLMToolCall id: 'c1' name: 'eval.smalltalk' arguments: '{"code":"1"}'.
 	"Queue enough tool-call replies to trip the 8-round budget, plus one more."
 	1 to: 12 do: [ :_ |
 		replyWithCall := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc }.
