@@ -55,3 +55,12 @@ SmallChatCapability class >> schema [
 	 SmallChatCapabilitySchema empty for capabilities that take no args."
 	^ self subclassResponsibility
 ]
+
+{ #category : 'metadata' }
+SmallChatCapability class >> supportedWorkspaces [
+	"Workspace kinds this capability supports. Default is #(#pharo)
+	 -- the original assumption when every capability ran against the
+	 live image. TS-only or workspace-neutral capabilities override.
+	 Used by the registry to filter dispatch at the boundary."
+	^ #(#pharo)
+]

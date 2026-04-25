@@ -9,3 +9,8 @@ Class {
 SmallChatCapabilityTest >> testIsAbstract [
 	self assert: SmallChatCapability isAbstract
 ]
+
+{ #category : 'tests' }
+SmallChatCapabilityTest >> testSupportedWorkspacesDefaultsToPharo [
+	self assert: SmallChatCapability supportedWorkspaces equals: #(#pharo)
+]
