@@ -278,12 +278,22 @@ See `plans/04`. Depends on: M1, M2, M3, M4.
 
 See `plans/06`. Depends on: M4, M5.
 
-- [ ] `SmallChatWorkspace` abstract + `SmallChatPharoWorkspace`
-  default.
-- [ ] `workspace.list` / `workspace.current` capabilities.
-- [ ] `SmallChatTsWorkspace` attach/detach.
-- [ ] Capability workspace-kind filtering at registry boundary.
-- [ ] Workspace-dispatched `vcs.commit`.
+- [x] `SmallChatWorkspace` abstract + `SmallChatPharoWorkspace`
+  default. (2026-04-25)
+- [x] `workspace.list` / `workspace.current` capabilities.
+  (2026-04-25)
+- [x] `SmallChatTsWorkspace` attach/detach. (2026-04-25;
+  `workspace.attach-ts` is idempotent on canonical path; `workspace.detach`
+  shuts down the LSP client and refuses the Pharo workspace.)
+- [x] Capability workspace-kind filtering at registry boundary.
+  (2026-04-25; `SmallChatCapability class >> #supportedWorkspaces`
+  default `#(#pharo)`; `SmallChatCapabilityRegistry >> #run:with:` short-
+  circuits with a structured error citing the capability, the workspace,
+  the resolved kind, and the supported kinds.)
+- [x] Workspace-dispatched `vcs.commit`. (2026-04-25; Pharo path is
+  the existing Iceberg body, TS path delegates to `SmallChatVcsTsCommit`
+  for shell-git; same `{commitId, message, branch, changesWritten}`
+  shape.)
 
 ---
 
