@@ -16,6 +16,11 @@ SmallChatLMTranscriptSection class >> assistantOn: aMessage [
     ^ self new setKind: #assistant message: aMessage; yourself
 ]
 
+{ #category : 'constants' }
+SmallChatLMTranscriptSection class >> maxLabelLength [
+    ^ 80
+]
+
 { #category : 'instance creation' }
 SmallChatLMTranscriptSection class >> thinkingOn: aMessage [
     ^ self new setKind: #thinking message: aMessage; yourself
@@ -42,11 +47,15 @@ SmallChatLMTranscriptSection >> kind [
 
 { #category : 'displaying' }
 SmallChatLMTranscriptSection >> label [
-    | tag prefix |
+    | tag prefix raw max |
     tag := self labelTag.
     prefix := self labelPrefix copyReplaceAll: String lf with: ' '.
     prefix := prefix copyReplaceAll: String cr with: ' '.
-    ^ '[' , tag , '] ' , prefix
+    raw := '[' , tag , '] ' , prefix.
+    max := self class maxLabelLength.
+    raw size > max ifTrue: [
+        ^ (raw copyFrom: 1 to: max - 3) , '...' ].
+    ^ raw
 ]
 
 { #category : 'displaying' }

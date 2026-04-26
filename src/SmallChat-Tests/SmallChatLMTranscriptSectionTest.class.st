@@ -35,6 +35,15 @@ SmallChatLMTranscriptSectionTest >> testLabelStripsLineFeeds [
 ]
 
 { #category : 'tests' }
+SmallChatLMTranscriptSectionTest >> testLabelTruncatesLongContent [
+    | msg s |
+    msg := SmallChatLMMessage role: #user content: (String new: 200 withAll: $a).
+    s := SmallChatLMTranscriptSection userOn: msg.
+    self assert: s label size equals: 80.
+    self assert: (s label endsWith: '...')
+]
+
+{ #category : 'tests' }
 SmallChatLMTranscriptSectionTest >> testStreamingAssistantSectionLabelShowsPlaceholder [
     | msg s |
     msg := SmallChatLMMessage role: #assistant content: ''.
