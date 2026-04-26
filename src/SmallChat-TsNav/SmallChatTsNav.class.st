@@ -31,10 +31,71 @@ SmallChatTsNav class >> currentWorkspace: aTsWorkspaceOrNil [
 
 { #category : 'discovery' }
 SmallChatTsNav class >> findFiles: aGlob [
-	"Bullet list of workspace-relative paths matching aGlob. Reads from
-	 the lazy Famix model -- first call walks the project, subsequent
-	 calls are in-memory. Placeholder body until the glob filter lands."
-	^ self withWorkspaceDo: [ :ws | '' ]
+	"Bullet list of workspace-relative paths whose tail matches aGlob.
+	 Reads SmallChatFamixModule + SmallChatFamixCSSModuleFile entities from
+	 the lazy Famix model. Glob semantics: * matches any sequence (including
+	 path separators), ? matches one character; everything else is literal."
+	^ self withWorkspaceDo: [ :ws | self findFilesInWorkspace: ws matching: aGlob ]
+]
+
+{ #category : 'private' }
+SmallChatTsNav class >> findFilesInWorkspace: aWs matching: aGlob [
+	| model uris paths matcher matches |
+	model := aWs famixModel.
+	uris := Set new.
+	(model allWithType: SmallChatFamixModule) do: [ :m | uris add: m sourceAnchor fileUri ].
+	(model allWithType: SmallChatFamixCSSModuleFile) do: [ :m | uris add: m sourceAnchor fileUri ].
+	paths := (uris collect: [ :u | self relativePathFor: u inWorkspace: aWs ]) asSortedCollection asArray.
+	matcher := RxMatcher forString: (self regexForGlob: aGlob).
+	matches := paths select: [ :p | matcher matches: p ].
+	^ self renderPathList: matches
+]
+
+{ #category : 'private' }
+SmallChatTsNav class >> regexForGlob: aGlob [
+	"Convert a simple glob (*, ?, literal) to an anchored Pharo RxMatcher
+	 source. * spans path separators -- callers wanting per-segment matching
+	 can pass narrower globs."
+	^ String streamContents: [ :s |
+		s nextPutAll: '^'.
+		aGlob do: [ :c |
+			c = $* ifTrue: [ s nextPutAll: '.*' ] ifFalse: [
+				c = $? ifTrue: [ s nextPut: $. ] ifFalse: [
+					('.+()|^${}[]\' includes: c)
+						ifTrue: [ s nextPut: $\; nextPut: c ]
+						ifFalse: [ s nextPut: c ] ] ] ].
+		s nextPutAll: '$' ]
+]
+
+{ #category : 'private' }
+SmallChatTsNav class >> relativePathFor: aUri inWorkspace: aWs [
+	"Strip the workspace-root prefix from aUri so output is short + portable.
+	 URIs from outside the root (rare; happens for cross-package imports the
+	 Famix model has resolved) come back unchanged."
+	| rootPrefix |
+	rootPrefix := 'file://' , aWs path fullName , '/'.
+	^ (aUri beginsWith: rootPrefix)
+		ifTrue: [ aUri copyFrom: rootPrefix size + 1 to: aUri size ]
+		ifFalse: [ aUri ]
+]
+
+{ #category : 'private' }
+SmallChatTsNav class >> renderPathList: paths [
+	"Bullet list of paths capped by SmallChatNavBudget default size; tail
+	 line summarises the truncation."
+	| limit |
+	paths isEmpty ifTrue: [ ^ '_no matches_' ].
+	limit := SmallChatNavBudget default size.
+	^ String streamContents: [ :s | | shown |
+		shown := 0.
+		paths do: [ :p |
+			s position < limit ifTrue: [
+				s nextPutAll: '* `'; nextPutAll: p; nextPutAll: '`'; lf.
+				shown := shown + 1 ] ].
+		shown < paths size ifTrue: [
+			s nextPutAll: '_'; print: paths size;
+			  nextPutAll: ' matches; showing first '; print: shown;
+			  nextPutAll: '._'; lf ] ]
 ]
 
 { #category : 'workspace binding' }

@@ -18,6 +18,28 @@ SmallChatTsNavTest >> tearDown [
 ]
 
 { #category : 'tests' }
+SmallChatTsNavTest >> testFindFilesListsCssMatchedByGlob [
+	"findFiles: returns workspace-relative paths whose tail matches the glob.
+	 Reads from the lazy Famix model: CSSModuleFile entities get listed for
+	 *.module.css; non-Famix files (README.md) never appear because the
+	 importer skipped them."
+	| fs root ws out |
+	fs := FileSystem memory.
+	root := fs / 'project'.
+	root ensureCreateDirectory.
+	(root / 'styles.module.css') writeStreamDo: [ :s | s nextPutAll: '.x { }' ].
+	(root / 'README.md') writeStreamDo: [ :s | s nextPutAll: '# r' ].
+	ws := SmallChatTsWorkspace new
+		name: 'fixture';
+		path: root;
+		yourself.
+	SmallChatTsNav currentWorkspace: ws.
+	out := SmallChatTsNav findFiles: '*.module.css'.
+	self assert: (out includesSubstring: 'styles.module.css').
+	self deny: (out includesSubstring: 'README.md')
+]
+
+{ #category : 'tests' }
 SmallChatTsNavTest >> testFindFilesWithoutWorkspaceReturnsGuard [
 	"All discovery selectors must short-circuit with a friendly Markdown
 	 guard when no TS workspace is bound -- otherwise an evaluate against
