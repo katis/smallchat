@@ -15,7 +15,8 @@ Class {
 		'conversation',
 		'client',
 		'inFlightWorkers',
-		'lspPendings'
+		'lspPendings',
+		'workspace'
 	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
@@ -54,7 +55,10 @@ SmallChatLMSession >> dispatchToolCall: aToolCall [
 	"Resolve aToolCall via the capability registry on a fresh worker
 	 process; block on a Semaphore until the worker signals done. The fork
 	 is the cancellation seam: closing the chat window terminates every
-	 in-flight worker via #cancelInFlight."
+	 in-flight worker via #cancelInFlight. The session's workspace is
+	 stamped onto the call before dispatch so the capability sees the
+	 same workspace the chat is bound to (otherwise the registry falls
+	 back to its currentWorkspace, which is global state)."
 	| sem holder worker call |
 	sem := Semaphore new.
 	holder := Array new: 1.
@@ -62,6 +66,7 @@ SmallChatLMSession >> dispatchToolCall: aToolCall [
 		name: aToolCall name
 		argumentsJson: aToolCall arguments.
 	call session: self.
+	call workspace: self workspace.
 	worker := [
 		| r |
 		r := [ SmallChatCapabilityRegistry default run: aToolCall name with: call ]
@@ -240,4 +245,18 @@ SmallChatLMSession >> untrackInFlight: aProcess [
 { #category : 'cancellation' }
 SmallChatLMSession >> untrackLspPending: aPending [
   self lspPendings remove: aPending ifAbsent: [ ]
+]
+
+{ #category : 'accessing' }
+SmallChatLMSession >> workspace [
+	"The workspace this chat session is bound to. Stamped onto every tool
+	 call before dispatch so capabilities see aCall workspace = this. Lazy
+	 default is the always-mounted Pharo workspace -- preserves behaviour
+	 for callers that have not yet bound a TS workspace."
+	^ workspace ifNil: [ workspace := SmallChatPharoWorkspace default ]
+]
+
+{ #category : 'accessing' }
+SmallChatLMSession >> workspace: aWorkspace [
+	workspace := aWorkspace
 ]

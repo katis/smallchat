@@ -98,6 +98,22 @@ SmallChatLMSessionTest >> testDispatchToolCallRoutesViaCapabilityRegistry [
 ]
 
 { #category : 'tests' }
+SmallChatLMSessionTest >> testDispatchToolCallStampsSessionsWorkspaceOntoCall [
+	"The chat session should pass its bound workspace to the registry so each
+	 capability sees aCall workspace = session workspace. Uses the recording
+	 test fixture to capture the value."
+	| ws session call |
+	ws := SmallChatPharoWorkspace default.
+	SmallChatCapabilityWorkspaceRecordingForTests reset.
+	session := SmallChatLMSession new workspace: ws; yourself.
+	call := SmallChatLMToolCall id: 'c1' name: 'test.workspace.recording' arguments: '{}'.
+	session dispatchToolCall: call.
+	self
+		assert: SmallChatCapabilityWorkspaceRecordingForTests lastSeenWorkspace == ws
+		description: 'dispatch must stamp session.workspace onto the SmallChatCapabilityCall'
+]
+
+{ #category : 'tests' }
 SmallChatLMSessionTest >> testEmptyInputIsANoOp [
 	| session before |
 	session := self sessionWithCannedReply: 'ignored'.
