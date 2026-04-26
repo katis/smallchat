@@ -17,7 +17,8 @@ Class {
 		'agentTree',
 		'addButton',
 		'profileChooser',
-		'profileRegistry'
+		'profileRegistry',
+		'uiDeferrer'
 	],
 	#classInstVars : [
 		'directoryPickerBlock',
@@ -177,10 +178,15 @@ SmallChatWorkspaceWindow >> addButton [
 { #category : 'sessions' }
 SmallChatWorkspaceWindow >> addSession: aSession [
   "Append aSession to the window's in-memory collection, refresh the
-   agent tree's roots so the new row appears, and select it. The
-   selection wiring in initializePresenters then routes back through
+   agent tree's roots so the new row appears, subscribe to the session's
+   announcer so subsequent status changes refresh the row, and select it.
+   The selection wiring in initializePresenters then routes back through
    selectSession: to rebind the chat panel."
   self sessions add: aSession.
+  aSession announcer
+    when: SmallChatLMSessionStatusChanged
+    send: #onSessionStatusChanged:
+    to: self.
   agentTree
     roots: self sessions asArray;
     selectItem: aSession.
@@ -190,6 +196,14 @@ SmallChatWorkspaceWindow >> addSession: aSession [
 { #category : 'accessing' }
 SmallChatWorkspaceWindow >> agentTree [
   ^ agentTree
+]
+
+{ #category : 'accessing' }
+SmallChatWorkspaceWindow >> agentTree: aTreePresenter [
+  "Test seam: replace the live SpTreeTablePresenter with a stub that
+   records refresh calls. addSession: and the announcer reactor route
+   through whatever this slot holds."
+  agentTree := aTreePresenter
 ]
 
 { #category : 'lifecycle' }
@@ -340,6 +354,16 @@ SmallChatWorkspaceWindow >> installChatPanelFor: aWorkspace [
   self addSession: (SmallChatLMSession profile: profiles first workspace: aWorkspace)
 ]
 
+{ #category : 'sessions' }
+SmallChatWorkspaceWindow >> onSessionStatusChanged: anAnnouncement [
+  "Announcer reaction: hop to UI via uiDeferrer and refresh the agent tree
+   so the row's dot re-renders. The announcement may have fired from a
+   forked worker process (dispatchToolCall:, streaming) so deferring is
+   load-bearing -- a direct refresh from a non-UI process risks Morphic
+   exceptions that pile up as stray UI debuggers."
+  self uiDeferrer value: [ agentTree refresh ]
+]
+
 { #category : 'accessing' }
 SmallChatWorkspaceWindow >> profileChooser [
   "Block that, given a collection of SmallChatAgentProfile instances,
@@ -408,14 +432,31 @@ SmallChatWorkspaceWindow >> sessions [
   ^ sessions ifNil: [ sessions := OrderedCollection new ]
 ]
 
+{ #category : 'accessing' }
+SmallChatWorkspaceWindow >> uiDeferrer [
+  "Block (one-arg) called with each refresh closure that should run on the
+   UI process. Defaults to UIManager default defer: so announcer reactions
+   from forked workers hop to UI before touching the agent tree. Tests
+   inject a synchronous block."
+  ^ uiDeferrer ifNil: [ uiDeferrer := [ :aBlock | UIManager default defer: aBlock ] ]
+]
+
+{ #category : 'accessing' }
+SmallChatWorkspaceWindow >> uiDeferrer: aBlock [
+  uiDeferrer := aBlock
+]
+
 { #category : 'lifecycle' }
 SmallChatWorkspaceWindow >> windowDidClose [
-  "Tear down per-window external bindings. Walks every session calling
-   cancelInFlight (the panel's own #cleanup only knows about the
-   selected one) so background workers on unselected sessions don't
-   outlive the window. Then drops the panel's subscriptions and
-   unmounts the bound workspace. All steps idempotent so a second call
-   is safe."
+  "Tear down per-window external bindings. Unsubscribe from each session's
+   announcer first so a status change racing the cancel cannot call back
+   into a torn-down tree, then walk every session calling cancelInFlight
+   (the panel's own #cleanup only knows about the selected one) so
+   background workers on unselected sessions don't outlive the window.
+   Then drop the panel's subscriptions and unmount the bound workspace.
+   All steps idempotent so a second call is safe."
+  self sessions do: [ :s |
+    s announcer unsubscribe: self ].
   self sessions do: [ :s |
     [ s cancelInFlight ] on: Error do: [ :_ | "best-effort cancel" ] ].
   (chatPlaceholder respondsTo: #cleanup) ifTrue: [ chatPlaceholder cleanup ].

@@ -70,6 +70,24 @@ SmallChatWorkspaceWindowTest >> testAddSessionShowsRowAndSelects [
 ]
 
 { #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testAddSessionStatusChangeRefreshesTree [
+  "addSession: subscribes the window to the session's announcer; a status
+   change must defer through uiDeferrer and refresh the agent tree so the
+   row's dot re-renders without resetting selection or scroll."
+  | window session stub baseline |
+  window := SmallChatWorkspaceWindow new.
+  stub := SmallChatWorkspaceWindowTreeStub new.
+  window agentTree: stub.
+  window uiDeferrer: [ :b | b value ].
+  session := SmallChatLMSession new.
+  window addSession: session.
+  baseline := stub refreshCount.
+  session status: #running.
+  self assert: stub refreshCount > baseline
+
+]
+
+{ #category : 'tests' }
 SmallChatWorkspaceWindowTest >> testAgentTreeRendersStatusColumnAndNameColumn [
   "The tree has two columns: a status icon on the left, then the name.
    The icon column reads through SmallChatWorkspaceWindow class>>dotFormFor:
@@ -371,6 +389,24 @@ SmallChatWorkspaceWindowTest >> testTreeSelectionDrivesChatPanel [
   window agentTree selectItem: a.
   self assert: window selectedSession == a.
   self assert: window chatPlaceholder session == a
+]
+
+{ #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testWindowDidCloseUnsubscribesSessions [
+  "Closing the window must unsubscribe from each session's announcer so a
+   later status flip on a kept-alive session does not call back into a
+   torn-down tree presenter."
+  | window session stub baseline |
+  window := SmallChatWorkspaceWindow new.
+  stub := SmallChatWorkspaceWindowTreeStub new.
+  window agentTree: stub.
+  window uiDeferrer: [ :b | b value ].
+  session := SmallChatLMSession new.
+  window addSession: session.
+  window windowDidClose.
+  baseline := stub refreshCount.
+  session status: #running.
+  self assert: stub refreshCount equals: baseline
 ]
 
 { #category : 'tests' }
