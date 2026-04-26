@@ -37,6 +37,23 @@ SmallChatAgentProfile class >> availableModels [
 	^ #('Qwen3.6-27B-MLX-8bit' 'Qwen3.6-35B-A3B-nvfp4')
 ]
 
+{ #category : 'private' }
+SmallChatAgentProfile class >> defaultProfile [
+	"Build the 'Default' profile from the current SmallChatConfig modelName
+	 and the Pharo workspace's defaultSystemPrompt. Clamps the model to
+	 availableModels first if the configured value isn't in the allow-list,
+	 so the seed can't fail validation."
+	| model |
+	model := SmallChatConfig modelName.
+	(self availableModels includes: model)
+		ifFalse: [ model := self availableModels first ].
+	^ self new
+		name: 'Default';
+		modelName: model;
+		systemPrompt: SmallChatPharoWorkspace defaultSystemPrompt;
+		yourself
+]
+
 { #category : 'accessing' }
 SmallChatAgentProfile class >> named: aString [
 	^ self named: aString ifAbsent: [ Error signal: 'no profile named ' , aString printString ]
@@ -51,9 +68,10 @@ SmallChatAgentProfile class >> named: aString ifAbsent: aBlock [
 
 { #category : 'private' }
 SmallChatAgentProfile class >> profilesCollection [
-	"Underlying mutable collection. Slice 5 will replace this body with a
-	 lazy-seeding variant; for now it's an empty bag on first access."
-	^ Profiles ifNil: [ Profiles := OrderedCollection new ]
+	"Underlying mutable collection. Lazy-seeded with the in-image default
+	 agent (workspace prompt + configured model) so a fresh image rebuild
+	 always has at least one profile available."
+	^ Profiles ifNil: [ Profiles := self seedProfiles ]
 ]
 
 { #category : 'accessing' }
@@ -67,8 +85,14 @@ SmallChatAgentProfile class >> removeNamed: aString [
 
 { #category : 'class initialization' }
 SmallChatAgentProfile class >> reset [
-	"Drop everything in the registry. Tests call this in setUp/tearDown."
-	Profiles := OrderedCollection new
+	"Drop the registry. Next read of #all re-seeds via #seedProfiles, so a
+	 fresh image (or test) always has the in-image default agent."
+	Profiles := nil
+]
+
+{ #category : 'private' }
+SmallChatAgentProfile class >> seedProfiles [
+	^ OrderedCollection with: self defaultProfile
 ]
 
 { #category : 'initialization' }

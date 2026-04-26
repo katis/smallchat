@@ -65,3 +65,18 @@ SmallChatAgentProfileTest >> testRegistryRejectsDuplicate [
 			(SmallChatAgentProfile new name: 'beta-fixture'; yourself) ]
 		raise: Error
 ]
+
+{ #category : 'tests' }
+SmallChatAgentProfileTest >> testResetSeedsDefaultProfile [
+	"After reset, the registry exposes a single 'Default' profile whose
+	 model + system prompt mirror the current SmallChatConfig modelName +
+	 SmallChatPharoWorkspace defaultSystemPrompt -- so a fresh image
+	 rebuild always has the existing agent config available."
+	| seeded |
+	SmallChatAgentProfile reset.
+	seeded := SmallChatAgentProfile all.
+	self assert: seeded size equals: 1.
+	self assert: seeded first name equals: 'Default'.
+	self assert: seeded first modelName equals: SmallChatConfig modelName.
+	self assert: seeded first systemPrompt equals: SmallChatPharoWorkspace defaultSystemPrompt
+]
