@@ -85,10 +85,12 @@ SmallChatTsWorkspace class >> kind [ ^ #ts
 
 { #category : 'accessing' }
 SmallChatTsWorkspace class >> launcherBlock [
-	"Block (path -> SmallChatLSPClient) used to launch tsgo on attach.
-	 Tests swap this for a stub that returns a stub-transport client.
-	 Default returns nil (real tsgo wiring lands in step 11)."
-	^ LauncherBlock ifNil: [ [ :path | nil ] ]
+	"Block (path -> SmallChatLSPClient) used to launch tsgo on attach. Tests
+	 swap this for a stub that returns a stub-transport client. Default spawns
+	 real tsgo via SmallChatLSPClient class>>launchTsgoForWorkspace: which
+	 resolves the workspace-local binary, runs the initialize handshake, and
+	 returns a live client."
+	^ LauncherBlock ifNil: [ [ :path | SmallChatLSPClient launchTsgoForWorkspace: path ] ]
 ]
 
 { #category : 'accessing' }

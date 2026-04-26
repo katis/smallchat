@@ -26,6 +26,35 @@ SmallChatLSPClient class >> activeClients [
 ]
 
 { #category : 'lifecycle' }
+SmallChatLSPClient class >> launchTsgoForWorkspace: aWorkspaceRoot [
+	"Spawn tsgo against aWorkspaceRoot per the workspace-local resolution rule
+	 (SmallChatLSPStdioTransport class>>resolveTsgoCommandIn:), wire stdio,
+	 fork the message reader, register the client as active so SessionManager
+	 tears it down on image quit/save, and run the LSP initialize handshake.
+	 Blocks up to 10s on the initialize response. Returns the live, initialized
+	 client. On any failure, tears down the transport + reader before re-raising
+	 so a half-initialised tsgo never leaks across the launcher boundary."
+	| transport client rootUri |
+	transport := SmallChatLSPStdioTransport new.
+	transport launchTsgoAt: aWorkspaceRoot.
+	client := self new transport: transport.
+	rootUri := 'file://' , aWorkspaceRoot asFileReference pathString.
+	[
+		client startReader.
+		client markActive.
+		(client initializeAsync: (Dictionary new
+			at: 'processId' put: nil;
+			at: 'rootUri' put: rootUri;
+			at: 'capabilities' put: Dictionary new;
+			yourself)) resultTimeout: 10000
+	] on: Error do: [ :e |
+		[ client shutdown ] on: Error do: [ :_ | nil ].
+		[ transport shutdown ] on: Error do: [ :_ | nil ].
+		e signal ].
+	^ client
+]
+
+{ #category : 'lifecycle' }
 SmallChatLSPClient class >> registerActive: aClient [
 	self activeClients add: aClient
 ]

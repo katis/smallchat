@@ -8,6 +8,21 @@ Class {
 	#package : 'SmallChat-Tests'
 }
 
+{ #category : 'running' }
+SmallChatWorkspaceWindowTest >> setUp [
+	"Default tsgo launcher now spawns a real subprocess; these window tests only
+	 need attachAt: to succeed without an LSP client. Install a nil-returning
+	 stub for the duration of the test."
+	super setUp.
+	SmallChatTsWorkspace launcherBlock: [ :p | nil ]
+]
+
+{ #category : 'running' }
+SmallChatWorkspaceWindowTest >> tearDown [
+	SmallChatTsWorkspace resetLauncherBlock.
+	super tearDown
+]
+
 { #category : 'tests' }
 SmallChatWorkspaceWindowTest >> testAttachOnPathAttachesAndMounts [
 	| registry window prior |
