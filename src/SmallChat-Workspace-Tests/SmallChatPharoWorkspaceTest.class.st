@@ -12,6 +12,17 @@ SmallChatPharoWorkspaceTest >> testDefaultIsSingleton [
 ]
 
 { #category : 'tests' }
+SmallChatPharoWorkspaceTest >> testDefaultSystemPromptMentionsPharoExpert [
+	"The Pharo workspace owns its own system prompt; the LM session reads
+	 it via the workspace, so it must mention Pharo and the canonical nav
+	 entry SmallChatNav."
+	| prompt |
+	prompt := SmallChatPharoWorkspace defaultSystemPrompt.
+	self assert: (prompt includesSubstring: 'Pharo').
+	self assert: (prompt includesSubstring: 'SmallChatNav')
+]
+
+{ #category : 'tests' }
 SmallChatPharoWorkspaceTest >> testKindIsPharo [
 	self assert: SmallChatPharoWorkspace kind equals: #pharo
 ]
