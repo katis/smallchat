@@ -321,15 +321,14 @@ SmallChatLMSession >> workspace [
 
 { #category : 'accessing' }
 SmallChatLMSession >> workspace: aWorkspace [
-	"Bind this session to aWorkspace, refresh the live client's catalog so
-	 the LM only sees capabilities applicable to the workspace kind, and
-	 ensure the conversation carries exactly one system message, sourced
-	 from the workspace's defaultSystemPrompt. Re-binding replaces the
-	 prior system message rather than appending so the prompt always
-	 reflects the currently bound workspace. Mock clients that do not know
-	 toolCatalog: are left alone."
-	workspace := aWorkspace.
-	(client notNil and: [ client respondsTo: #toolCatalog: ])
-		ifTrue: [ client toolCatalog: (SmallChatLMCapabilityCatalog forWorkspace: aWorkspace) ].
-	self installSystemPromptFromWorkspace
+  "Bind this session to aWorkspace and refresh the live client's catalog
+   so the LM only sees capabilities applicable to the workspace kind. The
+   conversation's system message comes from the workspace's
+   defaultSystemPrompt unless a profile has already stamped its own --
+   once #applyProfile: has run, the profile prompt wins and we leave the
+   conversation alone."
+  workspace := aWorkspace.
+  (client notNil and: [ client respondsTo: #toolCatalog: ])
+    ifTrue: [ client toolCatalog: (SmallChatLMCapabilityCatalog forWorkspace: aWorkspace) ].
+  profile ifNil: [ self installSystemPromptFromWorkspace ]
 ]

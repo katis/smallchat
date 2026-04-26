@@ -298,3 +298,29 @@ SmallChatLMSessionTest >> testWorkspacePromptOverriddenByConfigOverride [
 		equals: 'OVERRIDE-PROMPT' ]
 		ensure: [ SmallChatConfig systemPromptOverride: saved ]
 ]
+
+{ #category : 'tests' }
+SmallChatLMSessionTest >> testWorkspaceRebindKeepsProfilePrompt [
+  "After applyProfile: stamps a system prompt, a subsequent workspace:
+   bind must NOT overwrite it with the workspace's defaultSystemPrompt --
+   the profile's prompt is the user's explicit choice and must win.
+   Tool-catalog wiring still happens (asserted indirectly: no exception
+   from the workspace setter on a session whose client has a toolCatalog:
+   selector)."
+  | session profile ts firstSystem model |
+  model := SmallChatAgentProfile availableModels first.
+  profile := SmallChatAgentProfile new
+    name: 'Coder';
+    modelName: model;
+    systemPrompt: 'be terse';
+    yourself.
+  ts := SmallChatTsWorkspace new name: 'ts-fixture'; yourself.
+  session := SmallChatLMSession new.
+  session applyProfile: profile.
+  session workspace: ts.
+  firstSystem := session conversation messages
+    detect: [ :m | m role = #system ]
+    ifNone: [ nil ].
+  self assert: firstSystem notNil.
+  self assert: firstSystem content equals: 'be terse'
+]
