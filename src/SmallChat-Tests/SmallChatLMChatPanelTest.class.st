@@ -115,6 +115,30 @@ SmallChatLMChatPanelTest >> testErrorFromClientShowsErrorInStatusLabel [
 ]
 
 { #category : 'tests' }
+SmallChatLMChatPanelTest >> testFinishStreamingDoesNotMutateInitialPlaceholderAfterToolLoopAdvanced [
+	"Regression: when the streaming tool loop advances ``placeholder`` to a fresh
+	 assistant message each round, the FINAL message returned by the loop is a
+	 different object than the initial placeholder ``dispatchSendOf:`` passed in.
+	 ``finishStreamingWith:placeholder:`` must not copy the FINAL's content/thinking
+	 onto the FIRST placeholder -- doing so duplicates the final answer at the
+	 first placeholder's position and wipes out whatever the first round emitted."
+	| session panel firstPlaceholder finalMessage tc |
+	session := self stubSessionWithCannedReply: 'unused'.
+	panel := SmallChatLMChatPanel new
+		session: session;
+		uiDeferrer: [ :blk | blk value ];
+		yourself.
+	tc := SmallChatLMToolCall id: 'c1' name: 'noop' arguments: '{}'.
+	firstPlaceholder := SmallChatLMMessage role: #assistant content: '' thinking: 'first round thinking'.
+	firstPlaceholder toolCalls: { tc }.
+	finalMessage := SmallChatLMMessage role: #assistant content: 'final answer' thinking: nil.
+	panel finishStreamingWith: finalMessage placeholder: firstPlaceholder.
+	self assert: firstPlaceholder content equals: ''.
+	self assert: firstPlaceholder thinking equals: 'first round thinking'.
+	self assert: firstPlaceholder toolCalls equals: { tc }
+]
+
+{ #category : 'tests' }
 SmallChatLMChatPanelTest >> testInitializeBuildsAllPresenters [
   | panel |
   panel := SmallChatLMChatPanel new.

@@ -131,16 +131,15 @@ SmallChatLMChatPanel >> finishPendingWithError: anException placeholder: aPlaceh
 
 { #category : 'private' }
 SmallChatLMChatPanel >> finishStreamingWith: aFinalMessage placeholder: aPlaceholder [
-    "Final reconcile: the streaming client returns a finalised SmallChatLMMessage
-     built from the same accumulator we mirrored on aPlaceholder. Defensive copy
-     of content/thinking covers any drift, then UI state resets."
-    aPlaceholder content: aFinalMessage content.
-    aPlaceholder thinking: aFinalMessage thinking.
-    aPlaceholder rawStream: nil.
-    self rebuildSections.
-    statusLabel label: ''.
-    sendButton enable.
-    pendingRequest := nil
+	"The streaming tool loop already finalises every placeholder it touches
+	 (each round sets content/thinking/toolCalls and clears rawStream), so
+	 nothing about the conversation needs reconciling here -- the final
+	 placeholder IS aFinalMessage. Mutating aPlaceholder would corrupt the
+	 first round's placeholder when the loop advanced through tool calls."
+	self rebuildSections.
+	statusLabel label: ''.
+	sendButton enable.
+	pendingRequest := nil
 ]
 
 { #category : 'initialization' }
