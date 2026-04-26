@@ -40,6 +40,16 @@ SmallChatLMTranscriptSection class >> userOn: aMessage [
     ^ self new setKind: #user message: aMessage; yourself
 ]
 
+{ #category : 'displaying' }
+SmallChatLMTranscriptSection >> content [
+    kind = #user ifTrue: [ ^ message content ifNil: [ '' ] ].
+    kind = #assistant ifTrue: [ ^ message content ifNil: [ '' ] ].
+    kind = #thinking ifTrue: [ ^ message thinking ifNil: [ '' ] ].
+    kind = #toolCall ifTrue: [
+        ^ (toolCall name ifNil: [ '' ]) , '(' , (toolCall arguments ifNil: [ '' ]) , ')' ].
+    ^ ''
+]
+
 { #category : 'accessing' }
 SmallChatLMTranscriptSection >> kind [
     ^ kind

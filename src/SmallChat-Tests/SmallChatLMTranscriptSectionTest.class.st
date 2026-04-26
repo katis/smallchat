@@ -26,6 +26,19 @@ SmallChatLMTranscriptSectionTest >> testAssistantLabelUsesContent [
 ]
 
 { #category : 'tests' }
+SmallChatLMTranscriptSectionTest >> testContentByKind [
+    | userMsg asstMsg tc plumbingMsg |
+    userMsg := SmallChatLMMessage role: #user content: 'hi'.
+    asstMsg := SmallChatLMMessage role: #assistant content: 'final' thinking: 'reason'.
+    tc := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{"code":"3+4"}'.
+    plumbingMsg := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc }.
+    self assert: (SmallChatLMTranscriptSection userOn: userMsg) content equals: 'hi'.
+    self assert: (SmallChatLMTranscriptSection assistantOn: asstMsg) content equals: 'final'.
+    self assert: (SmallChatLMTranscriptSection thinkingOn: asstMsg) content equals: 'reason'.
+    self assert: (SmallChatLMTranscriptSection toolCallOn: plumbingMsg call: tc result: nil) content equals: 'evaluate({"code":"3+4"})'
+]
+
+{ #category : 'tests' }
 SmallChatLMTranscriptSectionTest >> testLabelStripsLineFeeds [
     | msg s |
     msg := SmallChatLMMessage role: #user content: 'line one' , String lf , 'line two'.
