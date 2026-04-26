@@ -34,11 +34,26 @@ SmallChatAgentProfile >> modelName [
 ]
 
 { #category : 'accessing' }
+SmallChatAgentProfile >> modelName: aString [
+	modelName := aString
+]
+
+{ #category : 'accessing' }
 SmallChatAgentProfile >> name [
 	^ name
 ]
 
 { #category : 'accessing' }
+SmallChatAgentProfile >> name: aStringOrNil [
+	name := aStringOrNil
+]
+
+{ #category : 'accessing' }
 SmallChatAgentProfile >> systemPrompt [
 	^ systemPrompt
+]
+
+{ #category : 'accessing' }
+SmallChatAgentProfile >> systemPrompt: aString [
+	systemPrompt := aString
 ]
