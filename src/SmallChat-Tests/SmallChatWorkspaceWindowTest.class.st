@@ -75,6 +75,16 @@ SmallChatWorkspaceWindowTest >> testDetachAndCloseUnmountsAndShutsDownIdempotent
 ]
 
 { #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testDirectoryPickerBlockSeamReturnsConfiguredValue [
+	| sentinel result |
+	sentinel := '/tmp/smallchat-ws-picked' asFileReference.
+	SmallChatWorkspaceWindow directoryPickerBlock: [ sentinel ].
+	[ result := SmallChatWorkspaceWindow pickDirectory ]
+		ensure: [ SmallChatWorkspaceWindow resetDirectoryPickerBlock ].
+	self assert: result == sentinel
+]
+
+{ #category : 'tests' }
 SmallChatWorkspaceWindowTest >> testInitializePresentersBuildsLabels [
 	| ws window |
 	ws := SmallChatTsWorkspace attachAt: '/tmp/smallchat-ws-fixture' name: 'fixture-ws'.

@@ -17,9 +17,70 @@ Class {
 		'chatPlaceholder',
 		'registryProvider'
 	],
+	#classInstVars : [
+		'directoryPickerBlock'
+	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
 }
+
+{ #category : 'picker' }
+SmallChatWorkspaceWindow class >> directoryPickerBlock [
+	"Block that returns a directory FileReference (or nil if cancelled).
+	 Test seam: tests swap to a block returning a known FileReference.
+	 Default uses Pharo's native chooseDirectory: dialog."
+	^ directoryPickerBlock
+		ifNil: [ [ UIManager default chooseDirectory: 'Pick a TS workspace directory' ] ]
+]
+
+{ #category : 'picker' }
+SmallChatWorkspaceWindow class >> directoryPickerBlock: aBlock [
+	directoryPickerBlock := aBlock
+]
+
+{ #category : 'world menu' }
+SmallChatWorkspaceWindow class >> menuCommandOn: aBuilder [
+	<worldMenu>
+	(aBuilder item: #'smallchat workspace')
+		parent: #Tools;
+		order: 101;
+		help: 'Pick a directory and open a TS workspace window';
+		icon: (self iconNamed: #smallNew);
+		action: [ UIManager default defer: [ self open ] ]
+]
+
+{ #category : 'opening' }
+SmallChatWorkspaceWindow class >> open [
+	"Pop the directory picker; if the user chose a directory, attach + open
+	 a workspace window for it. Returns the new window or nil if cancelled."
+	| dir |
+	dir := self pickDirectory.
+	dir ifNil: [ ^ nil ].
+	^ self openOnPath: dir fullName name: nil
+]
+
+{ #category : 'opening' }
+SmallChatWorkspaceWindow class >> openOnPath: aPath name: aNameOrNil [
+	"Build a workspace window for aPath, mount it, and open. Returns the
+	 window. aPath may be a String or FileReference -- canonicalisation
+	 happens inside attachOnPath:name:."
+	^ self new
+		attachOnPath: aPath name: aNameOrNil;
+		open;
+		yourself
+]
+
+{ #category : 'picker' }
+SmallChatWorkspaceWindow class >> pickDirectory [
+	"Pop the directory picker. Returns the FileReference the user chose,
+	 or nil if they cancelled."
+	^ self directoryPickerBlock value
+]
+
+{ #category : 'picker' }
+SmallChatWorkspaceWindow class >> resetDirectoryPickerBlock [
+	directoryPickerBlock := nil
+]
 
 { #category : 'lifecycle' }
 SmallChatWorkspaceWindow >> attachOnPath: aPath name: aNameOrNil [
