@@ -238,6 +238,11 @@ SmallChatLMChatPanel >> refreshMessages [
 ]
 
 { #category : 'accessing' }
+SmallChatLMChatPanel >> sections [
+    ^ #()
+]
+
+{ #category : 'accessing' }
 SmallChatLMChatPanel >> sendButton [
     ^ sendButton
 ]

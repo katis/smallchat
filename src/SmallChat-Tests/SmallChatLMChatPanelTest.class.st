@@ -240,6 +240,19 @@ SmallChatLMChatPanelTest >> testSecondSendBlockedWhileFirstPending [
 ]
 
 { #category : 'tests' }
+SmallChatLMChatPanelTest >> testSectionsExcludesSystemMessage [
+    | session panel |
+    session := self stubSessionWithCannedReply: 'unused'.
+    panel := SmallChatLMChatPanel new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    self assert: (session conversation messages anySatisfy: [ :m | m role = #system ])
+        description: 'precondition: session seeds a system message'.
+    self assert: panel sections isEmpty
+]
+
+{ #category : 'tests' }
 SmallChatLMChatPanelTest >> testSendAfterErrorIsAccepted [
     | stub client session panel userTurns |
     stub := SmallChatLMHttpStub new
