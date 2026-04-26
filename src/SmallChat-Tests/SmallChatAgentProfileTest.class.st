@@ -80,3 +80,20 @@ SmallChatAgentProfileTest >> testResetSeedsDefaultProfile [
 	self assert: seeded first modelName equals: SmallChatConfig modelName.
 	self assert: seeded first systemPrompt equals: SmallChatPharoWorkspace defaultSystemPrompt
 ]
+
+{ #category : 'tests' }
+SmallChatAgentProfileTest >> testSeedClampsUnknownConfigModel [
+	"If SmallChatConfig modelName returns a value not in availableModels
+	 (e.g. user-set or env-set to something weird), the seeded Default
+	 profile falls back to availableModels first instead of failing
+	 validation."
+	| originalModel |
+	originalModel := SmallChatConfig modelName.
+	[ SmallChatConfig modelName: 'some-unknown-model'.
+	  SmallChatAgentProfile reset.
+	  self
+	    assert: SmallChatAgentProfile all first modelName
+	    equals: SmallChatAgentProfile availableModels first ]
+		ensure: [ SmallChatConfig modelName: originalModel.
+		          SmallChatAgentProfile reset ]
+]
