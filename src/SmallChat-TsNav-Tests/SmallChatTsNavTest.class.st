@@ -18,6 +18,43 @@ SmallChatTsNavTest >> tearDown [
 ]
 
 { #category : 'tests' }
+SmallChatTsNavTest >> testDiagnosticsForRendersLspItems [
+	"diagnosticsFor: opens the workspace-relative file on the LSP client and
+	 issues textDocument/diagnostic. The canned response yields one Diagnostic
+	 per item and renders them as bulleted lines with severity + message."
+	| fs root file uri stub ws response out |
+	fs := FileSystem memory.
+	root := fs / 'project'.
+	root ensureCreateDirectory.
+	file := root / 'a.ts'.
+	file writeStreamDo: [ :s | s nextPutAll: 'const x = bad;' ].
+	uri := 'file://' , file fullName.
+	response := Dictionary new
+		at: 'kind' put: 'full';
+		at: 'items' put: (Array with: (Dictionary new
+			at: 'range' put: (Dictionary new
+				at: 'start' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 10; yourself);
+				at: 'end' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 13; yourself);
+				yourself);
+			at: 'severity' put: 1;
+			at: 'message' put: 'Cannot find name bad';
+			yourself));
+		yourself.
+	stub := SmallChatStubLSPClient new
+		cannedResponse: 'textDocument/diagnostic' is: response;
+		yourself.
+	ws := SmallChatTsWorkspace new
+		name: 'fixture';
+		path: root;
+		lspClient: stub;
+		yourself.
+	SmallChatTsNav currentWorkspace: ws.
+	out := SmallChatTsNav diagnosticsFor: 'a.ts'.
+	self assert: (out includesSubstring: 'Cannot find name bad').
+	self assert: (out includesSubstring: 'a.ts')
+]
+
+{ #category : 'tests' }
 SmallChatTsNavTest >> testFindFilesListsCssMatchedByGlob [
 	"findFiles: returns workspace-relative paths whose tail matches the glob.
 	 Reads from the lazy Famix model: CSSModuleFile entities get listed for

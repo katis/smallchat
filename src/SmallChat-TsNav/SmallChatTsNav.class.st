@@ -29,6 +29,39 @@ SmallChatTsNav class >> currentWorkspace: aTsWorkspaceOrNil [
 	currentWorkspace := aTsWorkspaceOrNil
 ]
 
+{ #category : 'lsp' }
+SmallChatTsNav class >> diagnosticsFor: aRelPath [
+	"Open the workspace-relative file on the LSP client and issue
+	 textDocument/diagnostic. Renders the items as bulleted Markdown with
+	 severity + message; nil response or empty items render as the
+	 _no diagnostics_ stub."
+	^ self withWorkspaceDo: [ :ws | self diagnosticsFor: aRelPath inWorkspace: ws ]
+]
+
+{ #category : 'private' }
+SmallChatTsNav class >> diagnosticsFor: aRelPath inWorkspace: aWs [
+	| client file uri text response items |
+	client := aWs lspClient.
+	client ifNil: [ ^ '_no LSP client on workspace; cannot fetch diagnostics_' ].
+	file := aWs path / aRelPath.
+	file exists ifFalse: [ ^ '_file not found: ' , aRelPath , '_' ].
+	uri := 'file://' , file fullName.
+	text := file readStreamDo: [ :s | s upToEnd ].
+	client openDocumentUri: uri languageId: (self languageIdForPath: aRelPath) text: text.
+	response := client
+		request: (Dictionary new
+			at: 'method' put: 'textDocument/diagnostic';
+			at: 'params' put: (Dictionary new
+				at: 'textDocument' put: (Dictionary new at: 'uri' put: uri; yourself);
+				yourself);
+			yourself)
+		onDocumentUri: uri.
+	response isNil ifTrue: [ ^ '_no diagnostics_' ].
+	items := response at: 'items' ifAbsent: [ #() ].
+	items isEmpty ifTrue: [ ^ '_no diagnostics_' ].
+	^ self renderDiagnostics: items relPath: aRelPath
+]
+
 { #category : 'discovery' }
 SmallChatTsNav class >> findFiles: aGlob [
 	"Bullet list of workspace-relative paths whose tail matches aGlob.
@@ -242,6 +275,33 @@ SmallChatTsNav class >> renameSymbolInFile: aRelPath line: aLine character: aCha
 ]
 
 { #category : 'private' }
+SmallChatTsNav class >> renderDiagnostics: items relPath: aRelPath [
+	^ String streamContents: [ :s | | shown limit |
+		s nextPutAll: '**'; print: items size; nextPutAll: ' diagnostic'.
+		items size = 1 ifFalse: [ s nextPut: $s ].
+		s nextPutAll: ' for `'; nextPutAll: aRelPath; nextPutAll: '`:**'; lf.
+		shown := 0.
+		limit := SmallChatNavBudget default size.
+		items do: [ :d |
+			s position < limit ifTrue: [
+				| line ch sev msg |
+				line := ((d at: 'range') at: 'start') at: 'line'.
+				ch := ((d at: 'range') at: 'start') at: 'character'.
+				sev := self severityLabel: (d at: 'severity' ifAbsent: [ 1 ]).
+				msg := d at: 'message' ifAbsent: [ '<no message>' ].
+				s nextPutAll: '* `'; nextPutAll: aRelPath;
+				  nextPutAll: ':'; print: line;
+				  nextPutAll: ':'; print: ch;
+				  nextPutAll: '` '; nextPutAll: sev;
+				  nextPutAll: ': '; nextPutAll: msg; lf.
+				shown := shown + 1 ] ].
+		shown < items size ifTrue: [
+			s nextPutAll: '_'; print: items size;
+			  nextPutAll: ' diagnostics; showing first '; print: shown;
+			  nextPutAll: '._'; lf ] ]
+]
+
+{ #category : 'private' }
 SmallChatTsNav class >> renderGrepResults: triples [
 	triples isEmpty ifTrue: [ ^ '_no matches_' ].
 	^ String streamContents: [ :s | | shown limit |
@@ -300,6 +360,16 @@ SmallChatTsNav class >> renderSymbolMatches: matches inWorkspace: aWs [
 			  nextPutAll: (self kindLabelFor: e); nextPutAll: ' | `';
 			  nextPutAll: relPath; nextPutAll: ':'; print: pos x;
 			  nextPutAll: ':'; print: pos y; nextPutAll: '` |'; lf ] ]
+]
+
+{ #category : 'private' }
+SmallChatTsNav class >> severityLabel: anInteger [
+	"LSP DiagnosticSeverity: 1=Error, 2=Warning, 3=Information, 4=Hint."
+	anInteger = 1 ifTrue: [ ^ 'error' ].
+	anInteger = 2 ifTrue: [ ^ 'warning' ].
+	anInteger = 3 ifTrue: [ ^ 'info' ].
+	anInteger = 4 ifTrue: [ ^ 'hint' ].
+	^ 'severity:' , anInteger printString
 ]
 
 { #category : 'workspace binding' }
