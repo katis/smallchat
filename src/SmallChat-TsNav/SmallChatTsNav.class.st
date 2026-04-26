@@ -1,5 +1,5 @@
 "
-Class-side discovery + edit API for chat sessions bound to a TypeScript workspace. Mirrors the SmallChatNav pattern: every selector returns budgeted Markdown via SmallChatNavBudget default size. Discovery (findFiles:, findSymbol:, findReferencesOf:, grep:in:) reads from the workspace's lazy Famix model. Mutations + live diagnostics (writeFile:contents:, diagnosticsFor:, renameSymbolAt:..., codeActionsAt:..., applyCodeAction:) drive the workspace's LSP client. The workspace is bound per evaluate call by SmallChatEvalSmalltalkCapability.
+Discovery + edit API for the bound TypeScript workspace: find files / symbols / references, read and write source, rename and apply code actions through the LSP client. Use this for project work; use SmallChatNav to navigate Pharo classes (including this one -- describeClass:, findMethods:in:, show:method: surface every selector with comments). Do not reach for FileSystem disk, OSSubprocess, or shell commands -- they are dead ends. All selectors are class-side and return budgeted Markdown; the surrounding eval capability binds the workspace per call.
 "
 Class {
 	#name : 'SmallChatTsNav',
@@ -76,7 +76,7 @@ SmallChatTsNav class >> codeActionsAt: aRelPath line: aLine character: aChar inW
 	^ self renderCodeActions: lastCodeActions
 ]
 
-{ #category : 'workspace binding' }
+{ #category : 'private-workspace' }
 SmallChatTsNav class >> currentWorkspace [
 	"The TS workspace this evaluate call is operating against. Set by
 	 SmallChatEvalSmalltalkCapability around each run: so SmallChatTsNav
@@ -85,7 +85,7 @@ SmallChatTsNav class >> currentWorkspace [
 	^ currentWorkspace
 ]
 
-{ #category : 'workspace binding' }
+{ #category : 'private-workspace' }
 SmallChatTsNav class >> currentWorkspace: aTsWorkspaceOrNil [
 	"Bind the active workspace for the duration of one evaluate call. Pass
 	 nil to clear; SmallChatEvalSmalltalkCapability does this in #ensure:
@@ -490,7 +490,7 @@ SmallChatTsNav class >> severityLabel: anInteger [
 	^ 'severity:' , anInteger printString
 ]
 
-{ #category : 'workspace binding' }
+{ #category : 'private-workspace' }
 SmallChatTsNav class >> withWorkspaceDo: aOneArgBlock [
 	"Run aOneArgBlock with the bound TS workspace, or short-circuit with
 	 the friendly Markdown guard. The binding is set by
