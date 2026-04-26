@@ -24,6 +24,27 @@ SmallChatAgentProfileWindowTest >> testAddNewProfileSelectsNewDraft [
 ]
 
 { #category : 'tests' }
+SmallChatAgentProfileWindowTest >> testProfileSelectedPopulatesFields [
+	"Selecting a profile copies its fields into the editor inputs so the
+	 user sees its current state."
+	| win profile |
+	SmallChatAgentProfile reset.
+	profile := SmallChatAgentProfile new
+		name: 'select-fixture';
+		modelName: 'Qwen3.6-27B-MLX-8bit';
+		systemPrompt: 'select-prompt';
+		yourself.
+	SmallChatAgentProfile add: profile.
+	win := SmallChatAgentProfileWindow new.
+	win refreshProfileList.
+	win profileSelected: profile.
+	self assert: win nameInput text equals: 'select-fixture'.
+	self assert: win promptText text equals: 'select-prompt'.
+	self assert: win modelDropList selectedItem equals: 'Qwen3.6-27B-MLX-8bit'.
+	self assert: win currentProfile == profile
+]
+
+{ #category : 'tests' }
 SmallChatAgentProfileWindowTest >> testWindowBuildsAndShowsDefault [
 	"A new window has all four editor presenters wired up, and its profile
 	 list reflects the registry -- so a fresh image opens to the seeded
