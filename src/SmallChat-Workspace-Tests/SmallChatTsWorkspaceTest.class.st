@@ -68,6 +68,26 @@ SmallChatTsWorkspaceTest >> testFamixModelLazyBuildIsIdempotent [
 ]
 
 { #category : 'tests' }
+SmallChatTsWorkspaceTest >> testShutdownClearsFamixState [
+	"shutdown drops the cached Famix model + importer alongside the LSP
+	 client so re-attaching the same path gets a fresh model rather than
+	 stale entities. Tests that exercise re-attach rely on this."
+	| fs root ws m1 |
+	fs := FileSystem memory.
+	root := fs / 'project'.
+	root ensureCreateDirectory.
+	(root / 'styles.module.css') writeStreamDo: [ :s | s nextPutAll: '.x { }' ].
+	ws := SmallChatTsWorkspace new
+		name: 'fixture';
+		path: root;
+		yourself.
+	m1 := ws famixModel.
+	self assert: m1 notNil.
+	ws shutdown.
+	self assert: ws famixModel ~~ m1
+]
+
+{ #category : 'tests' }
 SmallChatTsWorkspaceTest >> testShutdownTearsDownLspClient [
 	"shutdown should propagate to the workspace's LSP client (and through it
 	 to the transport). Verify via the stub transport's shutdownCalled flag."

@@ -142,9 +142,13 @@ SmallChatTsWorkspace >> path: aRef [ path := aRef
 
 { #category : 'lifecycle' }
 SmallChatTsWorkspace >> shutdown [
-	"Stop the LSP client and drop it. Idempotent: safe after the first call."
+	"Stop the LSP client and drop it; clear the cached Famix model +
+	 importer so re-attaching the same path rebuilds rather than handing
+	 back stale entities. Idempotent: safe after the first call."
 	lspClient ifNotNil: [
 		[ lspClient shutdown ] on: Error do: [ :_ | nil ].
 		lspClient := nil ].
+	famixModel := nil.
+	famixImporter := nil.
 	^ self
 ]
