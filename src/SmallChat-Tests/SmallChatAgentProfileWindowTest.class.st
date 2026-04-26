@@ -6,6 +6,24 @@ Class {
 }
 
 { #category : 'tests' }
+SmallChatAgentProfileWindowTest >> testAddNewProfileSelectsNewDraft [
+	"Add appends a new profile with a unique generated name, refreshes the
+	 list, and selects the freshly-added row so the user can immediately
+	 edit its fields."
+	| win before after newRow |
+	SmallChatAgentProfile reset.
+	win := SmallChatAgentProfileWindow new.
+	before := SmallChatAgentProfile all size.
+	win addNewProfile.
+	after := SmallChatAgentProfile all size.
+	self assert: after equals: before + 1.
+	newRow := win profileList selectedItem.
+	self assert: newRow notNil.
+	self assert: (win profileList items includes: newRow).
+	self assert: (newRow name beginsWith: 'New profile')
+]
+
+{ #category : 'tests' }
 SmallChatAgentProfileWindowTest >> testWindowBuildsAndShowsDefault [
 	"A new window has all four editor presenters wired up, and its profile
 	 list reflects the registry -- so a fresh image opens to the seeded

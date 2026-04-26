@@ -22,8 +22,15 @@ SmallChatAgentProfileWindow >> addButton [
 
 { #category : 'actions' }
 SmallChatAgentProfileWindow >> addNewProfile [
-	"Slice 9."
-	^ self
+	"Add a fresh profile with a unique generated name, refresh the list,
+	 and select the new row so the editor fields populate from it."
+	| profile |
+	profile := SmallChatAgentProfile new
+		name: self uniqueDraftName;
+		yourself.
+	SmallChatAgentProfile add: profile.
+	self refreshProfileList.
+	profileList selectItem: profile
 ]
 
 { #category : 'accessing' }
@@ -173,4 +180,19 @@ SmallChatAgentProfileWindow >> saveButton [
 SmallChatAgentProfileWindow >> saveCurrentProfile [
 	"Slice 11."
 	^ self
+]
+
+{ #category : 'private' }
+SmallChatAgentProfileWindow >> uniqueDraftName [
+	"Return the first 'New profile', 'New profile 2', 'New profile 3' ...
+	 not currently in the registry."
+	| base index candidate taken |
+	base := 'New profile'.
+	taken := SmallChatAgentProfile all collect: [ :p | p name ].
+	(taken includes: base) ifFalse: [ ^ base ].
+	index := 2.
+	[ candidate := base , ' ' , index printString.
+	  taken includes: candidate ]
+		whileTrue: [ index := index + 1 ].
+	^ candidate
 ]
