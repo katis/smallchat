@@ -55,11 +55,18 @@ SmallChatLMChatPanelTest >> stubSessionWithChunks: anArray [
 ]
 
 { #category : 'tests' }
-SmallChatLMChatPanelTest >> testDefaultLayoutPlacesMcpHeaderAtTop [
-    "MCP status sits at the very top of the panel, above the transcript."
+SmallChatLMChatPanelTest >> testChatPanelHasNoMCPSurface [
+    "After moving MCP observability to a dedicated console window, the chat
+     panel must not expose MCP state or subscribe to the MCP announcer.
+     Regression guard so the surface does not grow back."
     | panel |
     panel := SmallChatLMChatPanel new.
-    self assert: panel defaultLayout children first == panel mcpStatusLabel
+    self deny: (panel respondsTo: #mcpStatusLabel).
+    self deny: (panel respondsTo: #applyMCPState:).
+    self deny: (panel respondsTo: #subscribeToMCPAnnouncer).
+    self deny: (panel respondsTo: #unsubscribeFromMCPAnnouncer).
+    self deny: (SmallChatLMChatPanel class canUnderstand: #labelForMCPState:).
+    self deny: (SmallChatLMChatPanel instVarNames includes: 'mcpStatusLabel')
 ]
 
 { #category : 'tests' }
@@ -123,29 +130,7 @@ SmallChatLMChatPanelTest >> testInitializeBuildsAllPresenters [
   self assert: panel input notNil.
   self assert: panel sendButton notNil.
   self assert: panel messagesPane notNil.
-  self assert: panel statusLabel notNil.
-  self assert: panel mcpStatusLabel notNil
-]
-
-{ #category : 'tests' }
-SmallChatLMChatPanelTest >> testLabelForMCPState [
-    "Pure mapping from SmallChatMCPStateChanged to label text. ASCII only --
-     Tonel round-trips non-ASCII as mojibake in Pharo 13."
-    | off listening connected |
-    off := SmallChatMCPStateChanged new running: false; clientCount: 0; yourself.
-    listening := SmallChatMCPStateChanged new running: true; clientCount: 0; yourself.
-    connected := SmallChatMCPStateChanged new running: true; clientCount: 1; yourself.
-    self assert: (SmallChatLMChatPanel labelForMCPState: off) equals: 'MCP: offline'.
-    self assert: (SmallChatLMChatPanel labelForMCPState: listening) equals: 'MCP: listening'.
-    self assert: (SmallChatLMChatPanel labelForMCPState: connected) equals: 'MCP: connected'
-]
-
-{ #category : 'tests' }
-SmallChatLMChatPanelTest >> testMcpStatusLabelPresentAndInitialised [
-    | panel |
-    panel := SmallChatLMChatPanel new.
-    self assert: panel mcpStatusLabel notNil.
-    self assert: (panel mcpStatusLabel label beginsWith: 'MCP: ')
+  self assert: panel statusLabel notNil
 ]
 
 { #category : 'tests' }
@@ -183,39 +168,6 @@ SmallChatLMChatPanelTest >> testMessagesPaneIsScrollable [
     panel sendFromInput.
     panel waitForPending.
     self assert: panel messagesPane layout class equals: SpScrollableLayout
-]
-
-{ #category : 'tests' }
-SmallChatLMChatPanelTest >> testPanelUpdatesLabelOnMCPStateAnnouncement [
-    "Announce a synthetic state change through the default TCP server's
-     announcer; the panel should have subscribed during #initializePresenters
-     and must update mcpStatusLabel accordingly. Cleanup unsubscribes the
-     panel from the (real, live) default announcer."
-    | panel announcer |
-    panel := SmallChatLMChatPanel new
-        uiDeferrer: [ :blk | blk value ];
-        yourself.
-    announcer := SmallChatMCPTcpServer default announcer.
-    [
-        announcer announce:
-            (SmallChatMCPStateChanged new
-                running: true;
-                clientCount: 2;
-                yourself).
-        self assert: panel mcpStatusLabel label equals: 'MCP: connected'.
-        announcer announce:
-            (SmallChatMCPStateChanged new
-                running: true;
-                clientCount: 0;
-                yourself).
-        self assert: panel mcpStatusLabel label equals: 'MCP: listening'.
-        announcer announce:
-            (SmallChatMCPStateChanged new
-                running: false;
-                clientCount: 0;
-                yourself).
-        self assert: panel mcpStatusLabel label equals: 'MCP: offline'
-    ] ensure: [ announcer unsubscribe: panel ]
 ]
 
 { #category : 'tests' }
@@ -555,27 +507,4 @@ SmallChatLMChatPanelTest >> testTranscriptFiltersIntermediateToolPlumbing [
 	self assert: panel messagePresenters size equals: 2.
 	self assert: (panel messagePresenters first message role) equals: #user.
 	self assert: (panel messagePresenters second message) equals: finalMsg
-]
-
-{ #category : 'tests' }
-SmallChatLMChatPanelTest >> testUnsubscribeFromMCPAnnouncerStopsUpdates [
-    "After unsubscribeFromMCPAnnouncer (called from #cleanup), further
-     announcements on the default TCP server's announcer must NOT update
-     the panel's label. The host window wires #cleanup into whenClosedDo:
-     so closed panels do not leak subscriptions or mutate disposed widgets."
-    | panel announcer before |
-    panel := SmallChatLMChatPanel new
-        uiDeferrer: [ :blk | blk value ];
-        yourself.
-    announcer := SmallChatMCPTcpServer default announcer.
-    before := panel mcpStatusLabel label.
-    [
-        panel unsubscribeFromMCPAnnouncer.
-        announcer announce:
-            (SmallChatMCPStateChanged new
-                running: true;
-                clientCount: 99;
-                yourself).
-        self assert: panel mcpStatusLabel label equals: before
-    ] ensure: [ announcer unsubscribe: panel ]
 ]

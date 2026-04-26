@@ -17,21 +17,11 @@ Class {
 		'presentersByMessage',
 		'pendingRequest',
 		'statusLabel',
-		'uiDeferrer',
-		'mcpStatusLabel'
+		'uiDeferrer'
 	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
 }
-
-{ #category : 'mcp status' }
-SmallChatLMChatPanel class >> labelForMCPState: aState [
-	"Three-state mapping for the header indicator. ASCII only (Pharo 13
-	 Tonel round-trips unicode as mojibake in compiled method source)."
-	aState running ifFalse: [ ^ 'MCP: offline' ].
-	aState clientCount > 0 ifTrue: [ ^ 'MCP: connected' ].
-	^ 'MCP: listening'
-]
 
 { #category : 'private' }
 SmallChatLMChatPanel >> appendStreamingDelta: aString [
@@ -48,14 +38,6 @@ SmallChatLMChatPanel >> appendStreamingDelta: aString [
     (aString includes: Character lf) ifTrue: [ self refreshMessages ]
 ]
 
-{ #category : 'mcp status' }
-SmallChatLMChatPanel >> applyMCPState: aStateAnnouncement [
-    "Refresh the header text from a state-change announcement. Called via
-     uiDeferrer so mutation lands on the UI thread regardless of which
-     process triggered the announcement."
-    mcpStatusLabel label: (self class labelForMCPState: aStateAnnouncement)
-]
-
 { #category : 'private' }
 SmallChatLMChatPanel >> beginPendingSendOf: aString [
     session conversation addUser: aString.
@@ -66,10 +48,9 @@ SmallChatLMChatPanel >> beginPendingSendOf: aString [
 
 { #category : 'lifecycle' }
 SmallChatLMChatPanel >> cleanup [
-  "Release per-panel external bindings: drop the MCP announcer subscription
-   and terminate any in-flight reply fork. Idempotent. The host window calls
-   this from whenClosedDo: before its own teardown."
-  self unsubscribeFromMCPAnnouncer.
+  "Release per-panel external bindings: terminate any in-flight reply fork
+   and cancel the session's outstanding request. Idempotent. The host
+   window calls this from whenClosedDo: before its own teardown."
   session ifNotNil: [ :s | s cancelInFlight ].
   pendingRequest ifNotNil: [ :p |
     p isTerminated ifFalse: [ p terminate ] ].
@@ -80,7 +61,6 @@ SmallChatLMChatPanel >> cleanup [
 SmallChatLMChatPanel >> defaultLayout [
     ^ SpBoxLayout newTopToBottom
         spacing: 4;
-        add: mcpStatusLabel expand: false;
         add: messagesPane;
         add: statusLabel expand: false;
         add: (SpBoxLayout newLeftToRight
@@ -175,17 +155,13 @@ SmallChatLMChatPanel >> initializePresenters [
     messagesPane := self newPresenter.
     messagesPane layout: (SpScrollableLayout with: messagesContent).
     statusLabel := self newLabel.
-    mcpStatusLabel := self newLabel
-        label: (self class labelForMCPState: SmallChatMCPTcpServer default currentState);
-        yourself.
     input := self newTextInput
         placeholder: 'message';
         yourself.
     sendButton := self newButton
         label: 'Send';
         action: [ self sendFromInput ];
-        yourself.
-    self subscribeToMCPAnnouncer
+        yourself
 ]
 
 { #category : 'accessing' }
@@ -206,11 +182,6 @@ SmallChatLMChatPanel >> isHiddenFromTranscript: aMessage [
 		and: [ (aMessage content isNil or: [ aMessage content isEmpty ])
 		and: [ aMessage toolCalls notNil
 		and: [ aMessage toolCalls notEmpty ] ] ] ]
-]
-
-{ #category : 'accessing' }
-SmallChatLMChatPanel >> mcpStatusLabel [
-    ^ mcpStatusLabel
 ]
 
 { #category : 'accessing' }
@@ -298,17 +269,6 @@ SmallChatLMChatPanel >> statusLabel [
     ^ statusLabel
 ]
 
-{ #category : 'mcp status' }
-SmallChatLMChatPanel >> subscribeToMCPAnnouncer [
-    "Subscribe to SmallChatMCPStateChanged on the default TCP server so the
-     header label tracks connect/disconnect events. The subscription is keyed
-     by self so it can be removed with #unsubscribe: on window close."
-    SmallChatMCPTcpServer default announcer
-        when: SmallChatMCPStateChanged
-        do: [ :ann | uiDeferrer value: [ self applyMCPState: ann ] ]
-        for: self
-]
-
 { #category : 'private' }
 SmallChatLMChatPanel >> toolActivityTextFor: anAssistantMessage [
 	"Walk the conversation backwards from anAssistantMessage to the previous
@@ -341,14 +301,6 @@ SmallChatLMChatPanel >> toolActivityTextFor: anAssistantMessage [
 { #category : 'accessing' }
 SmallChatLMChatPanel >> uiDeferrer: aBlock [
     uiDeferrer := aBlock
-]
-
-{ #category : 'mcp status' }
-SmallChatLMChatPanel >> unsubscribeFromMCPAnnouncer [
-    "Remove this window's subscription from the default TCP server's
-     announcer. Called from whenClosedDo: so the closed window does not
-     react to later state changes."
-    SmallChatMCPTcpServer default announcer unsubscribe: self
 ]
 
 { #category : 'synchronising' }
