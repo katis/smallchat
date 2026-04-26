@@ -10,10 +10,6 @@ Class {
 	#superclass : 'SpPresenter',
 	#instVars : [
 		'workspace',
-		'headerLabel',
-		'pathLabel',
-		'statusLabel',
-		'detachButton',
 		'chatPlaceholder',
 		'registryProvider'
 	],
@@ -148,11 +144,6 @@ SmallChatWorkspaceWindow >> chatPlaceholder [
 { #category : 'layout' }
 SmallChatWorkspaceWindow >> defaultLayout [
 	^ SpBoxLayout newTopToBottom
-		spacing: 4;
-		add: headerLabel expand: false;
-		add: pathLabel expand: false;
-		add: statusLabel expand: false;
-		add: detachButton expand: false;
 		add: chatPlaceholder;
 		yourself
 ]
@@ -167,42 +158,20 @@ SmallChatWorkspaceWindow >> detachAndClose [
 	workspace := nil
 ]
 
-{ #category : 'accessing' }
-SmallChatWorkspaceWindow >> detachButton [
-	^ detachButton
-]
-
-{ #category : 'accessing' }
-SmallChatWorkspaceWindow >> headerLabel [
-	^ headerLabel
-]
-
 { #category : 'initialization' }
 SmallChatWorkspaceWindow >> initializePresenters [
-	headerLabel := self newLabel label: 'TS workspace'; yourself.
-	pathLabel := self newLabel label: ''; yourself.
-	statusLabel := self newLabel label: 'ready'; yourself.
-	detachButton := self newButton
-		label: 'Detach';
-		action: [ self detachAndClose ];
-		yourself.
 	chatPlaceholder := self newPresenter.
 	chatPlaceholder layout: SpBoxLayout newTopToBottom
 ]
 
 { #category : 'initialization' }
 SmallChatWorkspaceWindow >> initializeWindow: aWindow [
-	"Title is the workspace name (set after #workspace: lands). whenClosedDo:
-	 first cleans up the chat panel (drops the MCP-announcer subscription,
-	 terminates any in-flight reply fork) and then unmounts the bound
-	 workspace via the registry and shuts its LSP client down. Both
-	 cleanups are idempotent so a second close is safe."
-	| title |
-	title := workspace
-		ifNil: [ 'smallchat workspace' ]
-		ifNotNil: [ 'smallchat / ' , workspace name ].
+	"whenClosedDo: cleans up the chat panel (drops the MCP-announcer
+	 subscription, terminates any in-flight reply fork) and unmounts the
+	 bound workspace via the registry. Both cleanups are idempotent so a
+	 second close is safe."
 	aWindow
-		title: title;
+		title: self windowTitle;
 		initialExtent: 480 @ 360;
 		whenClosedDo: [
 			(chatPlaceholder respondsTo: #cleanup) ifTrue: [ chatPlaceholder cleanup ].
@@ -223,27 +192,6 @@ SmallChatWorkspaceWindow >> installChatPanelFor: aWorkspace [
 ]
 
 { #category : 'accessing' }
-SmallChatWorkspaceWindow >> pathLabel [
-	^ pathLabel
-]
-
-{ #category : 'private' }
-SmallChatWorkspaceWindow >> refreshFromWorkspace [
-	"Update header/path labels from workspace. Called from workspace: setter
-	 once presenters are initialized. Pharo-flavoured workspaces have no
-	 filesystem path -- their pathLabel reads empty."
-	workspace ifNil: [ ^ self ].
-	headerLabel ifNotNil: [
-		headerLabel label: (workspace kind = #pharo
-			ifTrue: [ 'Pharo workspace: ' , workspace name ]
-			ifFalse: [ 'TS workspace: ' , workspace name ]) ].
-	pathLabel ifNotNil: [
-		pathLabel label: ((workspace respondsTo: #path)
-			ifTrue: [ workspace path fullName ]
-			ifFalse: [ '' ]) ]
-]
-
-{ #category : 'accessing' }
 SmallChatWorkspaceWindow >> registry [
 	"The capability registry this window dispatches against. Test seam:
 	 #registryProvider: lets a fresh registry be injected; defaults to the
@@ -259,8 +207,13 @@ SmallChatWorkspaceWindow >> registryProvider: aBlock [
 ]
 
 { #category : 'accessing' }
-SmallChatWorkspaceWindow >> statusLabel [
-	^ statusLabel
+SmallChatWorkspaceWindow >> windowTitle [
+	"Compose the window title from the bound workspace. TS workspaces
+	 carry a filesystem path; Pharo-flavoured ones do not."
+	workspace ifNil: [ ^ 'smallchat workspace' ].
+	^ (workspace respondsTo: #path)
+		ifTrue: [ 'smallchat / ' , workspace name , ' (' , workspace path fullName , ')' ]
+		ifFalse: [ 'smallchat / ' , workspace name ]
 ]
 
 { #category : 'accessing' }
@@ -270,6 +223,5 @@ SmallChatWorkspaceWindow >> workspace [
 
 { #category : 'accessing' }
 SmallChatWorkspaceWindow >> workspace: aWorkspace [
-	workspace := aWorkspace.
-	headerLabel isNil ifFalse: [ self refreshFromWorkspace ]
+	workspace := aWorkspace
 ]

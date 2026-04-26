@@ -21,9 +21,7 @@ SmallChatWorkspaceWindowTest >> testAttachOnPathAttachesAndMounts [
 	self assert: (registry mountedWorkspaces includes: window workspace).
 	self assert: registry mountedWorkspaces size = (prior + 1).
 	self assert: window workspace path fullName = '/tmp/smallchat-ws-attach'.
-	self assert: window workspace name = 'smallchat-ws-attach'.
-	self assert: (window headerLabel label includesSubstring: 'smallchat-ws-attach').
-	self assert: (window pathLabel label = '/tmp/smallchat-ws-attach')
+	self assert: window workspace name = 'smallchat-ws-attach'
 ]
 
 { #category : 'tests' }
@@ -83,15 +81,12 @@ SmallChatWorkspaceWindowTest >> testChatPlaceholderHostsPanelBoundToWorkspace [
 ]
 
 { #category : 'tests' }
-SmallChatWorkspaceWindowTest >> testDefaultLayoutContainsAllPresenters [
+SmallChatWorkspaceWindowTest >> testDefaultLayoutContainsOnlyChatPlaceholder [
 	| ws window children |
 	ws := SmallChatTsWorkspace attachAt: '/tmp/smallchat-ws-fixture' name: 'fixture-ws'.
 	window := SmallChatWorkspaceWindow new workspace: ws; yourself.
 	children := window defaultLayout children.
-	self assert: (children includes: window headerLabel).
-	self assert: (children includes: window pathLabel).
-	self assert: (children includes: window statusLabel).
-	self assert: (children includes: window detachButton).
+	self assert: children size = 1.
 	self assert: (children includes: window chatPlaceholder)
 ]
 
@@ -124,18 +119,34 @@ SmallChatWorkspaceWindowTest >> testDirectoryPickerBlockSeamReturnsConfiguredVal
 ]
 
 { #category : 'tests' }
-SmallChatWorkspaceWindowTest >> testInitializePresentersBuildsLabels [
+SmallChatWorkspaceWindowTest >> testInitializePresentersBuildsChatPlaceholder [
 	| ws window |
 	ws := SmallChatTsWorkspace attachAt: '/tmp/smallchat-ws-fixture' name: 'fixture-ws'.
 	window := SmallChatWorkspaceWindow new
 		workspace: ws;
 		yourself.
-	self assert: (window headerLabel label includesSubstring: 'fixture-ws').
-	self assert: (window pathLabel label includesSubstring: '/tmp/smallchat-ws-fixture').
 	self assert: window chatPlaceholder notNil.
-	self assert: (window chatPlaceholder isKindOf: SpPresenter).
-	self assert: window statusLabel notNil.
-	self assert: window detachButton notNil
+	self assert: (window chatPlaceholder isKindOf: SpPresenter)
+]
+
+{ #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testWindowTitleForPharoWorkspaceUsesName [
+	| window title |
+	window := SmallChatWorkspaceWindow new
+		workspace: SmallChatPharoWorkspace default;
+		yourself.
+	title := window windowTitle.
+	self assert: (title includesSubstring: 'pharo')
+]
+
+{ #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testWindowTitleForTsWorkspaceIncludesNameAndPath [
+	| ws window title |
+	ws := SmallChatTsWorkspace attachAt: '/tmp/smallchat-ws-title' name: 'title-ws'.
+	window := SmallChatWorkspaceWindow new workspace: ws; yourself.
+	title := window windowTitle.
+	self assert: (title includesSubstring: 'title-ws').
+	self assert: (title includesSubstring: '/tmp/smallchat-ws-title')
 ]
 
 { #category : 'tests' }
