@@ -12,6 +12,16 @@ Class {
 }
 
 { #category : 'instance creation' }
+SmallChatLMTranscriptSection class >> assistantOn: aMessage [
+    ^ self new setKind: #assistant message: aMessage; yourself
+]
+
+{ #category : 'instance creation' }
+SmallChatLMTranscriptSection class >> thinkingOn: aMessage [
+    ^ self new setKind: #thinking message: aMessage; yourself
+]
+
+{ #category : 'instance creation' }
 SmallChatLMTranscriptSection class >> userOn: aMessage [
     ^ self new setKind: #user message: aMessage; yourself
 ]
