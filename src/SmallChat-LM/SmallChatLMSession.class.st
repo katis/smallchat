@@ -96,12 +96,13 @@ SmallChatLMSession >> inFlightWorkers [
 
 { #category : 'initialization' }
 SmallChatLMSession >> initialize [
-	| prompt |
+	"Set up the conversation + client, then bind the always-mounted Pharo
+	 workspace via the setter so its defaultSystemPrompt becomes the sole
+	 system message. Tests that rebind via #workspace: get a clean swap."
 	super initialize.
 	conversation := SmallChatLMConversation new.
-	prompt := SmallChatConfig systemPrompt.
-	(prompt isNil or: [ prompt isEmpty ]) ifFalse: [ conversation addSystem: prompt ].
-	client := SmallChatLMChatClient new
+	client := SmallChatLMChatClient new.
+	self workspace: SmallChatPharoWorkspace default
 ]
 
 { #category : 'private' }
@@ -266,9 +267,10 @@ SmallChatLMSession >> untrackLspPending: aPending [
 { #category : 'accessing' }
 SmallChatLMSession >> workspace [
 	"The workspace this chat session is bound to. Stamped onto every tool
-	 call before dispatch so capabilities see aCall workspace = this. Lazy
-	 default is the always-mounted Pharo workspace -- preserves behaviour
-	 for callers that have not yet bound a TS workspace."
+	 call before dispatch so capabilities see aCall workspace = this.
+	 #initialize binds the always-mounted Pharo workspace so the lazy default
+	 is unnecessary; tests that build a session by hand and skip init still
+	 fall back to it."
 	^ workspace ifNil: [ workspace := SmallChatPharoWorkspace default ]
 ]
 

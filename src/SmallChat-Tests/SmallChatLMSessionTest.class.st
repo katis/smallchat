@@ -65,12 +65,16 @@ SmallChatLMSessionTest >> testCancelInFlightTerminatesWorker [
 ]
 
 { #category : 'tests' }
-SmallChatLMSessionTest >> testConversationSeededWithConfigSystemPrompt [
+SmallChatLMSessionTest >> testConversationSeededWithDefaultPharoWorkspacePrompt [
+	"#initialize binds the always-mounted Pharo workspace, which seeds the
+	 conversation with that workspace's defaultSystemPrompt. Pin the
+	 source-of-truth so a TS chat does not silently reuse a Pharo prompt
+	 cached at config-time."
 	| session first |
 	session := SmallChatLMSession new.
 	first := session conversation messages first.
 	self assert: first role equals: #system.
-	self assert: first content equals: SmallChatConfig systemPrompt
+	self assert: first content equals: SmallChatPharoWorkspace defaultSystemPrompt
 ]
 
 { #category : 'tests' }
