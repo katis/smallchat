@@ -46,6 +46,28 @@ SmallChatTsWorkspaceTest >> testDefaultSystemPromptMentionsTsNav [
 ]
 
 { #category : 'tests' }
+SmallChatTsWorkspaceTest >> testFamixModelLazyBuildIsIdempotent [
+	"famixModel is the lazy bridge SmallChatTsNav reads from. First call walks
+	 the workspace path via SmallChatFamixImporter importAllUnder: and returns
+	 the populated model; subsequent calls reuse the same instance so query
+	 round-trips stay in-memory."
+	| fs root ws m1 m2 |
+	fs := FileSystem memory.
+	root := fs / 'project'.
+	root ensureCreateDirectory.
+	(root / 'styles.module.css') writeStreamDo: [ :s | s nextPutAll: '.x { color: red; }' ].
+	ws := SmallChatTsWorkspace new
+		name: 'fixture';
+		path: root;
+		yourself.
+	m1 := ws famixModel.
+	self assert: m1 notNil.
+	self assert: (m1 allWithType: SmallChatFamixCSSClass) size equals: 1.
+	m2 := ws famixModel.
+	self assert: m1 == m2
+]
+
+{ #category : 'tests' }
 SmallChatTsWorkspaceTest >> testShutdownTearsDownLspClient [
 	"shutdown should propagate to the workspace's LSP client (and through it
 	 to the transport). Verify via the stub transport's shutdownCalled flag."

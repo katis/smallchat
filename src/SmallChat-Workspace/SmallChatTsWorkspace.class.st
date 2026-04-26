@@ -4,7 +4,9 @@ Class {
 	#instVars : [
 		'path',
 		'lspClient',
-		'attachedAt'
+		'attachedAt',
+		'famixModel',
+		'famixImporter'
 	],
 	#classVars : [
 		'LauncherBlock'
@@ -94,6 +96,32 @@ SmallChatTsWorkspace >> describeAsDict [
 	path ifNotNil: [ dict at: 'path' put: path fullName ].
 	attachedAt ifNotNil: [ dict at: 'attachedAt' put: attachedAt printString ].
 	^ dict
+]
+
+{ #category : 'famix' }
+SmallChatTsWorkspace >> famixImporter [
+	"Lazy SmallChatFamixImporter wired against this workspace's LSP client +
+	 a fresh tree-sitter parser/walker. Tests that supply only CSS files can
+	 use a workspace with a nil lspClient -- the CSS path does not require
+	 LSP. Cleared by #shutdown."
+	^ famixImporter ifNil: [
+		famixImporter := SmallChatFamixImporter new
+			model: SmallChatFamixModel new
+			client: lspClient
+			parser: SmallChatTSParser new
+			walker: SmallChatTSNodeWalker new ]
+]
+
+{ #category : 'famix' }
+SmallChatTsWorkspace >> famixModel [
+	"Lazy whole-project Famix model. First call walks the workspace path via
+	 SmallChatFamixImporter importAllUnder:; subsequent calls reuse the same
+	 model. SmallChatTsNav reads from this for findFiles:, findSymbol: and
+	 friends. Cleared by #shutdown. May take seconds on first call for a
+	 large project."
+	^ famixModel ifNil: [
+		self famixImporter importAllUnder: path.
+		famixModel := self famixImporter model ]
 ]
 
 { #category : 'accessing' }
