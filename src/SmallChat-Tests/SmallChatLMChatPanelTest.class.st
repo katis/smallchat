@@ -160,7 +160,7 @@ SmallChatLMChatPanelTest >> testNewTurnPreservesPriorSelection [
         yourself.
     session conversation addUser: 'first'.
     panel rebuildSections.
-    firstUser := panel sectionList items first.
+    firstUser := panel sectionList items detect: [ :s | s kind = #user ].
     panel selectSection: firstUser.
     "Second turn lands."
     session conversation addAssistant: 'reply'.
@@ -172,7 +172,7 @@ SmallChatLMChatPanelTest >> testNewTurnPreservesPriorSelection [
 
 { #category : 'tests' }
 SmallChatLMChatPanelTest >> testRebuildSectionsPopulatesSectionList [
-    | session panel |
+    | session panel kinds |
     session := self stubSessionWithCannedReply: 'unused'.
     panel := SmallChatLMChatPanel new
         session: session;
@@ -180,8 +180,8 @@ SmallChatLMChatPanelTest >> testRebuildSectionsPopulatesSectionList [
         yourself.
     session conversation addUser: 'hi'.
     panel rebuildSections.
-    self assert: panel sectionList items size equals: 1.
-    self assert: (panel sectionList items first) kind equals: #user
+    kinds := panel sectionList items collect: [ :s | s kind ].
+    self assert: kinds asArray equals: #( #system #user )
 ]
 
 { #category : 'tests' }
@@ -230,21 +230,29 @@ SmallChatLMChatPanelTest >> testSecondSendBlockedWhileFirstPending [
 ]
 
 { #category : 'tests' }
-SmallChatLMChatPanelTest >> testSectionsExcludesSystemMessage [
-    | session panel |
+SmallChatLMChatPanelTest >> testSectionsFirstIsSystemPromptWhenSeeded [
+    "The chat panel must surface the conversation's system prompt as the
+     first section so the user can see what context the LM is running with.
+     stubSessionWithCannedReply seeds a system message via SmallChatPharoWorkspace
+     defaultSystemPrompt -- the panel must render it as a #system section, before
+     any user/assistant rows."
+    | session panel sysMsg secs |
     session := self stubSessionWithCannedReply: 'unused'.
     panel := SmallChatLMChatPanel new
         session: session;
         uiDeferrer: [ :blk | blk value ];
         yourself.
-    self assert: (session conversation messages anySatisfy: [ :m | m role = #system ])
-        description: 'precondition: session seeds a system message'.
-    self assert: panel sections isEmpty
+    sysMsg := session conversation messages detect: [ :m | m role = #system ].
+    session conversation addUser: 'hello'.
+    secs := panel sections.
+    self assert: secs first kind equals: #system.
+    self assert: secs first message == sysMsg.
+    self assert: secs first content equals: sysMsg content
 ]
 
 { #category : 'tests' }
 SmallChatLMChatPanelTest >> testSectionsForFullConversationInArrivalOrder [
-    | session panel tc plumbingMsg toolMsg finalMsg secs |
+    | session panel tc plumbingMsg toolMsg finalMsg secs userSec |
     session := self stubSessionWithCannedReply: 'unused'.
     panel := SmallChatLMChatPanel new
         session: session;
@@ -261,12 +269,13 @@ SmallChatLMChatPanelTest >> testSectionsForFullConversationInArrivalOrder [
     session conversation addMessage: finalMsg.
     secs := panel sections.
     self assert: (secs collect: [ :s | s kind ]) asArray
-        equals: #( #user #toolCall #thinking #assistant ).
-    self assert: (secs at: 1) message content equals: 'what is 3+4?'.
-    self assert: (secs at: 2) toolCall == tc.
-    self assert: (secs at: 2) toolResult equals: '7'.
-    self assert: (secs at: 3) message == finalMsg.
-    self assert: (secs at: 4) message == finalMsg
+        equals: #( #system #user #toolCall #thinking #assistant ).
+    userSec := secs detect: [ :s | s kind = #user ].
+    self assert: userSec message content equals: 'what is 3+4?'.
+    self assert: (secs at: 3) toolCall == tc.
+    self assert: (secs at: 3) toolResult equals: '7'.
+    self assert: (secs at: 4) message == finalMsg.
+    self assert: (secs at: 5) message == finalMsg
 ]
 
 { #category : 'tests' }
@@ -287,7 +296,7 @@ SmallChatLMChatPanelTest >> testSectionsOrderWithinAssistantIsThinkingThenConten
 	session conversation addMessage: msg.
 	secs := panel sections.
 	self assert: (secs collect: [ :s | s kind ]) asArray
-		equals: #( #thinking #assistant #toolCall )
+		equals: #( #system #thinking #assistant #toolCall )
 ]
 
 { #category : 'tests' }
@@ -352,7 +361,7 @@ SmallChatLMChatPanelTest >> testSelectingUserSectionShowsContentAndEmptyOutput [
         uiDeferrer: [ :blk | blk value ];
         yourself.
     session conversation addUser: 'hello world'.
-    userSec := panel sections first.
+    userSec := panel sections detect: [ :s | s kind = #user ].
     panel selectSection: userSec.
     self assert: panel contentText text asString equals: 'hello world'.
     self assert: panel outputText text asString isEmpty
@@ -402,7 +411,7 @@ SmallChatLMChatPanelTest >> testSendAfterErrorIsAccepted [
 
 { #category : 'tests' }
 SmallChatLMChatPanelTest >> testSendFromInputAppendsSectionForEachMessage [
-    | panel session secs |
+    | panel session kinds |
     session := self stubSessionWithCannedReply: 'hello back'.
     panel := SmallChatLMChatPanel new
         session: session;
@@ -411,10 +420,8 @@ SmallChatLMChatPanelTest >> testSendFromInputAppendsSectionForEachMessage [
     panel input text: 'hi'.
     panel sendFromInput.
     panel waitForPending.
-    secs := panel sectionList items.
-    self assert: secs size equals: 2.
-    self assert: secs first kind equals: #user.
-    self assert: secs last kind equals: #assistant
+    kinds := panel sectionList items collect: [ :s | s kind ].
+    self assert: kinds asArray equals: #( #system #user #assistant )
 ]
 
 { #category : 'tests' }
@@ -562,7 +569,7 @@ SmallChatLMChatPanelTest >> testStreamingMidStreamErrorPreservesPartialAssistant
 
 { #category : 'tests' }
 SmallChatLMChatPanelTest >> testStreamingPlaceholderAssistantSectionAppearsBeforeFirstChunk [
-    | pair session stub panel assistantTurns |
+    | pair session stub panel assistantTurns kinds |
     pair := self stubSessionWithChunks: { self deltaChunkWithContent: 'hi' }.
     session := pair first.
     stub := pair second.
@@ -573,10 +580,9 @@ SmallChatLMChatPanelTest >> testStreamingPlaceholderAssistantSectionAppearsBefor
         yourself.
     panel input text: 'hello'.
     panel sendFromInput.
-    "Before releasing the gate, user + streaming-placeholder asst sections both visible."
-    self assert: panel sectionList items size equals: 2.
-    self assert: (panel sectionList items at: 1) kind equals: #user.
-    self assert: (panel sectionList items at: 2) kind equals: #assistant.
+    "Before releasing the gate, system + user + streaming-placeholder asst sections all visible."
+    kinds := panel sectionList items collect: [ :s | s kind ].
+    self assert: kinds asArray equals: #( #system #user #assistant ).
     assistantTurns := session conversation messages select: [ :m | m role = #assistant ].
     self assert: assistantTurns size equals: 1.
     self assert: assistantTurns first content equals: ''.
@@ -627,18 +633,6 @@ SmallChatLMChatPanelTest >> testStreamingThinkingAppearsAsSeparateSection [
 ]
 
 { #category : 'tests' }
-SmallChatLMChatPanelTest >> testSystemMessagesNotRendered [
-    | panel session |
-    session := self stubSessionWithCannedReply: 'hello back'.
-    panel := SmallChatLMChatPanel new
-        session: session;
-        yourself.
-    self assert: (session conversation messages anySatisfy: [ :m | m role = #system ])
-        description: 'precondition: session has a seeded system turn'.
-    self deny: (panel sections anySatisfy: [ :s | s message role = #system ])
-]
-
-{ #category : 'tests' }
 SmallChatLMChatPanelTest >> testToolCallWithoutResultShowsEmptyOutput [
     | session panel tc plumbingMsg toolSec |
     session := self stubSessionWithCannedReply: 'unused'.
@@ -649,7 +643,7 @@ SmallChatLMChatPanelTest >> testToolCallWithoutResultShowsEmptyOutput [
     tc := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{}'.
     plumbingMsg := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc }.
     session conversation addMessage: plumbingMsg.
-    toolSec := panel sections first.
+    toolSec := panel sections detect: [ :s | s kind = #toolCall ].
     panel selectSection: toolSec.
     self assert: panel outputText text asString isEmpty
 ]
@@ -668,8 +662,8 @@ SmallChatLMChatPanelTest >> testToolPlumbingMessageProducesToolCallSectionOnly [
     plumbingMsg := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc }.
     session conversation addMessage: plumbingMsg.
     secs := panel sections.
-    self assert: (secs collect: [ :s | s kind ]) asArray equals: #( #toolCall ).
-    self assert: (secs first) toolCall == tc
+    self assert: (secs collect: [ :s | s kind ]) asArray equals: #( #system #toolCall ).
+    self assert: (secs detect: [ :s | s kind = #toolCall ]) toolCall == tc
 ]
 
 { #category : 'tests' }
@@ -689,5 +683,5 @@ SmallChatLMChatPanelTest >> testWhitespaceOnlyAssistantContentDoesNotEmitAssista
 	msg toolCalls: { tc }.
 	session conversation addMessage: msg.
 	secs := panel sections.
-	self assert: (secs collect: [ :s | s kind ]) asArray equals: #( #toolCall )
+	self assert: (secs collect: [ :s | s kind ]) asArray equals: #( #system #toolCall )
 ]

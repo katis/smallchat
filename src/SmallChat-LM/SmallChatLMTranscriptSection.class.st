@@ -34,6 +34,11 @@ SmallChatLMTranscriptSection class >> maxLabelLength [
 ]
 
 { #category : 'instance creation' }
+SmallChatLMTranscriptSection class >> systemOn: aMessage [
+    ^ self new setKind: #system message: aMessage; yourself
+]
+
+{ #category : 'instance creation' }
 SmallChatLMTranscriptSection class >> thinkingOn: aMessage [
     ^ self new setKind: #thinking message: aMessage; yourself
 ]
@@ -66,6 +71,7 @@ SmallChatLMTranscriptSection >> content [
     kind = #user ifTrue: [ ^ message content ifNil: [ '' ] ].
     kind = #assistant ifTrue: [ ^ message content ifNil: [ '' ] ].
     kind = #thinking ifTrue: [ ^ message thinking ifNil: [ '' ] ].
+    kind = #system ifTrue: [ ^ message content ifNil: [ '' ] ].
     kind = #toolCall ifTrue: [
         ^ (toolCall name ifNil: [ '' ]) , '(' , (toolCall arguments ifNil: [ '' ]) , ')' ].
     ^ ''
@@ -98,6 +104,7 @@ SmallChatLMTranscriptSection >> label [
 SmallChatLMTranscriptSection >> labelPrefix [
     kind = #thinking ifTrue: [ ^ message thinking ifNil: [ '' ] ].
     kind = #toolCall ifTrue: [ ^ toolCall name ifNil: [ '' ] ].
+    kind = #system ifTrue: [ ^ message content ifNil: [ '' ] ].
     kind = #assistant ifTrue: [
         (message content isNil or: [ message content isEmpty ])
             ifTrue: [ ^ '(streaming...)' ] ].
@@ -110,6 +117,7 @@ SmallChatLMTranscriptSection >> labelTag [
     kind = #assistant ifTrue: [ ^ 'asst' ].
     kind = #thinking ifTrue: [ ^ 'thnk' ].
     kind = #toolCall ifTrue: [ ^ 'tool' ].
+    kind = #system ifTrue: [ ^ 'sys' ].
     ^ '?'
 ]
 

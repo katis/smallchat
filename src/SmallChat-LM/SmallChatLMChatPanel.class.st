@@ -199,14 +199,16 @@ SmallChatLMChatPanel >> sectionList [
 { #category : 'accessing' }
 SmallChatLMChatPanel >> sections [
 	"Decompose conversation messages into list rows in strict arrival order.
-	 Within an assistant message: thinking, then content (the preamble shown
-	 to the user), then toolCalls (one section each). A non-nil rawStream
-	 always emits the assistant section -- it's the streaming-placeholder
-	 bubble. Once streaming completes (rawStream is nil), whitespace-only
-	 content is treated as empty -- LM Studio commonly emits a trailing
-	 '\n\n' on tool-calling responses, and we don't want a stray empty
-	 [asst] row per tool round. Tool messages contribute their content as
-	 the matching toolCall section's output, not a standalone row."
+	 The system prompt (if present) is rendered as the first #system section
+	 so the user can see what context the LM is running with. Within an
+	 assistant message: thinking, then content (the preamble shown to the
+	 user), then toolCalls (one section each). A non-nil rawStream always
+	 emits the assistant section -- it's the streaming-placeholder bubble.
+	 Once streaming completes (rawStream is nil), whitespace-only content is
+	 treated as empty -- LM Studio commonly emits a trailing '\n\n' on
+	 tool-calling responses, and we don't want a stray empty [asst] row per
+	 tool round. Tool messages contribute their content as the matching
+	 toolCall section's output, not a standalone row."
 	| result resultsByCallId msgs hasContent |
 	msgs := session conversation messages.
 	resultsByCallId := Dictionary new.
@@ -217,6 +219,8 @@ SmallChatLMChatPanel >> sections [
 	hasContent := [ :str | str notNil and: [ str trimBoth isEmpty not ] ].
 	result := OrderedCollection new.
 	msgs do: [ :m |
+		m role = #system ifTrue: [
+			result add: (SmallChatLMTranscriptSection systemOn: m) ].
 		m role = #user ifTrue: [
 			result add: (SmallChatLMTranscriptSection userOn: m) ].
 		m role = #assistant ifTrue: [
