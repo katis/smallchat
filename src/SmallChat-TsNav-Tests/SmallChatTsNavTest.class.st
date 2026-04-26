@@ -106,6 +106,30 @@ SmallChatTsNavTest >> testFindFilesWithoutWorkspaceReturnsGuard [
 ]
 
 { #category : 'tests' }
+SmallChatTsNavTest >> testFindReferencesOfListsFamixImports [
+	"findReferencesOf: surfaces SmallChatFamixImport entities whose name
+	 matches -- the Famix model's record of cross-module dependencies on a
+	 symbol. Test injects an Import directly into the lazy-empty model so
+	 the assertion does not depend on a real LSP-driven populate."
+	| fs root ws model imp consumerUri out |
+	fs := FileSystem memory.
+	root := fs / 'project'.
+	root ensureCreateDirectory.
+	ws := SmallChatTsWorkspace new
+		name: 'fixture';
+		path: root;
+		yourself.
+	model := ws famixModel.
+	consumerUri := 'file://' , (root / 'consumer.ts') fullName.
+	imp := model newImport.
+	imp name: 'isDocEmpty'.
+	imp sourceAnchor: (SmallChatFamixSourceAnchor fileUri: consumerUri startByte: 0 endByte: 0).
+	SmallChatTsNav currentWorkspace: ws.
+	out := SmallChatTsNav findReferencesOf: 'isDocEmpty'.
+	self assert: (out includesSubstring: 'consumer.ts')
+]
+
+{ #category : 'tests' }
 SmallChatTsNavTest >> testFindSymbolMatchesByName [
 	"findSymbol: walks Famix entity types (Class, Interface, Function, Method,
 	 Field, TypeAlias, JSXComponent, CSSClass) whose name matches. Returns a

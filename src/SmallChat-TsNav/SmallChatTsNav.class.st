@@ -77,6 +77,27 @@ SmallChatTsNav class >> findFilesInWorkspace: aWs matching: aGlob [
 ]
 
 { #category : 'discovery' }
+SmallChatTsNav class >> findReferencesOf: aName [
+	"List Famix Import entities whose name matches aName -- the model's
+	 record of cross-module dependencies on a symbol. Pure import-graph
+	 read; LSP textDocument/references -driven usage refs land in a later
+	 slice when the rendered shape stabilises."
+	^ self withWorkspaceDo: [ :ws | self findReferencesOf: aName inWorkspace: ws ]
+]
+
+{ #category : 'private' }
+SmallChatTsNav class >> findReferencesOf: aName inWorkspace: aWs [
+	| model imports paths |
+	model := aWs famixModel.
+	imports := (model allWithType: SmallChatFamixImport) select: [ :i | i name = aName ].
+	imports isEmpty ifTrue: [ ^ '_no references_' ].
+	paths := (imports collect: [ :i | self relativePathFor: i sourceAnchor fileUri inWorkspace: aWs ]) asSortedCollection asArray.
+	^ String streamContents: [ :s |
+		s nextPutAll: '**Imports of `'; nextPutAll: aName; nextPutAll: '`:**'; lf.
+		paths do: [ :p | s nextPutAll: '* `'; nextPutAll: p; nextPutAll: '`'; lf ] ]
+]
+
+{ #category : 'discovery' }
 SmallChatTsNav class >> findSymbol: aPattern [
 	"Markdown table of Famix entities whose name matches aPattern (regex
 	 semantics, mirrors SmallChatNav). Walks Class, Interface, Function,
