@@ -136,6 +136,26 @@ SmallChatLMSessionTest >> testConversationSeededWithDefaultPharoWorkspacePrompt 
 ]
 
 { #category : 'tests' }
+SmallChatLMSessionTest >> testDispatchToolCallFlashesAwaiting [
+  "While dispatching a tool call, the session must flash #awaiting and
+   restore the prior status (typically #running, since dispatch only fires
+   from inside a streaming turn). The flash is the amber dot; restoring to
+   the prior value keeps idempotence under nested transitions."
+  | session sequence call |
+  session := SmallChatLMSession new.
+  session status: #running.
+  sequence := OrderedCollection new.
+  session announcer
+    when: SmallChatLMSessionStatusChanged
+    do: [ :a | sequence add: a status ]
+    for: self.
+  call := SmallChatLMToolCall id: 'c1' name: 'nope.does-not-exist' arguments: '{}'.
+  session dispatchToolCall: call.
+  self assert: sequence asArray equals: #(#awaiting #running).
+  self assert: session status equals: #running
+]
+
+{ #category : 'tests' }
 SmallChatLMSessionTest >> testDispatchToolCallReportsUnknownTool [
 	"Names not present in the capability registry surface as a descriptive
 	 error string -- the model can course-correct rather than the session

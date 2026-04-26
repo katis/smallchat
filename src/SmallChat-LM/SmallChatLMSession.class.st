@@ -96,8 +96,11 @@ SmallChatLMSession >> dispatchToolCall: aToolCall [
 	 in-flight worker via #cancelInFlight. The session's workspace is
 	 stamped onto the call before dispatch so the capability sees the
 	 same workspace the chat is bound to (otherwise the registry falls
-	 back to its currentWorkspace, which is global state)."
-	| sem holder worker call |
+	 back to its currentWorkspace, which is global state). Status flashes
+	 #awaiting while the worker runs and is restored to whatever it was
+	 before (typically #running, since dispatch fires from inside a turn)."
+	| sem holder worker call priorStatus |
+	priorStatus := self status.
 	sem := Semaphore new.
 	holder := Array new: 1.
 	call := SmallChatCapabilityCall
@@ -105,6 +108,7 @@ SmallChatLMSession >> dispatchToolCall: aToolCall [
 		argumentsJson: aToolCall arguments.
 	call session: self.
 	call workspace: self workspace.
+	self status: #awaiting.
 	worker := [
 		| r |
 		r := [ SmallChatCapabilityRegistry default run: aToolCall name with: call ]
@@ -118,6 +122,7 @@ SmallChatLMSession >> dispatchToolCall: aToolCall [
 	worker resume.
 	sem wait.
 	self untrackInFlight: worker.
+	self status: priorStatus.
 	^ (holder first
 		ifNil: [ SmallChatCapabilityResult error:
 			'Error: unknown tool ' , aToolCall name printString ])
