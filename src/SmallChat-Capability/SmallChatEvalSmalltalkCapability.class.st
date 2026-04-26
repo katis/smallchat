@@ -11,7 +11,7 @@ SmallChatEvalSmalltalkCapability class >> capabilityName [ ^ 'eval.smalltalk'
 
 { #category : 'metadata' }
 SmallChatEvalSmalltalkCapability class >> description [
-	^ 'Evaluate a Smalltalk expression in the running Pharo image and return its printString. Uncaught exceptions land in a captured debug session (see debug_* tools). Use for reading state, invoking methods, or running one-shot scripts.'
+	^ 'Evaluate a Smalltalk expression in the running Pharo image and return its printString. The image is shared across all bound workspaces; use SmallChatNav (Pharo workspaces) or SmallChatTsNav (TS workspaces) for navigation -- the system prompt names the right helper. Uncaught exceptions land in a captured debug session (see debug_* tools, Pharo only). Use for reading state, invoking methods, or running one-shot scripts.'
 ]
 
 { #category : 'execution' }
@@ -32,4 +32,13 @@ SmallChatEvalSmalltalkCapability class >> schema [
 		string: 'code'
 		required: true
 		description: 'Smalltalk expression to evaluate. Example: "Smalltalk globals size" or "3 + 4 factorial"'
+]
+
+{ #category : 'metadata' }
+SmallChatEvalSmalltalkCapability class >> supportedWorkspaces [
+	"The image is shared across all bound workspaces; what differs is which
+	 in-image nav helper the agent reaches for. Allow eval.smalltalk in any
+	 workspace and let the workspace-specific system prompt steer the agent
+	 towards SmallChatNav (Pharo) or SmallChatTsNav (TS)."
+	^ #(#pharo #ts)
 ]

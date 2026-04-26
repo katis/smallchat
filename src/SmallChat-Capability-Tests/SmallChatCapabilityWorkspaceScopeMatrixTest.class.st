@@ -26,7 +26,7 @@ SmallChatCapabilityWorkspaceScopeMatrixTest >> expectedScopes [
 		'debug.terminate' -> #(#pharo).
 		'eval.lint' -> #(#pharo).
 		'eval.run-tests' -> #(#pharo).
-		'eval.smalltalk' -> #(#pharo).
+		'eval.smalltalk' -> #(#pharo #ts).
 		'vcs.commit' -> #(#pharo #ts).
 		'vcs.commit-files' -> #(#pharo).
 		'vcs.status' -> #(#pharo).

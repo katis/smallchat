@@ -8,15 +8,17 @@ Class {
 { #category : 'tests' }
 SmallChatLMCapabilityCatalogTest >> testToolSchemasFilteredByWorkspaceKind [
 	"A catalog parameterised with a TS workspace must only include capabilities
-	 whose supportedWorkspaces lists #ts. Pharo-only capabilities (eval/debug/
-	 vcs.status) are absent. The Pharo-flavoured catalog still sees them."
+	 whose supportedWorkspaces lists #ts. eval.smalltalk works against the live
+	 image regardless of the bound workspace -- the agent uses it to drive
+	 SmallChatNav (Pharo) or SmallChatTsNav (TS). debug.* and vcs.status remain
+	 Pharo-only."
 	| tsCatalog pharoCatalog tsNames pharoNames |
 	tsCatalog := SmallChatLMCapabilityCatalog forWorkspace: SmallChatTsWorkspace new.
 	pharoCatalog := SmallChatLMCapabilityCatalog forWorkspace: SmallChatPharoWorkspace default.
 	tsNames := (tsCatalog toolSchemas collect: [ :s | (s at: 'function') at: 'name' ]) asArray.
 	pharoNames := (pharoCatalog toolSchemas collect: [ :s | (s at: 'function') at: 'name' ]) asArray.
 	self assert: (tsNames includes: 'workspace.list').
-	self deny: (tsNames includes: 'eval.smalltalk').
+	self assert: (tsNames includes: 'eval.smalltalk').
 	self deny: (tsNames includes: 'debug.sessions').
 	self deny: (tsNames includes: 'vcs.status').
 	self assert: (pharoNames includes: 'eval.smalltalk').
