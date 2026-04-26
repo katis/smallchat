@@ -156,6 +156,24 @@ SmallChatTsNavTest >> testGrepFindsMatchingLines [
 ]
 
 { #category : 'tests' }
+SmallChatTsNavTest >> testLspRequestPassesThroughToClient [
+	"lspRequest:params: is the escape hatch the agent uses for LSP methods
+	 that don't have a dedicated TsNav selector. The response is rendered
+	 as printString so the LM can read it; richer rendering can come later."
+	| stub ws out |
+	stub := SmallChatStubLSPClient new
+		cannedResponse: 'workspace/symbol' is: (Array with: (Dictionary new at: 'name' put: 'SymbolFoo'; yourself));
+		yourself.
+	ws := SmallChatTsWorkspace new
+		name: 'fixture';
+		lspClient: stub;
+		yourself.
+	SmallChatTsNav currentWorkspace: ws.
+	out := SmallChatTsNav lspRequest: 'workspace/symbol' params: (Dictionary new at: 'query' put: 'Foo'; yourself).
+	self assert: (out includesSubstring: 'SymbolFoo')
+]
+
+{ #category : 'tests' }
 SmallChatTsNavTest >> testReadFileReturnsFencedContent [
 	"readFile: resolves a workspace-relative path against the workspace path
 	 and returns the content fenced with the matching code-fence language

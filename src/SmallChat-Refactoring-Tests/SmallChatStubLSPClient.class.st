@@ -46,6 +46,13 @@ SmallChatStubLSPClient >> openedUris [ ^ openedUris
 ]
 
 { #category : 'requests' }
+SmallChatStubLSPClient >> request: aRequestDictionary [
+	"Workspace-level (no per-document URI) request. Logged + answered just
+	 like request:onDocumentUri: but with a nil 'uri' field in the log."
+	^ self request: aRequestDictionary onDocumentUri: nil
+]
+
+{ #category : 'requests' }
 SmallChatStubLSPClient >> request: aRequestDictionary onDocumentUri: aUri [
   | method |
   method := aRequestDictionary at: 'method'.

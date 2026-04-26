@@ -157,6 +157,23 @@ SmallChatTsNav class >> languageIdForPath: aRelPath [
 	^ 'text'
 ]
 
+{ #category : 'lsp' }
+SmallChatTsNav class >> lspRequest: aMethodName params: aDict [
+	"Escape hatch for LSP methods that do not have a dedicated TsNav selector.
+	 Sends one JSON-RPC request and returns the response printString. Use a
+	 dedicated selector when the response shape becomes structurally
+	 important; this is for one-off probing."
+	^ self withWorkspaceDo: [ :ws |
+		| client response |
+		client := ws lspClient.
+		client ifNil: [ ^ '_no LSP client on workspace_' ].
+		response := client request: (Dictionary new
+			at: 'method' put: aMethodName;
+			at: 'params' put: aDict;
+			yourself).
+		response printString ]
+]
+
 { #category : 'private' }
 SmallChatTsNav class >> positionAtByte: aByte fileUri: aUri inWorkspace: aWs [
 	"Convert a Famix UTF-8 byte offset to an LSP {line, character} position.
