@@ -51,6 +51,30 @@ SmallChatTsNavTest >> testFindFilesWithoutWorkspaceReturnsGuard [
 ]
 
 { #category : 'tests' }
+SmallChatTsNavTest >> testFindSymbolMatchesByName [
+	"findSymbol: walks Famix entity types (Class, Interface, Function, Method,
+	 Field, TypeAlias, JSXComponent, CSSClass) whose name matches. Returns a
+	 Markdown table of name | kind | path:line:character. The CSS path is
+	 simplest to fixture without an LSP client; it exercises the same walk +
+	 rendering as the TS path."
+	| fs root ws out |
+	fs := FileSystem memory.
+	root := fs / 'project'.
+	root ensureCreateDirectory.
+	(root / 'a.module.css') writeStreamDo: [ :s | s nextPutAll: '.isDocEmpty { color: red; }' ].
+	(root / 'b.module.css') writeStreamDo: [ :s | s nextPutAll: '.unrelated { }' ].
+	ws := SmallChatTsWorkspace new
+		name: 'fixture';
+		path: root;
+		yourself.
+	SmallChatTsNav currentWorkspace: ws.
+	out := SmallChatTsNav findSymbol: 'isDocEmpty'.
+	self assert: (out includesSubstring: 'isDocEmpty').
+	self assert: (out includesSubstring: 'a.module.css').
+	self deny: (out includesSubstring: 'unrelated')
+]
+
+{ #category : 'tests' }
 SmallChatTsNavTest >> testReadFileReturnsFencedContent [
 	"readFile: resolves a workspace-relative path against the workspace path
 	 and returns the content fenced with the matching code-fence language

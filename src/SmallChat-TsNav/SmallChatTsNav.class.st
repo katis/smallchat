@@ -51,6 +51,46 @@ SmallChatTsNav class >> findFilesInWorkspace: aWs matching: aGlob [
 	^ self renderPathList: matches
 ]
 
+{ #category : 'discovery' }
+SmallChatTsNav class >> findSymbol: aPattern [
+	"Markdown table of Famix entities whose name matches aPattern (regex
+	 semantics, mirrors SmallChatNav). Walks Class, Interface, Function,
+	 Method, Field, TypeAlias, JSXComponent, CSSClass. Each row reports
+	 the workspace-relative file plus the LSP-compatible line:character of
+	 the entity's declaration anchor -- ready to feed into
+	 renameSymbolInFile:line:character:to:."
+	^ self withWorkspaceDo: [ :ws | self findSymbol: aPattern inWorkspace: ws ]
+]
+
+{ #category : 'private' }
+SmallChatTsNav class >> findSymbol: aPattern inWorkspace: aWs [
+	| model matcher entityTypes matches |
+	model := aWs famixModel.
+	matcher := RxMatcher forString: aPattern.
+	entityTypes := {
+		SmallChatFamixClass.
+		SmallChatFamixInterface.
+		SmallChatFamixFunction.
+		SmallChatFamixMethod.
+		SmallChatFamixField.
+		SmallChatFamixTypeAlias.
+		SmallChatFamixJSXComponent.
+		SmallChatFamixCSSClass }.
+	matches := OrderedCollection new.
+	entityTypes do: [ :type |
+		(model allWithType: type) do: [ :e |
+			(e name notNil and: [ matcher search: e name ])
+				ifTrue: [ matches add: e ] ] ].
+	^ self renderSymbolMatches: matches inWorkspace: aWs
+]
+
+{ #category : 'private' }
+SmallChatTsNav class >> kindLabelFor: anEntity [
+	"Human-friendly entity-kind label derived from the SmallChatFamix class
+	 name -- 'class', 'interface', 'cssclass', etc."
+	^ (anEntity className withoutPrefix: 'SmallChatFamix') asLowercase
+]
+
 { #category : 'private' }
 SmallChatTsNav class >> languageIdForPath: aRelPath [
 	"Code-fence language hint for aRelPath. Mirrors the LSP languageId map
@@ -64,6 +104,21 @@ SmallChatTsNav class >> languageIdForPath: aRelPath [
 	(aRelPath endsWith: '.json') ifTrue: [ ^ 'json' ].
 	(aRelPath endsWith: '.md') ifTrue: [ ^ 'markdown' ].
 	^ 'text'
+]
+
+{ #category : 'private' }
+SmallChatTsNav class >> positionAtByte: aByte fileUri: aUri inWorkspace: aWs [
+	"Convert a Famix UTF-8 byte offset to an LSP {line, character} position.
+	 Reads the source through the workspace path so memory-FS fixtures work.
+	 Returns 0 @ 0 when the file is missing -- the fallback keeps rendering
+	 sane on a stale Famix model."
+	| rel file text range |
+	rel := self relativePathFor: aUri inWorkspace: aWs.
+	file := aWs path / rel.
+	file exists ifFalse: [ ^ 0 @ 0 ].
+	text := file readStreamDo: [ :s | s upToEnd ].
+	range := SmallChatTSRange startByte: aByte endByte: aByte source: text.
+	^ range startLine @ range startCharacter
 ]
 
 { #category : 'discovery' }
@@ -137,6 +192,23 @@ SmallChatTsNav class >> renderPathList: paths [
 			s nextPutAll: '_'; print: paths size;
 			  nextPutAll: ' matches; showing first '; print: shown;
 			  nextPutAll: '._'; lf ] ]
+]
+
+{ #category : 'private' }
+SmallChatTsNav class >> renderSymbolMatches: matches inWorkspace: aWs [
+	matches isEmpty ifTrue: [ ^ '_no symbol matches_' ].
+	^ String streamContents: [ :s |
+		s nextPutAll: '| name | kind | location |'; lf;
+		  nextPutAll: '| --- | --- | --- |'; lf.
+		matches do: [ :e |
+			| anchor relPath pos |
+			anchor := e sourceAnchor.
+			relPath := self relativePathFor: anchor fileUri inWorkspace: aWs.
+			pos := self positionAtByte: anchor startByte fileUri: anchor fileUri inWorkspace: aWs.
+			s nextPutAll: '| `'; nextPutAll: e name; nextPutAll: '` | ';
+			  nextPutAll: (self kindLabelFor: e); nextPutAll: ' | `';
+			  nextPutAll: relPath; nextPutAll: ':'; print: pos x;
+			  nextPutAll: ':'; print: pos y; nextPutAll: '` |'; lf ] ]
 ]
 
 { #category : 'workspace binding' }
