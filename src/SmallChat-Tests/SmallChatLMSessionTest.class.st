@@ -128,6 +128,28 @@ SmallChatLMSessionTest >> testEmptyInputIsANoOp [
 ]
 
 { #category : 'tests' }
+SmallChatLMSessionTest >> testNameAccessor [
+  "Sessions carry a user-facing name so the agent tree can label its rows."
+  | session |
+  session := SmallChatLMSession new.
+  session name: 'Coder'.
+  self assert: session name equals: 'Coder'
+]
+
+{ #category : 'tests' }
+SmallChatLMSessionTest >> testProfileAccessor [
+  "Sessions remember which agent profile they were built from so later
+   slices can re-apply or display profile-derived data."
+  | session profile |
+  profile := SmallChatAgentProfile new
+    name: 'Coder';
+    yourself.
+  session := SmallChatLMSession new.
+  session profile: profile.
+  self assert: session profile == profile
+]
+
+{ #category : 'tests' }
 SmallChatLMSessionTest >> testSendUserInputAppendsUserAndAssistantTurns [
 	| session reply nonSystemRoles |
 	session := self sessionWithCannedReply: 'hello back'.

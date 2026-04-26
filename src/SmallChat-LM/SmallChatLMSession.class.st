@@ -16,7 +16,9 @@ Class {
 		'client',
 		'inFlightWorkers',
 		'lspPendings',
-		'workspace'
+		'workspace',
+		'name',
+		'profile'
 	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
@@ -138,6 +140,26 @@ SmallChatLMSession >> maxToolIterations [
 	 a synthetic error message. Tight enough to stop runaway loops, loose
 	 enough to support multi-file edits in one answer."
 	^ 30
+]
+
+{ #category : 'accessing' }
+SmallChatLMSession >> name [
+  ^ name
+]
+
+{ #category : 'accessing' }
+SmallChatLMSession >> name: aStringOrNil [
+  name := aStringOrNil
+]
+
+{ #category : 'accessing' }
+SmallChatLMSession >> profile [
+  ^ profile
+]
+
+{ #category : 'accessing' }
+SmallChatLMSession >> profile: aProfileOrNil [
+  profile := aProfileOrNil
 ]
 
 { #category : 'chat' }
