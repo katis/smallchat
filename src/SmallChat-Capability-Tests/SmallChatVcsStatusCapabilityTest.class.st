@@ -21,4 +21,3 @@ SmallChatVcsStatusCapabilityTest >> testRunReturnsExpectedJsonShapeWhenRepoPrese
 		self assert: (parsed includesKey: k) description: 'missing key ' , k ].
 	self assert: (parsed at: 'name') equals: 'smallchat'
 ]
-
