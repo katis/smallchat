@@ -25,6 +25,18 @@ SmallChatWorkspaceWindow >> chatPlaceholder [
 	^ chatPlaceholder
 ]
 
+{ #category : 'layout' }
+SmallChatWorkspaceWindow >> defaultLayout [
+	^ SpBoxLayout newTopToBottom
+		spacing: 4;
+		add: headerLabel expand: false;
+		add: pathLabel expand: false;
+		add: statusLabel expand: false;
+		add: detachButton expand: false;
+		add: chatPlaceholder;
+		yourself
+]
+
 { #category : 'lifecycle' }
 SmallChatWorkspaceWindow >> detachAndClose [
 	"Stub for now -- slice 4 wires registry unmount + ws shutdown."

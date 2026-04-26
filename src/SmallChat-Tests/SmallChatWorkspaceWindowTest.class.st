@@ -9,6 +9,19 @@ Class {
 }
 
 { #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testDefaultLayoutContainsAllPresenters [
+	| ws window children |
+	ws := SmallChatTsWorkspace attachAt: '/tmp/smallchat-ws-fixture' name: 'fixture-ws'.
+	window := SmallChatWorkspaceWindow new workspace: ws; yourself.
+	children := window defaultLayout children.
+	self assert: (children includes: window headerLabel).
+	self assert: (children includes: window pathLabel).
+	self assert: (children includes: window statusLabel).
+	self assert: (children includes: window detachButton).
+	self assert: (children includes: window chatPlaceholder)
+]
+
+{ #category : 'tests' }
 SmallChatWorkspaceWindowTest >> testInitializePresentersBuildsLabels [
 	| ws window |
 	ws := SmallChatTsWorkspace attachAt: '/tmp/smallchat-ws-fixture' name: 'fixture-ws'.
