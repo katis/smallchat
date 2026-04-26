@@ -133,13 +133,20 @@ SmallChatWorkspaceWindowTest >> testCleanupCancelsEverySession [
 ]
 
 { #category : 'tests' }
-SmallChatWorkspaceWindowTest >> testDefaultLayoutContainsOnlyChatPlaceholder [
-	| ws window children |
-	ws := SmallChatTsWorkspace attachAt: '/tmp/smallchat-ws-fixture' name: 'fixture-ws'.
-	window := SmallChatWorkspaceWindow new workspace: ws; yourself.
-	children := window defaultLayout children.
-	self assert: children size = 1.
-	self assert: (children includes: window chatPlaceholder)
+SmallChatWorkspaceWindowTest >> testDefaultLayoutIsPanedWithChatPlaceholderOnRight [
+  "After the agent-tree refactor the top-level layout is a horizontal
+   SpPanedLayout. The chat placeholder is a direct child (right pane);
+   the agent tree lives inside the left-pane box layout."
+  | ws window layout topChildren leftChildren |
+  ws := SmallChatTsWorkspace attachAt: '/tmp/smallchat-ws-fixture' name: 'fixture-ws'.
+  window := SmallChatWorkspaceWindow new workspace: ws; yourself.
+  layout := window defaultLayout.
+  self assert: (layout isKindOf: SpPanedLayout).
+  topChildren := layout children.
+  self assert: (topChildren includes: window chatPlaceholder).
+  leftChildren := (topChildren detect: [ :c | c isKindOf: SpBoxLayout ]) children.
+  self assert: (leftChildren includes: window agentTree).
+  self assert: (leftChildren includes: window addButton)
 ]
 
 { #category : 'tests' }
@@ -179,6 +186,19 @@ SmallChatWorkspaceWindowTest >> testInitializePresentersBuildsChatPlaceholder [
 		yourself.
 	self assert: window chatPlaceholder notNil.
 	self assert: (window chatPlaceholder isKindOf: SpPresenter)
+]
+
+{ #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testLayoutHasAgentTreeAndPaned [
+  "The window's top-level layout is a horizontal SpPanedLayout with the
+   agent tree on the left (empty by default) and the chat placeholder on
+   the right. Verified by inspecting the layout class and the agentTree
+   presenter; we don't open a window."
+  | window |
+  window := SmallChatWorkspaceWindow new.
+  self assert: (window agentTree isKindOf: SpTreeTablePresenter).
+  self assert: window agentTree roots isEmpty.
+  self assert: (window defaultLayout isKindOf: SpPanedLayout)
 ]
 
 { #category : 'tests' }

@@ -13,7 +13,9 @@ Class {
 		'chatPlaceholder',
 		'registryProvider',
 		'sessions',
-		'selectedSession'
+		'selectedSession',
+		'agentTree',
+		'addButton'
 	],
 	#classInstVars : [
 		'directoryPickerBlock'
@@ -102,6 +104,11 @@ SmallChatWorkspaceWindow class >> resetDirectoryPickerBlock [
 	directoryPickerBlock := nil
 ]
 
+{ #category : 'accessing' }
+SmallChatWorkspaceWindow >> addButton [
+  ^ addButton
+]
+
 { #category : 'sessions' }
 SmallChatWorkspaceWindow >> addSession: aSession [
   "Append aSession to the window's in-memory collection and make it the
@@ -110,6 +117,11 @@ SmallChatWorkspaceWindow >> addSession: aSession [
    panel renders aSession."
   self sessions add: aSession.
   self selectSession: aSession
+]
+
+{ #category : 'accessing' }
+SmallChatWorkspaceWindow >> agentTree [
+  ^ agentTree
 ]
 
 { #category : 'lifecycle' }
@@ -155,9 +167,19 @@ SmallChatWorkspaceWindow >> chatPlaceholder [
 
 { #category : 'layout' }
 SmallChatWorkspaceWindow >> defaultLayout [
-	^ SpBoxLayout newTopToBottom
-		add: chatPlaceholder;
-		yourself
+  "Horizontal paned layout: the agent tree (and its + button) live on the
+   left, the chat placeholder on the right. The tree is the selection
+   surface; the placeholder swaps its bound session as the selection
+   changes."
+  ^ SpPanedLayout newHorizontal
+    positionOfSlider: 240;
+    add: (SpBoxLayout newTopToBottom
+      spacing: 4;
+      add: addButton expand: false;
+      add: agentTree;
+      yourself);
+    add: chatPlaceholder;
+    yourself
 ]
 
 { #category : 'lifecycle' }
@@ -183,8 +205,23 @@ SmallChatWorkspaceWindow >> ensureChatPanel [
 
 { #category : 'initialization' }
 SmallChatWorkspaceWindow >> initializePresenters [
-	chatPlaceholder := self newPresenter.
-	chatPlaceholder layout: SpBoxLayout newTopToBottom
+  "Build the bare presenters: an empty SpPresenter as the chat slot (lazily
+   replaced with a SmallChatLMChatPanel by ensureChatPanel), the agent tree
+   on the left, and the + button above the tree. Layout assembly lives in
+   defaultLayout."
+  chatPlaceholder := self newPresenter.
+  chatPlaceholder layout: SpBoxLayout newTopToBottom.
+  agentTree := self newTreeTable.
+  agentTree
+    addColumn: (SpStringTableColumn new
+      title: 'Agent';
+      evaluated: [ :s | s name ifNil: [ '' ] ];
+      yourself);
+    children: [ :s | #() ];
+    roots: #().
+  addButton := self newButton
+    label: '+';
+    yourself
 ]
 
 { #category : 'initialization' }
