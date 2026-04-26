@@ -24,6 +24,17 @@ Class {
 	#package : 'SmallChat-LM'
 }
 
+{ #category : 'instance creation' }
+SmallChatLMSession class >> profile: aProfile workspace: aWorkspace [
+  "Build a session ready for the agent tree: profile applied (name copied,
+   model swapped, profile prompt installed) and workspace bound (tool
+   catalog filtered, profile prompt preserved by #workspace:'s guard)."
+  ^ self new
+    applyProfile: aProfile;
+    workspace: aWorkspace;
+    yourself
+]
+
 { #category : 'profile' }
 SmallChatLMSession >> applyProfile: aProfile [
   "Bind aProfile onto this session: copy its name onto the session label,

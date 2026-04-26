@@ -175,6 +175,31 @@ SmallChatLMSessionTest >> testProfileAccessor [
 ]
 
 { #category : 'tests' }
+SmallChatLMSessionTest >> testProfileWorkspaceConstructor [
+  "SmallChatLMSession class>>profile:workspace: composes #applyProfile:
+   then #workspace: so the session lands ready-to-use: profile bound, name
+   defaulted from profile, profile prompt installed, and tool catalog
+   filtered to the workspace kind."
+  | profile ts session firstSystem model |
+  model := SmallChatAgentProfile availableModels first.
+  profile := SmallChatAgentProfile new
+    name: 'Coder';
+    modelName: model;
+    systemPrompt: 'be terse';
+    yourself.
+  ts := SmallChatTsWorkspace new name: 'ts-fixture'; yourself.
+  session := SmallChatLMSession profile: profile workspace: ts.
+  self assert: session profile == profile.
+  self assert: session workspace == ts.
+  self assert: session name equals: 'Coder'.
+  firstSystem := session conversation messages
+    detect: [ :m | m role = #system ]
+    ifNone: [ nil ].
+  self assert: firstSystem notNil.
+  self assert: firstSystem content equals: 'be terse'
+]
+
+{ #category : 'tests' }
 SmallChatLMSessionTest >> testSendUserInputAppendsUserAndAssistantTurns [
 	| session reply nonSystemRoles |
 	session := self sessionWithCannedReply: 'hello back'.
