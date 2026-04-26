@@ -115,76 +115,15 @@ SmallChatLMChatPanelTest >> testErrorFromClientShowsErrorInStatusLabel [
 ]
 
 { #category : 'tests' }
-SmallChatLMChatPanelTest >> testFinalAssistantBubblePresentsPrecedingToolActivity [
-	"After refreshMessages, the presenter for the final content-bearing assistant
-	 message carries a tool-activity summary derived from the preceding tool_calls
-	 + tool-result messages."
-	| session panel tc plumbingMsg toolMsg finalMsg finalPresenter |
-	session := self stubSessionWithCannedReply: 'unused'.
-	panel := SmallChatLMChatPanel new
-		session: session;
-		uiDeferrer: [ :blk | blk value ];
-		yourself.
-	session conversation addUser: 'what is 3+4?'.
-	tc := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{"code":"3+4"}'.
-	plumbingMsg := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc }.
-	session conversation addMessage: plumbingMsg.
-	toolMsg := SmallChatLMMessage role: #tool content: '7' toolCallId: 'c1'.
-	session conversation addMessage: toolMsg.
-	finalMsg := SmallChatLMMessage role: #assistant content: 'The answer is 7.'.
-	session conversation addMessage: finalMsg.
-	panel refreshMessages.
-	finalPresenter := panel messagePresenters last.
-	self assert: finalPresenter hasToolActivity.
-	self assert: (finalPresenter toolActivity includesSubstring: 'evaluate').
-	self assert: (finalPresenter toolActivity includesSubstring: '7')
-]
-
-{ #category : 'tests' }
 SmallChatLMChatPanelTest >> testInitializeBuildsAllPresenters [
   | panel |
   panel := SmallChatLMChatPanel new.
   self assert: panel input notNil.
   self assert: panel sendButton notNil.
-  self assert: panel messagesPane notNil.
+  self assert: panel sectionList notNil.
+  self assert: panel contentText notNil.
+  self assert: panel outputText notNil.
   self assert: panel statusLabel notNil
-]
-
-{ #category : 'tests' }
-SmallChatLMChatPanelTest >> testMessageBubbleGrowsToFitContent [
-    "Each bubble's content widget propagates its natural height upward so the
-     parent layout sizes the bubble to the text. Without this, multi-line
-     replies clip into the small default text-widget height."
-    | session panel contentText |
-    session := self stubSessionWithCannedReply: 'line one
-line two
-line three'.
-    panel := SmallChatLMChatPanel new
-        session: session;
-        uiDeferrer: [ :blk | blk value ];
-        yourself.
-    panel input text: 'hi'.
-    panel sendFromInput.
-    panel waitForPending.
-    contentText := panel messagePresenters last contentText.
-    self assert: contentText isPropagateNaturalHeight
-]
-
-{ #category : 'tests' }
-SmallChatLMChatPanelTest >> testMessagesPaneIsScrollable [
-    "The transcript needs to scroll vertically when long replies push it past
-     the panel height."
-    | session panel |
-    session := self stubSessionWithCannedReply: 'hello'.
-    panel := SmallChatLMChatPanel new
-        session: session;
-        uiDeferrer: [ :blk | blk value ];
-        yourself.
-    self assert: panel messagesPane layout class equals: SpScrollableLayout.
-    panel input text: 'hi'.
-    panel sendFromInput.
-    panel waitForPending.
-    self assert: panel messagesPane layout class equals: SpScrollableLayout
 ]
 
 { #category : 'tests' }
@@ -205,30 +144,6 @@ SmallChatLMChatPanelTest >> testNewTurnPreservesPriorSelection [
     self assert: panel sectionList selectedItem notNil.
     self assert: panel sectionList selectedItem kind equals: #user.
     self assert: panel sectionList selectedItem message content equals: 'first'
-]
-
-{ #category : 'tests' }
-SmallChatLMChatPanelTest >> testPresenterCachePreservesFoldStateAcrossSends [
-    | panel session firstAssistantPresenter |
-    session := self stubSessionWithCannedReply: '<think>reasoning</think>hello'.
-    panel := SmallChatLMChatPanel new
-        session: session;
-        uiDeferrer: [ :blk | blk value ];
-        yourself.
-    panel input text: 'hi'.
-    panel sendFromInput.
-    panel waitForPending.
-    firstAssistantPresenter := panel messagePresenters last.
-    self assert: firstAssistantPresenter hasThinking.
-    self deny: firstAssistantPresenter isThinkingVisible.
-    firstAssistantPresenter toggleThinking.
-    self assert: firstAssistantPresenter isThinkingVisible.
-    panel input text: 'again'.
-    panel sendFromInput.
-    panel waitForPending.
-    self assert: panel messagePresenters size equals: 4.
-    self assert: (panel messagePresenters at: 2) == firstAssistantPresenter.
-    self assert: (panel messagePresenters at: 2) isThinkingVisible
 ]
 
 { #category : 'tests' }
@@ -441,8 +356,8 @@ SmallChatLMChatPanelTest >> testSendAfterErrorIsAccepted [
 ]
 
 { #category : 'tests' }
-SmallChatLMChatPanelTest >> testSendFromInputAppendsPresenterForEachMessage [
-    | panel session |
+SmallChatLMChatPanelTest >> testSendFromInputAppendsSectionForEachMessage [
+    | panel session secs |
     session := self stubSessionWithCannedReply: 'hello back'.
     panel := SmallChatLMChatPanel new
         session: session;
@@ -451,9 +366,10 @@ SmallChatLMChatPanelTest >> testSendFromInputAppendsPresenterForEachMessage [
     panel input text: 'hi'.
     panel sendFromInput.
     panel waitForPending.
-    self assert: panel messagePresenters size equals: 2.
-    self assert: (panel messagePresenters first message role) equals: #user.
-    self assert: (panel messagePresenters last message role) equals: #assistant
+    secs := panel sectionList items.
+    self assert: secs size equals: 2.
+    self assert: secs first kind equals: #user.
+    self assert: secs last kind equals: #assistant
 ]
 
 { #category : 'tests' }
@@ -484,13 +400,13 @@ SmallChatLMChatPanelTest >> testSendFromInputReturnsImmediatelyWhilePendingReply
     panel input text: 'hi'.
     panel sendFromInput.
     self assert: panel pendingRequest notNil description: 'fork should be in flight'.
-    self assert: (panel messagePresenters anySatisfy: [ :p | p message content = 'hi' ]).
+    self assert: (panel sectionList items anySatisfy: [ :s | s message content = 'hi' ]).
     self assert: (panel statusLabel label asLowercase includesSubstring: 'wait').
     self deny: panel sendButton isEnabled.
     stub releaseGate.
     panel waitForPending.
     self assert: panel pendingRequest isNil description: 'pending cleared after reply'.
-    self assert: (panel messagePresenters anySatisfy: [ :p | p message content = 'later' ]).
+    self assert: (panel sectionList items anySatisfy: [ :s | s message content = 'later' ]).
     self assert: panel statusLabel label isEmpty.
     self assert: panel sendButton isEnabled
 ]
@@ -600,7 +516,7 @@ SmallChatLMChatPanelTest >> testStreamingMidStreamErrorPreservesPartialAssistant
 ]
 
 { #category : 'tests' }
-SmallChatLMChatPanelTest >> testStreamingPlaceholderAssistantBubbleAppearsBeforeFirstChunk [
+SmallChatLMChatPanelTest >> testStreamingPlaceholderAssistantSectionAppearsBeforeFirstChunk [
     | pair session stub panel assistantTurns |
     pair := self stubSessionWithChunks: { self deltaChunkWithContent: 'hi' }.
     session := pair first.
@@ -612,9 +528,10 @@ SmallChatLMChatPanelTest >> testStreamingPlaceholderAssistantBubbleAppearsBefore
         yourself.
     panel input text: 'hello'.
     panel sendFromInput.
-    "Before releasing the gate, the user message and the empty assistant
-     placeholder should both be rendered."
-    self assert: panel messagePresenters size equals: 2.
+    "Before releasing the gate, user + streaming-placeholder asst sections both visible."
+    self assert: panel sectionList items size equals: 2.
+    self assert: (panel sectionList items at: 1) kind equals: #user.
+    self assert: (panel sectionList items at: 2) kind equals: #assistant.
     assistantTurns := session conversation messages select: [ :m | m role = #assistant ].
     self assert: assistantTurns size equals: 1.
     self assert: assistantTurns first content equals: ''.
@@ -641,12 +558,10 @@ SmallChatLMChatPanelTest >> testStreamingPlaceholderEmitsAssistantSection [
 ]
 
 { #category : 'tests' }
-SmallChatLMChatPanelTest >> testStreamingThinkingAppearingMidStreamDoesNotRaise [
-    "When </think> closes mid-stream the cached presenter must instantiate
-     the thinking widgets and re-apply its layout. The previous
-     buildWithSpec rebuild path raised a DNU that opened Pharo's UI
-     debugger in the live panel."
-    | pair session panel placeholder presenter |
+SmallChatLMChatPanelTest >> testStreamingThinkingAppearsAsSeparateSection [
+    "When </think> closes mid-stream the section list gains a [thnk] row alongside
+     the [asst] row, both backed by the same placeholder message."
+    | pair session panel placeholder kinds |
     pair := self stubSessionWithChunks: {
         self deltaChunkWithContent: '<think>'.
         self deltaChunkWithContent: 'reason</think>final' }.
@@ -659,22 +574,23 @@ SmallChatLMChatPanelTest >> testStreamingThinkingAppearingMidStreamDoesNotRaise 
     panel sendFromInput.
     panel waitForPending.
     placeholder := session conversation messages last.
-    presenter := panel messagePresenters last.
     self assert: placeholder content equals: 'final'.
     self assert: placeholder thinking equals: 'reason'.
-    self assert: presenter hasThinking
+    kinds := panel sectionList items collect: [ :s | s kind ].
+    self assert: (kinds includes: #thinking).
+    self assert: (kinds includes: #assistant)
 ]
 
 { #category : 'tests' }
 SmallChatLMChatPanelTest >> testSystemMessagesNotRendered [
-	| panel session |
-	session := self stubSessionWithCannedReply: 'hello back'.
-	panel := SmallChatLMChatPanel new
-		session: session;
-		yourself.
-	self assert: (session conversation messages anySatisfy: [ :m | m role = #system ])
-		description: 'precondition: session has a seeded system turn'.
-	self deny: (panel messagePresenters anySatisfy: [ :p | p message role = #system ])
+    | panel session |
+    session := self stubSessionWithCannedReply: 'hello back'.
+    panel := SmallChatLMChatPanel new
+        session: session;
+        yourself.
+    self assert: (session conversation messages anySatisfy: [ :m | m role = #system ])
+        description: 'precondition: session has a seeded system turn'.
+    self deny: (panel sections anySatisfy: [ :s | s message role = #system ])
 ]
 
 { #category : 'tests' }
@@ -709,31 +625,4 @@ SmallChatLMChatPanelTest >> testToolPlumbingMessageProducesToolCallSectionOnly [
     secs := panel sections.
     self assert: (secs collect: [ :s | s kind ]) asArray equals: #( #toolCall ).
     self assert: (secs first) toolCall == tc
-]
-
-{ #category : 'tests' }
-SmallChatLMChatPanelTest >> testTranscriptFiltersIntermediateToolPlumbing [
-	"After a tool-calling round, the conversation contains user / asst(tool_calls) /
-	 tool(result) / asst(final). The transcript should only show user and the
-	 final assistant bubble -- intermediate tool-call-only assistant messages and
-	 #tool messages are not standalone bubbles."
-	| session panel tc plumbingMsg toolMsg finalMsg |
-	session := self stubSessionWithCannedReply: 'unused'.
-	panel := SmallChatLMChatPanel new
-		session: session;
-		uiDeferrer: [ :blk | blk value ];
-		yourself.
-	"Hand-build a post-tool-round conversation state."
-	session conversation addUser: 'what is 3+4?'.
-	tc := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{"code":"3+4"}'.
-	plumbingMsg := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc }.
-	session conversation addMessage: plumbingMsg.
-	toolMsg := SmallChatLMMessage role: #tool content: '7' toolCallId: 'c1'.
-	session conversation addMessage: toolMsg.
-	finalMsg := SmallChatLMMessage role: #assistant content: 'The answer is 7.'.
-	session conversation addMessage: finalMsg.
-	panel refreshMessages.
-	self assert: panel messagePresenters size equals: 2.
-	self assert: (panel messagePresenters first message role) equals: #user.
-	self assert: (panel messagePresenters second message) equals: finalMsg
 ]
