@@ -253,6 +253,33 @@ SmallChatLMChatPanelTest >> testSectionsExcludesSystemMessage [
 ]
 
 { #category : 'tests' }
+SmallChatLMChatPanelTest >> testSectionsForFullConversationInArrivalOrder [
+    | session panel tc plumbingMsg toolMsg finalMsg secs |
+    session := self stubSessionWithCannedReply: 'unused'.
+    panel := SmallChatLMChatPanel new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    session conversation addUser: 'what is 3+4?'.
+    tc := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{"code":"3+4"}'.
+    plumbingMsg := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc }.
+    session conversation addMessage: plumbingMsg.
+    toolMsg := SmallChatLMMessage role: #tool content: '7' toolCallId: 'c1'.
+    session conversation addMessage: toolMsg.
+    finalMsg := SmallChatLMMessage role: #assistant content: 'The answer is 7.'.
+    finalMsg thinking: 'reasoning about arithmetic'.
+    session conversation addMessage: finalMsg.
+    secs := panel sections.
+    self assert: (secs collect: [ :s | s kind ]) asArray
+        equals: #( #user #toolCall #thinking #assistant ).
+    self assert: (secs at: 1) message content equals: 'what is 3+4?'.
+    self assert: (secs at: 2) toolCall == tc.
+    self assert: (secs at: 2) toolResult equals: '7'.
+    self assert: (secs at: 3) message == finalMsg.
+    self assert: (secs at: 4) message == finalMsg
+]
+
+{ #category : 'tests' }
 SmallChatLMChatPanelTest >> testSendAfterErrorIsAccepted [
     | stub client session panel userTurns |
     stub := SmallChatLMHttpStub new
