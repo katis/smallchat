@@ -14,7 +14,8 @@ Class {
 		'pathLabel',
 		'statusLabel',
 		'detachButton',
-		'chatPlaceholder'
+		'chatPlaceholder',
+		'registryProvider'
 	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
@@ -39,8 +40,12 @@ SmallChatWorkspaceWindow >> defaultLayout [
 
 { #category : 'lifecycle' }
 SmallChatWorkspaceWindow >> detachAndClose [
-	"Stub for now -- slice 4 wires registry unmount + ws shutdown."
-	^ self
+	"Unmount the bound workspace from the registry and shut its LSP client
+	 down. Idempotent: the second call sees a nil workspace and exits cleanly."
+	workspace ifNil: [ ^ self ].
+	self registry unmountWorkspace: workspace.
+	workspace shutdown.
+	workspace := nil
 ]
 
 { #category : 'accessing' }
@@ -78,6 +83,21 @@ SmallChatWorkspaceWindow >> refreshFromWorkspace [
 	workspace ifNil: [ ^ self ].
 	headerLabel ifNotNil: [ headerLabel label: 'TS workspace: ' , workspace name ].
 	pathLabel ifNotNil: [ pathLabel label: workspace path fullName ]
+]
+
+{ #category : 'accessing' }
+SmallChatWorkspaceWindow >> registry [
+	"The capability registry this window dispatches against. Test seam:
+	 #registryProvider: lets a fresh registry be injected; defaults to the
+	 system-wide singleton."
+	^ registryProvider
+		ifNil: [ SmallChatCapabilityRegistry default ]
+		ifNotNil: [ registryProvider value ]
+]
+
+{ #category : 'accessing' }
+SmallChatWorkspaceWindow >> registryProvider: aBlock [
+	registryProvider := aBlock
 ]
 
 { #category : 'accessing' }

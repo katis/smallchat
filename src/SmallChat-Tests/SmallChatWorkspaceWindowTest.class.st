@@ -22,6 +22,24 @@ SmallChatWorkspaceWindowTest >> testDefaultLayoutContainsAllPresenters [
 ]
 
 { #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testDetachAndCloseUnmountsAndShutsDownIdempotent [
+	| registry ws window |
+	registry := SmallChatCapabilityRegistry new.
+	ws := SmallChatTsWorkspace attachAt: '/tmp/smallchat-ws-detach' name: 'detach-ws'.
+	ws lspClient: 'sentinel'.
+	registry mountWorkspace: ws.
+	window := SmallChatWorkspaceWindow new
+		registryProvider: [ registry ];
+		workspace: ws;
+		yourself.
+	window detachAndClose.
+	self assert: (registry mountedWorkspaces includes: ws) not.
+	self assert: ws lspClient isNil.
+	"Second call must not raise."
+	[ window detachAndClose ] on: Error do: [ :e | self fail: 'detachAndClose should be idempotent: ' , e messageText ]
+]
+
+{ #category : 'tests' }
 SmallChatWorkspaceWindowTest >> testInitializePresentersBuildsLabels [
 	| ws window |
 	ws := SmallChatTsWorkspace attachAt: '/tmp/smallchat-ws-fixture' name: 'fixture-ws'.
