@@ -44,7 +44,8 @@ SmallChatLMTranscriptSection >> kind [
 SmallChatLMTranscriptSection >> label [
     | tag prefix |
     tag := self labelTag.
-    prefix := self labelPrefix.
+    prefix := self labelPrefix copyReplaceAll: String lf with: ' '.
+    prefix := prefix copyReplaceAll: String cr with: ' '.
     ^ '[' , tag , '] ' , prefix
 ]
 

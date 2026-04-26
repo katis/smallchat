@@ -26,6 +26,15 @@ SmallChatLMTranscriptSectionTest >> testAssistantLabelUsesContent [
 ]
 
 { #category : 'tests' }
+SmallChatLMTranscriptSectionTest >> testLabelStripsLineFeeds [
+    | msg s |
+    msg := SmallChatLMMessage role: #user content: 'line one' , String lf , 'line two'.
+    s := SmallChatLMTranscriptSection userOn: msg.
+    self deny: (s label includesSubstring: String lf).
+    self assert: s label equals: '[user] line one line two'
+]
+
+{ #category : 'tests' }
 SmallChatLMTranscriptSectionTest >> testStreamingAssistantSectionLabelShowsPlaceholder [
     | msg s |
     msg := SmallChatLMMessage role: #assistant content: ''.
