@@ -297,6 +297,59 @@ SmallChatLMChatPanelTest >> testSectionsForFullConversationInArrivalOrder [
 ]
 
 { #category : 'tests' }
+SmallChatLMChatPanelTest >> testSelectingNilClearsBothPanes [
+    | session panel |
+    session := self stubSessionWithCannedReply: 'unused'.
+    panel := SmallChatLMChatPanel new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    session conversation addUser: 'hello'.
+    panel selectSection: panel sections first.
+    panel selectSection: nil.
+    self assert: panel contentText text asString isEmpty.
+    self assert: panel outputText text asString isEmpty
+]
+
+{ #category : 'tests' }
+SmallChatLMChatPanelTest >> testSelectingThinkingSectionShowsThinkingText [
+    | session panel msg secs |
+    session := self stubSessionWithCannedReply: 'unused'.
+    panel := SmallChatLMChatPanel new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    msg := SmallChatLMMessage role: #assistant content: 'final' thinking: 'step by step'.
+    session conversation addMessage: msg.
+    secs := panel sections.
+    panel selectSection: (secs detect: [ :s | s kind = #thinking ]).
+    self assert: panel contentText text asString equals: 'step by step'.
+    self assert: panel outputText text asString isEmpty
+]
+
+{ #category : 'tests' }
+SmallChatLMChatPanelTest >> testSelectingToolCallShowsArgsInContentAndResultInOutput [
+    "Problem 2 regression: the tool result text lands in the dedicated bottom
+     pane (which is its own SpTextPresenter, not a tiny inline section that
+     collapsed under the old layout)."
+    | session panel tc plumbingMsg toolMsg toolSec |
+    session := self stubSessionWithCannedReply: 'unused'.
+    panel := SmallChatLMChatPanel new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    tc := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{"code":"3+4"}'.
+    plumbingMsg := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc }.
+    session conversation addMessage: plumbingMsg.
+    toolMsg := SmallChatLMMessage role: #tool content: '7' toolCallId: 'c1'.
+    session conversation addMessage: toolMsg.
+    toolSec := panel sections detect: [ :s | s kind = #toolCall ].
+    panel selectSection: toolSec.
+    self assert: panel contentText text asString equals: 'evaluate({"code":"3+4"})'.
+    self assert: panel outputText text asString equals: '7'
+]
+
+{ #category : 'tests' }
 SmallChatLMChatPanelTest >> testSelectingUserSectionShowsContentAndEmptyOutput [
     | session panel userSec |
     session := self stubSessionWithCannedReply: 'unused'.
@@ -570,6 +623,22 @@ SmallChatLMChatPanelTest >> testSystemMessagesNotRendered [
 	self assert: (session conversation messages anySatisfy: [ :m | m role = #system ])
 		description: 'precondition: session has a seeded system turn'.
 	self deny: (panel messagePresenters anySatisfy: [ :p | p message role = #system ])
+]
+
+{ #category : 'tests' }
+SmallChatLMChatPanelTest >> testToolCallWithoutResultShowsEmptyOutput [
+    | session panel tc plumbingMsg toolSec |
+    session := self stubSessionWithCannedReply: 'unused'.
+    panel := SmallChatLMChatPanel new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    tc := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{}'.
+    plumbingMsg := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc }.
+    session conversation addMessage: plumbingMsg.
+    toolSec := panel sections first.
+    panel selectSection: toolSec.
+    self assert: panel outputText text asString isEmpty
 ]
 
 { #category : 'tests' }
