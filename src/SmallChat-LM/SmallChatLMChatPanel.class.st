@@ -198,33 +198,34 @@ SmallChatLMChatPanel >> sectionList [
 
 { #category : 'accessing' }
 SmallChatLMChatPanel >> sections [
-    "Decompose conversation messages into list rows in strict arrival order.
-     Within an assistant message: thinking, then toolCalls (one section each),
-     then content. Tool messages contribute their content as the matching
-     toolCall section's output, not a standalone row."
-    | result resultsByCallId msgs |
-    msgs := session conversation messages.
-    resultsByCallId := Dictionary new.
-    msgs do: [ :m |
-        m role = #tool ifTrue: [
-            m toolCallId ifNotNil: [ :id |
-                resultsByCallId at: id put: (m content ifNil: [ '' ]) ] ] ].
-    result := OrderedCollection new.
-    msgs do: [ :m |
-        m role = #user ifTrue: [
-            result add: (SmallChatLMTranscriptSection userOn: m) ].
-        m role = #assistant ifTrue: [
-            (m thinking notNil and: [ m thinking isEmpty not ]) ifTrue: [
-                result add: (SmallChatLMTranscriptSection thinkingOn: m) ].
-            (m toolCalls notNil and: [ m toolCalls isEmpty not ]) ifTrue: [
-                m toolCalls do: [ :tc |
-                    result add: (SmallChatLMTranscriptSection
-                        toolCallOn: m
-                        call: tc
-                        result: (resultsByCallId at: tc id ifAbsent: [ nil ])) ] ].
-            ((m content notNil and: [ m content isEmpty not ]) or: [ m rawStream notNil ]) ifTrue: [
-                result add: (SmallChatLMTranscriptSection assistantOn: m) ] ] ].
-    ^ result asArray
+	"Decompose conversation messages into list rows in strict arrival order.
+	 Within an assistant message: thinking, then content (the preamble shown
+	 to the user), then toolCalls (one section each). Tool messages contribute
+	 their content as the matching toolCall section's output, not a standalone
+	 row."
+	| result resultsByCallId msgs |
+	msgs := session conversation messages.
+	resultsByCallId := Dictionary new.
+	msgs do: [ :m |
+		m role = #tool ifTrue: [
+			m toolCallId ifNotNil: [ :id |
+				resultsByCallId at: id put: (m content ifNil: [ '' ]) ] ] ].
+	result := OrderedCollection new.
+	msgs do: [ :m |
+		m role = #user ifTrue: [
+			result add: (SmallChatLMTranscriptSection userOn: m) ].
+		m role = #assistant ifTrue: [
+			(m thinking notNil and: [ m thinking isEmpty not ]) ifTrue: [
+				result add: (SmallChatLMTranscriptSection thinkingOn: m) ].
+			((m content notNil and: [ m content isEmpty not ]) or: [ m rawStream notNil ]) ifTrue: [
+				result add: (SmallChatLMTranscriptSection assistantOn: m) ].
+			(m toolCalls notNil and: [ m toolCalls isEmpty not ]) ifTrue: [
+				m toolCalls do: [ :tc |
+					result add: (SmallChatLMTranscriptSection
+						toolCallOn: m
+						call: tc
+						result: (resultsByCallId at: tc id ifAbsent: [ nil ])) ] ] ] ].
+	^ result asArray
 ]
 
 { #category : 'binding' }

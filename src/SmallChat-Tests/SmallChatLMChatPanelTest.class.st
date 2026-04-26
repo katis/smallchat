@@ -270,6 +270,27 @@ SmallChatLMChatPanelTest >> testSectionsForFullConversationInArrivalOrder [
 ]
 
 { #category : 'tests' }
+SmallChatLMChatPanelTest >> testSectionsOrderWithinAssistantIsThinkingThenContentThenToolCalls [
+	"When a single assistant message carries thinking, a content preamble, AND
+	 tool calls, the sections must reflect chronological model output: thought
+	 first, then the preamble shown to the user, then the action. The previous
+	 order put the action ahead of the preamble, which read as out of order."
+	| session panel msg tc secs |
+	session := self stubSessionWithCannedReply: 'unused'.
+	panel := SmallChatLMChatPanel new
+		session: session;
+		uiDeferrer: [ :blk | blk value ];
+		yourself.
+	tc := SmallChatLMToolCall id: 'c1' name: 'noop' arguments: '{}'.
+	msg := SmallChatLMMessage role: #assistant content: 'let me check' thinking: 'reasoning'.
+	msg toolCalls: { tc }.
+	session conversation addMessage: msg.
+	secs := panel sections.
+	self assert: (secs collect: [ :s | s kind ]) asArray
+		equals: #( #thinking #assistant #toolCall )
+]
+
+{ #category : 'tests' }
 SmallChatLMChatPanelTest >> testSelectingNilClearsBothPanes [
     | session panel |
     session := self stubSessionWithCannedReply: 'unused'.
