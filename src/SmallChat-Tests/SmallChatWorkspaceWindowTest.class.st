@@ -127,6 +127,21 @@ SmallChatWorkspaceWindowTest >> testAttachSeedsDefaultSession [
 ]
 
 { #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testBuildsHeadlessly [
+  "End-to-end smoke that the window can be constructed in the headless
+   reader process without opening a Morphic window or attaching a
+   workspace. All key presenters must be wired and the layout must be
+   the paned shape this feature introduced."
+  | window |
+  window := SmallChatWorkspaceWindow new.
+  self assert: window agentTree notNil.
+  self assert: window chatPlaceholder notNil.
+  self assert: window addButton notNil.
+  self assert: (window defaultLayout isKindOf: SpPanedLayout).
+  self assert: window sessions isEmpty
+]
+
+{ #category : 'tests' }
 SmallChatWorkspaceWindowTest >> testChatPlaceholderHostsPanelBoundToWorkspace [
 	"After attachOnPath:name:, the chatPlaceholder slot is a
 	 SmallChatLMChatPanel whose SmallChatLMSession is bound to the same
