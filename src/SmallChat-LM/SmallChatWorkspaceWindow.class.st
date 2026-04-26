@@ -15,7 +15,8 @@ Class {
 		'sessions',
 		'selectedSession',
 		'agentTree',
-		'addButton'
+		'addButton',
+		'profileChooser'
 	],
 	#classInstVars : [
 		'directoryPickerBlock'
@@ -168,6 +169,19 @@ SmallChatWorkspaceWindow >> chatPlaceholder [
 	^ chatPlaceholder
 ]
 
+{ #category : 'sessions' }
+SmallChatWorkspaceWindow >> createSessionFromChooser [
+  "Pop the profile chooser; if the user picks one, build a session
+   bound to that profile + this window's workspace and add it. Wired to
+   the + button's action -- also called directly from tests."
+  | profiles picked |
+  profiles := SmallChatAgentProfile all.
+  profiles isEmpty ifTrue: [ ^ self ].
+  picked := self profileChooser value: profiles.
+  picked ifNil: [ ^ self ].
+  self addSession: (SmallChatLMSession profile: picked workspace: workspace)
+]
+
 { #category : 'layout' }
 SmallChatWorkspaceWindow >> defaultLayout [
   "Horizontal paned layout: the agent tree (and its + button) live on the
@@ -211,7 +225,7 @@ SmallChatWorkspaceWindow >> initializePresenters [
   "Build the bare presenters: an empty SpPresenter as the chat slot (lazily
    replaced with a SmallChatLMChatPanel by ensureChatPanel), the agent tree
    on the left wired to drive selectSession: on selection-change, and the
-   + button above the tree."
+   + button above the tree wired to createSessionFromChooser."
   chatPlaceholder := self newPresenter.
   chatPlaceholder layout: SpBoxLayout newTopToBottom.
   agentTree := self newTreeTable.
@@ -226,6 +240,7 @@ SmallChatWorkspaceWindow >> initializePresenters [
       sel selectedItem ifNotNil: [ :s | self selectSession: s ] ].
   addButton := self newButton
     label: '+';
+    action: [ self createSessionFromChooser ];
     yourself
 ]
 
@@ -247,6 +262,26 @@ SmallChatWorkspaceWindow >> installChatPanelFor: aWorkspace [
    collection stays in sync. Slice 11 will move session construction
    out to the attach call sites with profile injection."
   self addSession: (SmallChatLMSession new workspace: aWorkspace; yourself)
+]
+
+{ #category : 'accessing' }
+SmallChatWorkspaceWindow >> profileChooser [
+  "Block that, given a collection of SmallChatAgentProfile instances,
+   returns the picked one (or nil to cancel). Test seam: tests inject
+   a block that picks deterministically; production pops a modal via
+   UIManager default chooseFrom:values:."
+  ^ profileChooser ifNil: [
+    [ :profiles |
+      | idx |
+      idx := UIManager default
+        chooseFrom: (profiles collect: [ :p | p name ])
+        values: (1 to: profiles size) asArray.
+      idx isNil ifTrue: [ nil ] ifFalse: [ profiles at: idx ] ] ]
+]
+
+{ #category : 'accessing' }
+SmallChatWorkspaceWindow >> profileChooser: aBlock [
+  profileChooser := aBlock
 ]
 
 { #category : 'accessing' }

@@ -149,6 +149,25 @@ SmallChatWorkspaceWindowTest >> testCleanupCancelsEverySession [
 ]
 
 { #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testCreateSessionFromChooserUsesInjectedBlock [
+  "createSessionFromChooser asks the injected profileChooser block for a
+   profile, builds a session via SmallChatLMSession profile:workspace:,
+   and adds it to the window. The block is the test seam; the default
+   pops a UIManager modal which would deadlock under the headless
+   reader."
+  | window picked |
+  window := SmallChatWorkspaceWindow new
+    workspace: SmallChatPharoWorkspace default;
+    profileChooser: [ :profiles | profiles first ];
+    yourself.
+  window createSessionFromChooser.
+  picked := SmallChatAgentProfile all first.
+  self assert: window sessions size equals: 1.
+  self assert: window selectedSession profile == picked.
+  self assert: window selectedSession name equals: picked name
+]
+
+{ #category : 'tests' }
 SmallChatWorkspaceWindowTest >> testDefaultLayoutIsPanedWithChatPlaceholderOnRight [
   "After the agent-tree refactor the top-level layout is a horizontal
    SpPanedLayout. The chat placeholder is a direct child (right pane);
