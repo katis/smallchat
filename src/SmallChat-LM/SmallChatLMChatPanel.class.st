@@ -250,6 +250,19 @@ SmallChatLMChatPanel >> presenterFor: aMessage [
 ]
 
 { #category : 'private' }
+SmallChatLMChatPanel >> rebuildSections [
+    "Walk the conversation and refresh the list. Preserves the prior
+     selection by =-equality so a streaming delta or new turn does not
+     reset the user's focus row."
+    | previous newItems |
+    previous := sectionList selectedItem.
+    newItems := self sections.
+    sectionList items: newItems.
+    previous ifNotNil: [ sectionList selectItem: previous ].
+    self showSection: sectionList selectedItem
+]
+
+{ #category : 'private' }
 SmallChatLMChatPanel >> refreshMessages [
     | inner |
     inner := SpBoxLayout newTopToBottom.

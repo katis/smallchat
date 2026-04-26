@@ -212,6 +212,20 @@ SmallChatLMChatPanelTest >> testPresenterCachePreservesFoldStateAcrossSends [
 ]
 
 { #category : 'tests' }
+SmallChatLMChatPanelTest >> testRebuildSectionsPopulatesSectionList [
+    | session panel |
+    session := self stubSessionWithCannedReply: 'unused'.
+    panel := SmallChatLMChatPanel new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    session conversation addUser: 'hi'.
+    panel rebuildSections.
+    self assert: panel sectionList items size equals: 1.
+    self assert: (panel sectionList items first) kind equals: #user
+]
+
+{ #category : 'tests' }
 SmallChatLMChatPanelTest >> testSecondSendBlockedWhileFirstPending [
     | stub client session panel userTurns |
     stub := SmallChatLMHttpStub new
