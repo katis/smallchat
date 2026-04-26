@@ -212,8 +212,8 @@ SmallChatLMSession >> sendUserInput: aString [
 	 carries tool_calls: dispatch each, append tool-result messages, call
 	 again. Gives up after maxToolIterations rounds. Returns the final
 	 assistant message (always a content-bearing one, modulo the synthetic
-	 budget-exhausted stub). Status flips to #running on entry, back to
-	 #idle on a clean return."
+	 budget-exhausted stub). Status flips to #running on entry, #errored on
+	 the synthetic budget exit, and back to #idle on a clean return."
 	| reply iterations |
 	(aString isNil or: [ aString isEmpty ]) ifTrue: [ ^ nil ].
 	self status: #running.
@@ -229,6 +229,7 @@ SmallChatLMSession >> sendUserInput: aString [
 				role: #assistant
 				content: 'Error: tool-call budget (' , self maxToolIterations printString , ' rounds) exhausted.'.
 			conversation addMessage: synthetic.
+			self status: #errored.
 			^ synthetic ].
 		reply toolCalls do: [ :tc |
 			conversation addTool: (self dispatchToolCall: tc) forCallId: tc id ].

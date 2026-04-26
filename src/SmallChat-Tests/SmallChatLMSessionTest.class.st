@@ -6,6 +6,39 @@ Class {
 }
 
 { #category : 'helpers' }
+SmallChatLMSessionTest >> sessionLowBudgetWithToolReply [
+  "Build a session whose backing HTTP stub returns a tool-calling
+   reply on every round and whose maxToolIterations is 0, so the very
+   first iteration trips the synthetic budget-exhausted path."
+  | stub client |
+  stub := SmallChatLMHttpStub new
+    response: (STONJSON toString: (Dictionary new
+      at: 'choices' put: { Dictionary new
+        at: 'message' put: (Dictionary new
+          at: 'role' put: 'assistant';
+          at: 'content' put: '';
+          at: 'tool_calls' put: { Dictionary new
+            at: 'id' put: 'c1';
+            at: 'type' put: 'function';
+            at: 'function' put: (Dictionary new
+              at: 'name' put: 'nope.does-not-exist';
+              at: 'arguments' put: '{}';
+              yourself);
+            yourself };
+          yourself);
+        yourself };
+      yourself));
+    yourself.
+  client := SmallChatLMChatClient new
+    baseUrl: 'http://localhost:1234';
+    httpClient: stub;
+    yourself.
+  ^ SmallChatLMSessionTestStubLowBudget new
+    client: client;
+    yourself
+]
+
+{ #category : 'helpers' }
 SmallChatLMSessionTest >> sessionWithCannedReply: aString [
 	| stub client session |
 	stub := SmallChatLMHttpStub new
@@ -219,6 +252,25 @@ SmallChatLMSessionTest >> testSendUserInputAppendsUserAndAssistantTurns [
 	nonSystemRoles := (session conversation messages reject: [ :m | m role = #system ])
 		collect: [ :m | m role ].
 	self assert: nonSystemRoles asArray equals: #(#user #assistant)
+]
+
+{ #category : 'tests' }
+SmallChatLMSessionTest >> testSendUserInputBudgetExhaustedSetsErrored [
+  "When the tool-call budget is exhausted, sendUserInput: must transition
+   the session into #errored before returning the synthetic message so the
+   agent tree paints the red dot. Pinned via a stub session with
+   maxToolIterations = 0 and a tool-calling reply."
+  | session sequence reply |
+  session := self sessionLowBudgetWithToolReply.
+  sequence := OrderedCollection new.
+  session announcer
+    when: SmallChatLMSessionStatusChanged
+    do: [ :a | sequence add: a status ]
+    for: self.
+  reply := session sendUserInput: 'go'.
+  self assert: (reply content includesSubstring: 'budget').
+  self assert: session status equals: #errored.
+  self assert: sequence asArray equals: #(#running #errored)
 ]
 
 { #category : 'tests' }
