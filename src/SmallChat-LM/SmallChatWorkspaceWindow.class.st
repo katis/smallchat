@@ -1,7 +1,7 @@
 "
-Spec2 window bound to one attached SmallChatTsWorkspace. The world-menu launcher pops a directory picker, attaches a TS workspace via SmallChatTsWorkspace>>attachAt:name:, mounts it on the SmallChatCapabilityRegistry, and opens this window. Closing the window detaches the workspace (registry unmount + ws shutdown).
+Spec2 window bound to one workspace -- either an attached SmallChatTsWorkspace (via attachOnPath:name: + a directory picker) or the always-mounted SmallChatPharoWorkspace (via attachOnPharoWorkspace). Closing the window cleans up the embedded chat panel and detaches the workspace (registry unmount + ws shutdown for TS; nothing to unmount for Pharo).
 
-Holds a chatPlaceholder presenter as the drop-in slot for a future workspace-scoped chat panel; the panel will be parameterised by a SmallChatLMSession whose tool dispatch stamps this workspace onto each call, and a SmallChatLMCapabilityCatalog filtered to the workspace kind.
+The chatPlaceholder slot is filled with a SmallChatLMChatPanel parameterised by a SmallChatLMSession bound to the window's workspace; the session stamps that workspace onto every tool call and the panel's LM client carries a SmallChatLMCapabilityCatalog filtered to the workspace kind. Result: each window's chat sees only the tools that fit its workspace.
 
 Note: today the LSP launcher in SmallChatTsWorkspace defaults to nil, so attach is pure object construction and runs on the UI process. When real tsgo wiring lands, attach becomes blocking I/O and must move to a fork with status fed back via UIManager default defer:.
 "

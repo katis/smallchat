@@ -1,12 +1,7 @@
 "
-One chat turn in the window. Shows role + content always; when the
-underlying message carries a non-empty thinking block, adds a
-disclosure button that toggles the thinking body. Closed by default.
+One chat turn in the panel. Shows role + content always; when the underlying message carries a non-empty thinking block, adds a disclosure button that toggles the thinking body. Closed by default.
 
-Fold state (#thinkingVisible) lives in the presenter, not the message
--- the model stays pure. SmallChatLMChatWindow caches presenters per
-message identity so an expanded thinking block stays expanded when
-the next reply lands.
+Fold state (#thinkingVisible) lives in the presenter, not the message -- the model stays pure. SmallChatLMChatPanel caches presenters per message identity so an expanded thinking block stays expanded when the next reply lands.
 "
 Class {
 	#name : 'SmallChatLMMessagePresenter',
