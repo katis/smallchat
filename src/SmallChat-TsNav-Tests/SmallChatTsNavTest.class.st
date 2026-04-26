@@ -55,6 +55,24 @@ SmallChatTsNavTest >> testDiagnosticsForRendersLspItems [
 ]
 
 { #category : 'tests' }
+SmallChatTsNavTest >> testEvalSmalltalkBindsTsNavCurrentWorkspace [
+	"During eval.smalltalk run:, SmallChatTsNav currentWorkspace must be the
+	 call's workspace so SmallChatTsNav selectors invoked from the eval body
+	 see the right workspace. The capability must restore the binding (to nil)
+	 after the eval so a follow-up Pharo eval does not see a stale TS context."
+	| ws call result before after |
+	ws := SmallChatTsWorkspace new name: 'fixture'; yourself.
+	call := SmallChatCapabilityCall name: 'eval.smalltalk' argumentsJson: '{"code":"SmallChatTsNav currentWorkspace name"}'.
+	call workspace: ws.
+	before := SmallChatTsNav currentWorkspace.
+	result := SmallChatEvalSmalltalkCapability run: call.
+	after := SmallChatTsNav currentWorkspace.
+	self assert: result asTextForLM equals: '''fixture'''.
+	self assert: before equals: nil.
+	self assert: after equals: nil
+]
+
+{ #category : 'tests' }
 SmallChatTsNavTest >> testFindFilesListsCssMatchedByGlob [
 	"findFiles: returns workspace-relative paths whose tail matches the glob.
 	 Reads from the lazy Famix model: CSSModuleFile entities get listed for

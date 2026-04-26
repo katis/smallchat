@@ -375,10 +375,12 @@ SmallChatTsNav class >> severityLabel: anInteger [
 { #category : 'workspace binding' }
 SmallChatTsNav class >> withWorkspaceDo: aOneArgBlock [
 	"Run aOneArgBlock with the bound TS workspace, or short-circuit with
-	 the friendly Markdown guard when no workspace is bound. Every public
-	 selector funnels through this so the guard message is identical."
-	currentWorkspace ifNil: [
-		^ '_no TS workspace bound -- open or attach a TS workspace first_' ].
+	 the friendly Markdown guard. The binding is set by
+	 SmallChatEvalSmalltalkCapability around each eval; a Pharo eval
+	 doesn't target a TS workspace so the guard fires there too. Every
+	 public selector funnels through this so the guard message is identical."
+	(currentWorkspace notNil and: [ currentWorkspace kind = #ts ])
+		ifFalse: [ ^ '_no TS workspace bound -- open or attach a TS workspace first_' ].
 	^ aOneArgBlock value: currentWorkspace
 ]
 

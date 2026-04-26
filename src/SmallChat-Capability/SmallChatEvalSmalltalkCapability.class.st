@@ -16,11 +16,17 @@ SmallChatEvalSmalltalkCapability class >> description [
 
 { #category : 'execution' }
 SmallChatEvalSmalltalkCapability class >> run: aCapabilityCall [
-	"Migrated from SmallChatEvaluateTool>>run:. Outcome key #result -> text;
-	 #debugSession -> debugSession variant."
-	| code outcome |
+	"Bind SmallChatTsNav currentWorkspace: to the call's workspace for the
+	 duration of the eval so SmallChatTsNav selectors invoked from the eval
+	 body resolve against the right workspace. Restored to nil in #ensure:.
+	 SmallChatTsNav is looked up reflectively so SmallChat-Capability does
+	 not grow a compile-time dependency on the TsNav package."
+	| code outcome tsNav |
 	code := aCapabilityCall arguments at: 'code'.
-	outcome := SmallChatDebugEvaluator evaluate: code.
+	tsNav := Smalltalk globals at: #SmallChatTsNav ifAbsent: [ nil ].
+	tsNav ifNotNil: [ tsNav currentWorkspace: aCapabilityCall workspace ].
+	outcome := [ SmallChatDebugEvaluator evaluate: code ]
+		ensure: [ tsNav ifNotNil: [ tsNav currentWorkspace: nil ] ].
 	outcome key = #result ifTrue: [ ^ SmallChatCapabilityResult text: outcome value ].
 	outcome key = #debugSession ifTrue: [ ^ SmallChatCapabilityResult debugSession: outcome value ].
 	self error: 'Unexpected evaluator outcome: ' , outcome printString
