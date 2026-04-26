@@ -22,6 +22,15 @@ SmallChatLMTranscriptSection class >> thinkingOn: aMessage [
 ]
 
 { #category : 'instance creation' }
+SmallChatLMTranscriptSection class >> toolCallOn: aMessage call: aToolCall result: aStringOrNil [
+    ^ self new
+        setKind: #toolCall message: aMessage;
+        toolCall: aToolCall;
+        toolResult: aStringOrNil;
+        yourself
+]
+
+{ #category : 'instance creation' }
 SmallChatLMTranscriptSection class >> userOn: aMessage [
     ^ self new setKind: #user message: aMessage; yourself
 ]
@@ -40,4 +49,24 @@ SmallChatLMTranscriptSection >> message [
 SmallChatLMTranscriptSection >> setKind: aSymbol message: aMessage [
     kind := aSymbol.
     message := aMessage
+]
+
+{ #category : 'accessing' }
+SmallChatLMTranscriptSection >> toolCall [
+    ^ toolCall
+]
+
+{ #category : 'accessing' }
+SmallChatLMTranscriptSection >> toolCall: aToolCallOrNil [
+    toolCall := aToolCallOrNil
+]
+
+{ #category : 'accessing' }
+SmallChatLMTranscriptSection >> toolResult [
+    ^ toolResult
+]
+
+{ #category : 'accessing' }
+SmallChatLMTranscriptSection >> toolResult: aStringOrNil [
+    toolResult := aStringOrNil
 ]

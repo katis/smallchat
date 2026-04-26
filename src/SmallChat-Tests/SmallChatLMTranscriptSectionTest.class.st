@@ -18,6 +18,18 @@ SmallChatLMTranscriptSectionTest >> testAssistantAndThinkingConstructors [
 ]
 
 { #category : 'tests' }
+SmallChatLMTranscriptSectionTest >> testToolCallSectionStoresCallAndResult [
+    | msg tc s |
+    tc := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{}'.
+    msg := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc }.
+    s := SmallChatLMTranscriptSection toolCallOn: msg call: tc result: '42'.
+    self assert: s kind equals: #toolCall.
+    self assert: s message == msg.
+    self assert: s toolCall == tc.
+    self assert: s toolResult equals: '42'
+]
+
+{ #category : 'tests' }
 SmallChatLMTranscriptSectionTest >> testUserSectionStoresKindAndMessage [
     | msg s |
     msg := SmallChatLMMessage role: #user content: 'hi'.
