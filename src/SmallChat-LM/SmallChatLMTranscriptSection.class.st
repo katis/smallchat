@@ -51,6 +51,7 @@ SmallChatLMTranscriptSection >> label [
 { #category : 'displaying' }
 SmallChatLMTranscriptSection >> labelPrefix [
     kind = #thinking ifTrue: [ ^ message thinking ifNil: [ '' ] ].
+    kind = #toolCall ifTrue: [ ^ toolCall name ifNil: [ '' ] ].
     ^ message content ifNil: [ '' ]
 ]
 

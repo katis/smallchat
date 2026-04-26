@@ -34,6 +34,15 @@ SmallChatLMTranscriptSectionTest >> testThinkingLabelUsesThinkingText [
 ]
 
 { #category : 'tests' }
+SmallChatLMTranscriptSectionTest >> testToolCallLabelShowsCallName [
+    | msg tc s |
+    tc := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{"code":"3+4"}'.
+    msg := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc }.
+    s := SmallChatLMTranscriptSection toolCallOn: msg call: tc result: nil.
+    self assert: s label equals: '[tool] evaluate'
+]
+
+{ #category : 'tests' }
 SmallChatLMTranscriptSectionTest >> testToolCallSectionStoresCallAndResult [
     | msg tc s |
     tc := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{}'.
