@@ -39,6 +39,33 @@ SmallChatLMTranscriptSectionTest >> testContentByKind [
 ]
 
 { #category : 'tests' }
+SmallChatLMTranscriptSectionTest >> testEqualityByKindMessageAndToolCall [
+    | msg a b |
+    msg := SmallChatLMMessage role: #user content: 'hi'.
+    a := SmallChatLMTranscriptSection userOn: msg.
+    b := SmallChatLMTranscriptSection userOn: msg.
+    self assert: a equals: b.
+    self assert: a hash equals: b hash
+]
+
+{ #category : 'tests' }
+SmallChatLMTranscriptSectionTest >> testInequalityByKindOrMessageOrToolCall [
+    | m1 m2 tc1 tc2 plumbing |
+    m1 := SmallChatLMMessage role: #assistant content: 'x' thinking: 'y'.
+    m2 := SmallChatLMMessage role: #assistant content: 'x' thinking: 'y'.
+    self deny: (SmallChatLMTranscriptSection assistantOn: m1) = (SmallChatLMTranscriptSection thinkingOn: m1)
+        description: 'different kind on same message must be unequal'.
+    self deny: (SmallChatLMTranscriptSection assistantOn: m1) = (SmallChatLMTranscriptSection assistantOn: m2)
+        description: 'same role/content but different message identity must be unequal'.
+    tc1 := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{}'.
+    tc2 := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{}'.
+    plumbing := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc1. tc2 }.
+    self deny: (SmallChatLMTranscriptSection toolCallOn: plumbing call: tc1 result: nil)
+              = (SmallChatLMTranscriptSection toolCallOn: plumbing call: tc2 result: nil)
+        description: 'same message but different tool-call identity must be unequal'
+]
+
+{ #category : 'tests' }
 SmallChatLMTranscriptSectionTest >> testLabelStripsLineFeeds [
     | msg s |
     msg := SmallChatLMMessage role: #user content: 'line one' , String lf , 'line two'.

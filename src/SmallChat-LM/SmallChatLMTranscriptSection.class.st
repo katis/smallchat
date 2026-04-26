@@ -40,6 +40,15 @@ SmallChatLMTranscriptSection class >> userOn: aMessage [
     ^ self new setKind: #user message: aMessage; yourself
 ]
 
+{ #category : 'comparing' }
+SmallChatLMTranscriptSection >> = anObject [
+    self == anObject ifTrue: [ ^ true ].
+    self class = anObject class ifFalse: [ ^ false ].
+    ^ kind = anObject kind
+        and: [ message == anObject message
+        and: [ toolCall == anObject toolCall ] ]
+]
+
 { #category : 'displaying' }
 SmallChatLMTranscriptSection >> content [
     kind = #user ifTrue: [ ^ message content ifNil: [ '' ] ].
@@ -48,6 +57,11 @@ SmallChatLMTranscriptSection >> content [
     kind = #toolCall ifTrue: [
         ^ (toolCall name ifNil: [ '' ]) , '(' , (toolCall arguments ifNil: [ '' ]) , ')' ].
     ^ ''
+]
+
+{ #category : 'comparing' }
+SmallChatLMTranscriptSection >> hash [
+    ^ (kind hash bitXor: message identityHash) bitXor: toolCall identityHash
 ]
 
 { #category : 'accessing' }
