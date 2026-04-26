@@ -29,6 +29,31 @@ SmallChatLMSessionTest >> sessionWithCannedReply: aString [
 ]
 
 { #category : 'tests' }
+SmallChatLMSessionTest >> testApplyProfileSetsNameModelAndSystemPrompt [
+  "applyProfile: stamps the profile's identity onto the session: name copied
+   for tree-row display, profile pointer kept for re-application, model swapped
+   on the chat client, and the conversation's system message replaced with the
+   profile's prompt so subsequent turns run under it."
+  | session profile firstSystem model |
+  model := SmallChatAgentProfile availableModels first.
+  profile := SmallChatAgentProfile new
+    name: 'Coder';
+    modelName: model;
+    systemPrompt: 'be terse';
+    yourself.
+  session := SmallChatLMSession new.
+  session applyProfile: profile.
+  self assert: session name equals: 'Coder'.
+  self assert: session profile == profile.
+  self assert: session client modelName equals: model.
+  firstSystem := session conversation messages
+    detect: [ :m | m role = #system ]
+    ifNone: [ nil ].
+  self assert: firstSystem notNil.
+  self assert: firstSystem content equals: 'be terse'
+]
+
+{ #category : 'tests' }
 SmallChatLMSessionTest >> testCancelInFlightCancelsTrackedLspPendingsBeforeTerminatingWorkers [
   "Closing the chat window calls cancelInFlight; any tracked LSP pending
    request must be #cancel'd so the server sees a $/cancelRequest before

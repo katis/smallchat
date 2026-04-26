@@ -24,6 +24,19 @@ Class {
 	#package : 'SmallChat-LM'
 }
 
+{ #category : 'profile' }
+SmallChatLMSession >> applyProfile: aProfile [
+  "Bind aProfile onto this session: copy its name onto the session label,
+   point client at its modelName, and replace the system message with its
+   systemPrompt. Tool catalog wiring is left to #workspace: -- profile and
+   workspace are orthogonal concerns."
+  profile := aProfile.
+  name := aProfile name.
+  (client notNil and: [ client respondsTo: #modelName: ])
+    ifTrue: [ client modelName: aProfile modelName ].
+  self installSystemPrompt: aProfile systemPrompt
+]
+
 { #category : 'cancellation' }
 SmallChatLMSession >> cancelInFlight [
   "Cancel every tracked LSP pending request first so the server sees
