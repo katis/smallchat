@@ -29,6 +29,16 @@ SmallChatNavFindMethodsTest >> testFindMethodsCapsAt50 [
 ]
 
 { #category : 'tests' }
+SmallChatNavFindMethodsTest >> testFindMethodsMatchesClassSideSelectors [
+	"Class-side methods (e.g. SmallChatNav class>>describeClass:) must be
+	 reachable through findMethods: -- otherwise the agent can't discover
+	 SmallChatTsNav's API in two hops."
+	| result |
+	result := SmallChatNav findMethods: 'describeClass' in: #SmallChatNav.
+	self assert: (result includesSubstring: 'class>>describeClass:')
+]
+
+{ #category : 'tests' }
 SmallChatNavFindMethodsTest >> testFindMethodsReturnsMatchingSelectors [
 	| result |
 	result := SmallChatNav findMethods: 'send' in: #SmallChatLMSession.

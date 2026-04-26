@@ -20,6 +20,17 @@ SmallChatNavShowMethodTest >> testNotFoundReturnsLabelWhenMethodMissing [
 ]
 
 { #category : 'tests' }
+SmallChatNavShowMethodTest >> testShowsClassSideMethodWhenInstanceSideMissing [
+	"A class-side selector (e.g. SmallChatNav class>>describeClass:) must be
+	 reachable even though it's not on the instance side. The header tags
+	 the class side so the agent knows the call shape."
+	| result |
+	result := SmallChatNav show: #SmallChatNav method: #describeClass:.
+	self assert: (result includesSubstring: 'SmallChatNav class>>describeClass:').
+	self assert: (result includesSubstring: '```smalltalk')
+]
+
+{ #category : 'tests' }
 SmallChatNavShowMethodTest >> testShowsMethodHeaderAndSource [
 	| result |
 	result := SmallChatNav show: #SmallChatLMSession method: #sendUserInput:.

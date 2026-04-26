@@ -71,24 +71,36 @@ SmallChatNav class >> findClasses: pattern [
 
 { #category : 'api' }
 SmallChatNav class >> findMethods: pattern in: classNameOrSymbol [
-	| name cls matcher matches sorted shown total cap |
+	"Bullet list of `Class>>selector` (instance) and `Class class>>selector`
+	 (class-side) hits whose name matches pattern (RxMatcher substring
+	 semantics). Searches both sides so class-side helpers like
+	 SmallChatTsNav are findable in one call. Capped at 50."
+	| name cls matcher hits sorted shown total cap |
 	name := classNameOrSymbol asSymbol.
 	cls := Smalltalk globals at: name ifAbsent: [ nil ].
 	cls ifNil: [ ^ '_class not found: ', name asString, '_' ].
 	matcher := RxMatcher forString: pattern.
-	matches := cls selectors select: [ :sel | matcher search: sel asString ].
-	matches isEmpty ifTrue: [ ^ '_no matches_' ].
+	hits := OrderedCollection new.
+	cls selectors do: [ :sel |
+		(matcher search: sel asString) ifTrue: [
+			hits add: { cls. sel. cls name asString , '>>' , sel asString } ] ].
+	cls class selectors do: [ :sel |
+		(matcher search: sel asString) ifTrue: [
+			hits add: { cls class. sel. cls name asString , ' class>>' , sel asString } ] ].
+	hits isEmpty ifTrue: [ ^ '_no matches_' ].
 	cap := 50.
-	sorted := matches asSortedCollection asArray.
+	sorted := hits asSortedCollection: [ :a :b | (a at: 3) < (b at: 3) ].
 	total := sorted size.
 	shown := total min: cap.
 	^ String streamContents: [ :s |
-		1 to: shown do: [ :i | | sel |
-			sel := sorted at: i.
-			s nextPutAll: '* `'; nextPutAll: cls name;
-			  nextPutAll: '>>'; nextPutAll: sel asString; nextPutAll: '`'.
-			(cls protocolNameOfSelector: sel) ifNotNil: [ :p |
-				s nextPutAll: ' ('; nextPutAll: p asString; nextPutAll: ')' ].
+		1 to: shown do: [ :i | | hit owner sel proto |
+			hit := sorted asArray at: i.
+			owner := hit at: 1.
+			sel := hit at: 2.
+			s nextPutAll: '* `'; nextPutAll: (hit at: 3); nextPutAll: '`'.
+			proto := owner protocolNameOfSelector: sel.
+			proto ifNotNil: [
+				s nextPutAll: ' ('; nextPutAll: proto asString; nextPutAll: ')' ].
 			s lf ].
 		shown < total ifTrue: [
 			s nextPutAll: '_'; print: total;
@@ -145,17 +157,24 @@ SmallChatNav class >> renderSelectorsByProtocolFor: aClass heading: aHeading on:
 
 { #category : 'api' }
 SmallChatNav class >> show: classNameOrSymbol method: selectorSymbol [
-	| name cls method protoName |
+	"Method header, comment, and source for cls>>selectorSymbol. Falls
+	 back to the class side when the instance side does not implement
+	 the selector -- the header reads `Class class>>selector` so the
+	 agent sees the call shape."
+	| name cls owner header method protoName |
 	name := classNameOrSymbol asSymbol.
 	cls := Smalltalk globals at: name ifAbsent: [ nil ].
 	cls ifNil: [ ^ '_class not found: ', name asString, '_' ].
-	(cls includesSelector: selectorSymbol) ifFalse: [
-		^ '_method not found: ', cls name, '>>', selectorSymbol asString, '_' ].
-	method := cls >> selectorSymbol.
-	protoName := cls protocolNameOfSelector: selectorSymbol.
+	(cls includesSelector: selectorSymbol)
+		ifTrue: [ owner := cls. header := cls name , '>>' , selectorSymbol asString ]
+		ifFalse: [
+			(cls class includesSelector: selectorSymbol)
+				ifTrue: [ owner := cls class. header := cls name , ' class>>' , selectorSymbol asString ]
+				ifFalse: [ ^ '_method not found: ', cls name, '>>', selectorSymbol asString, '_' ] ].
+	method := owner >> selectorSymbol.
+	protoName := owner protocolNameOfSelector: selectorSymbol.
 	^ String streamContents: [ :s |
-		s nextPutAll: '**'; nextPutAll: cls name;
-		  nextPutAll: '>>'; nextPutAll: selectorSymbol asString; nextPutAll: '**'.
+		s nextPutAll: '**'; nextPutAll: header; nextPutAll: '**'.
 		protoName ifNotNil: [
 			s nextPutAll: ' (protocol: '; nextPutAll: protoName asString; nextPutAll: ')' ].
 		s lf; lf.
