@@ -63,15 +63,6 @@ SmallChatConfigTest >> testDefaultBaseUrlPointsAtLocalOMLX [
 ]
 
 { #category : 'tests' }
-SmallChatConfigTest >> testDefaultSystemPromptMentionsEvaluateTool [
-	"The model needs to know it has evaluate() available -- otherwise it
-	 won't emit tool calls. Pin this in the default prompt."
-	SmallChatConfig reset.
-	self assert: (SmallChatConfig defaultSystemPrompt asLowercase includesSubstring: 'evaluate').
-	self assert: (SmallChatConfig defaultSystemPrompt asLowercase includesSubstring: 'smalltalk')
-]
-
-{ #category : 'tests' }
 SmallChatConfigTest >> testModelNameIsNonEmptyString [
 	self assert: SmallChatConfig modelName isString.
 	self deny: SmallChatConfig modelName isEmpty
@@ -81,9 +72,4 @@ SmallChatConfigTest >> testModelNameIsNonEmptyString [
 SmallChatConfigTest >> testModelNameOverride [
 	SmallChatConfig modelName: 'custom-model'.
 	self assert: SmallChatConfig modelName equals: 'custom-model'
-]
-
-{ #category : 'tests' }
-SmallChatConfigTest >> testSystemPromptMentionsPharoExpert [
-	self assert: (SmallChatConfig systemPrompt includesSubstring: 'Pharo 13 Smalltalk expert')
 ]

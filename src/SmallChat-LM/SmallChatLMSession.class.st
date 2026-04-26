@@ -107,13 +107,15 @@ SmallChatLMSession >> initialize [
 
 { #category : 'private' }
 SmallChatLMSession >> installSystemPromptFromWorkspace [
-	"Replace any existing system message with one sourced from the bound
-	 workspace's defaultSystemPrompt. Called from #workspace: so re-binding
-	 a workspace swaps the prompt cleanly. No-op when the workspace is nil
-	 or its prompt is empty."
+	"Replace any existing system message with one sourced from the
+	 SmallChatConfig systemPromptOverride (env / test stub) or, if that is
+	 nil, the bound workspace's defaultSystemPrompt. Called from
+	 #workspace: so re-binding swaps the prompt cleanly. No-op when the
+	 effective prompt is nil/empty."
 	| msgs prompt newSystem |
 	(workspace isNil or: [ conversation isNil ]) ifTrue: [ ^ self ].
-	prompt := workspace class defaultSystemPrompt.
+	prompt := SmallChatConfig systemPromptOverride
+		ifNil: [ workspace class defaultSystemPrompt ].
 	(prompt isNil or: [ prompt isEmpty ]) ifTrue: [ ^ self ].
 	msgs := conversation messages.
 	msgs removeAllSuchThat: [ :m | m role = #system ].

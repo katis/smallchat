@@ -234,3 +234,20 @@ SmallChatLMSessionTest >> testWorkspaceBindReplacesSystemPromptWithWorkspaceDefa
 		assert: systemMessages first content
 		equals: SmallChatTsWorkspace defaultSystemPrompt
 ]
+
+{ #category : 'tests' }
+SmallChatLMSessionTest >> testWorkspacePromptOverriddenByConfigOverride [
+	"SmallChatConfig systemPromptOverride wraps the SMALLCHAT_LM_SYSTEM_PROMPT
+	 env var. When it is set (real env, or test-stubbed via
+	 systemPromptOverride:), workspace: must seed that override instead of
+	 the workspace's defaultSystemPrompt -- otherwise the env hook is dead
+	 once workspace-driven seeding lands."
+	| saved session |
+	saved := SmallChatConfig systemPromptOverride.
+	[ SmallChatConfig systemPromptOverride: 'OVERRIDE-PROMPT'.
+	  session := SmallChatLMSession new.
+	  self
+		assert: session conversation messages first content
+		equals: 'OVERRIDE-PROMPT' ]
+		ensure: [ SmallChatConfig systemPromptOverride: saved ]
+]

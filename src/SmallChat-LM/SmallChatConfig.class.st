@@ -49,19 +49,6 @@ SmallChatConfig class >> baseUrl: aString [
 	BaseUrl := aString
 ]
 
-{ #category : 'accessing' }
-SmallChatConfig class >> defaultSystemPrompt [
-	^ String streamContents: [ :s |
-		s nextPutAll: 'You are a Pharo 13 Smalltalk expert. You use best practices like Red-Green TDD, Intention-revealing selectors, Method protocols, Mandatory Class comments, '.
-		s nextPut: $".
-		s nextPutAll: 'Tell, don'.
-		s nextPut: $'.
-		s nextPutAll: 't ask'.
-		s nextPut: $".
-		s nextPutAll: ' and double dispatch. Use Live programming techniques, Code Critic for linting, and Iceberg for VCS operations. You have an evaluate(code) function that runs Smalltalk in this live Pharo image and returns the printString of the result. Use it to inspect classes, try expressions, and verify changes rather than guessing. Tool results are plain text; compose multiple calls when you need to refine an answer.'.
-		s nextPutAll: ' For discovery, prefer the SmallChatNav class-side API over ad-hoc reflection: `SmallChatNav findClasses: ''pat''` searches class names, `SmallChatNav describeClass: #Name` summarises one class, `SmallChatNav findMethods: ''pat'' in: #Class` lists selectors, `SmallChatNav show: #Class method: #sel` shows source, `SmallChatNav examplesFor: #Class` returns worked examples. Each call returns budgeted Markdown.' ]
-]
-
 { #category : 'private' }
 SmallChatConfig class >> envAt: aKey ifAbsent: aDefault [
 	^ OSEnvironment current at: aKey ifAbsent: [ aDefault ]
@@ -91,16 +78,34 @@ SmallChatConfig class >> reset [
 ]
 
 { #category : 'accessing' }
-SmallChatConfig class >> systemPrompt [
-	^ SystemPrompt ifNil: [ SystemPrompt := self envAt: 'SMALLCHAT_LM_SYSTEM_PROMPT' ifAbsent: self defaultSystemPrompt ]
+SmallChatConfig class >> systemPromptOverride [
+	"Explicit override for the chat system prompt, or nil to defer to the
+	 bound workspace's defaultSystemPrompt. Reads SystemPrompt class var
+	 (test-stubbed via #systemPromptOverride:, or set by a host) first;
+	 falls back to SMALLCHAT_LM_SYSTEM_PROMPT env. Empty/missing env yields
+	 nil so the session can pick up the workspace prompt."
+	^ SystemPrompt ifNil: [
+		| env |
+		env := self envAt: 'SMALLCHAT_LM_SYSTEM_PROMPT' ifAbsent: nil.
+		SystemPrompt := (env isNil or: [ env isEmpty ]) ifTrue: [ nil ] ifFalse: [ env ] ]
 ]
 
 { #category : 'accessing' }
-SmallChatConfig class >> systemPrompt: aString [
-	SystemPrompt := aString
+SmallChatConfig class >> systemPromptOverride: aStringOrNil [
+	"Set or clear the explicit override. Tests set + restore around their
+	 own assertions; nil reverts to env-or-nil on the next read."
+	SystemPrompt := aStringOrNil
 ]
 
 { #category : 'accessing' }
 SmallChatConfig class >> temperature [
 	^ 0.7
+]
+
+{ #category : 'class initialization' }
+SmallChatConfig >> reset [
+	BaseUrl := nil.
+	ModelName := nil.
+	SystemPrompt := nil.
+	ApiKey := nil
 ]
