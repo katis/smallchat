@@ -18,6 +18,22 @@ SmallChatLMTranscriptSectionTest >> testAssistantAndThinkingConstructors [
 ]
 
 { #category : 'tests' }
+SmallChatLMTranscriptSectionTest >> testAssistantLabelUsesContent [
+    | msg s |
+    msg := SmallChatLMMessage role: #assistant content: 'The answer is 7.'.
+    s := SmallChatLMTranscriptSection assistantOn: msg.
+    self assert: s label equals: '[asst] The answer is 7.'
+]
+
+{ #category : 'tests' }
+SmallChatLMTranscriptSectionTest >> testThinkingLabelUsesThinkingText [
+    | msg s |
+    msg := SmallChatLMMessage role: #assistant content: 'final' thinking: 'reasoning'.
+    s := SmallChatLMTranscriptSection thinkingOn: msg.
+    self assert: s label equals: '[thnk] reasoning'
+]
+
+{ #category : 'tests' }
 SmallChatLMTranscriptSectionTest >> testToolCallSectionStoresCallAndResult [
     | msg tc s |
     tc := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{}'.
