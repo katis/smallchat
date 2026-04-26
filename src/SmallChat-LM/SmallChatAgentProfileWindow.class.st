@@ -15,6 +15,17 @@ Class {
 	#package : 'SmallChat-LM'
 }
 
+{ #category : 'world menu' }
+SmallChatAgentProfileWindow class >> menuCommandOn: aBuilder [
+	<worldMenu>
+	(aBuilder item: #'smallchat agent profiles')
+		parent: #Tools;
+		order: 102;
+		help: 'Create and edit named agent profiles (model + system prompt)';
+		icon: (self iconNamed: #smallConfiguration);
+		action: [ UIManager default defer: [ self new open ] ]
+]
+
 { #category : 'accessing' }
 SmallChatAgentProfileWindow >> addButton [
 	^ addButton
