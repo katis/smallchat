@@ -20,6 +20,15 @@ SmallChatAgentProfileTest >> testAccessorsRoundTrip [
 ]
 
 { #category : 'tests' }
+SmallChatAgentProfileTest >> testModelNameRejectsUnknown [
+	"modelName: must reject names outside availableModels so the editor
+	 can't persist a value the drop-list doesn't offer."
+	| p |
+	p := SmallChatAgentProfile new.
+	self should: [ p modelName: 'gpt-9' ] raise: Error
+]
+
+{ #category : 'tests' }
 SmallChatAgentProfileTest >> testNewProfileHasDefaults [
 	"A fresh profile defaults its modelName to availableModels first, has
 	 an empty systemPrompt and a nil name -- it's a draft until added to

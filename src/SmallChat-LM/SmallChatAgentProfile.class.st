@@ -35,6 +35,8 @@ SmallChatAgentProfile >> modelName [
 
 { #category : 'accessing' }
 SmallChatAgentProfile >> modelName: aString [
+	(self class availableModels includes: aString)
+		ifFalse: [ Error signal: 'Unknown model: ' , aString printString ].
 	modelName := aString
 ]
 
