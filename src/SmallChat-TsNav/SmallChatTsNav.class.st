@@ -52,6 +52,47 @@ SmallChatTsNav class >> findFilesInWorkspace: aWs matching: aGlob [
 ]
 
 { #category : 'private' }
+SmallChatTsNav class >> languageIdForPath: aRelPath [
+	"Code-fence language hint for aRelPath. Mirrors the LSP languageId map
+	 so a TS reader and a TS rename land on the same language identifier."
+	(aRelPath endsWith: '.tsx') ifTrue: [ ^ 'tsx' ].
+	(aRelPath endsWith: '.ts') ifTrue: [ ^ 'typescript' ].
+	(aRelPath endsWith: '.jsx') ifTrue: [ ^ 'jsx' ].
+	(aRelPath endsWith: '.js') ifTrue: [ ^ 'javascript' ].
+	(aRelPath endsWith: '.module.css') ifTrue: [ ^ 'css' ].
+	(aRelPath endsWith: '.css') ifTrue: [ ^ 'css' ].
+	(aRelPath endsWith: '.json') ifTrue: [ ^ 'json' ].
+	(aRelPath endsWith: '.md') ifTrue: [ ^ 'markdown' ].
+	^ 'text'
+]
+
+{ #category : 'discovery' }
+SmallChatTsNav class >> readFile: aRelPath [
+	"Fenced content of the workspace-relative file at aRelPath. Reads via
+	 the file's own FileSystem so memory-FS fixtures work too. Missing
+	 file -> friendly Markdown stub. Output capped by SmallChatNavBudget;
+	 truncation includes a tail comment so the LM knows to narrow."
+	^ self withWorkspaceDo: [ :ws | self readFile: aRelPath inWorkspace: ws ]
+]
+
+{ #category : 'private' }
+SmallChatTsNav class >> readFile: aRelPath inWorkspace: aWs [
+	| file content lang body limit |
+	file := aWs path / aRelPath.
+	file exists ifFalse: [ ^ '_file not found: ' , aRelPath , '_' ].
+	content := file readStreamDo: [ :s | s upToEnd ].
+	lang := self languageIdForPath: aRelPath.
+	limit := SmallChatNavBudget default size.
+	body := content size > limit
+		ifTrue: [ (content copyFrom: 1 to: limit) , String lf , '... [truncated; ' , content size printString , ' bytes total]' ]
+		ifFalse: [ content ].
+	^ String streamContents: [ :s |
+		s nextPutAll: '```'; nextPutAll: lang; lf;
+		  nextPutAll: body;
+		  lf; nextPutAll: '```'; lf ]
+]
+
+{ #category : 'private' }
 SmallChatTsNav class >> regexForGlob: aGlob [
 	"Convert a simple glob (*, ?, literal) to an anchored Pharo RxMatcher
 	 source. * spans path separators -- callers wanting per-segment matching

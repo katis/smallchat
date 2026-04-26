@@ -49,3 +49,23 @@ SmallChatTsNavTest >> testFindFilesWithoutWorkspaceReturnsGuard [
 	out := SmallChatTsNav findFiles: '*.ts'.
 	self assert: (out includesSubstring: 'no TS workspace bound')
 ]
+
+{ #category : 'tests' }
+SmallChatTsNavTest >> testReadFileReturnsFencedContent [
+	"readFile: resolves a workspace-relative path against the workspace path
+	 and returns the content fenced with the matching code-fence language
+	 hint so the LM can read syntax-highlighted output."
+	| fs root ws out |
+	fs := FileSystem memory.
+	root := fs / 'project'.
+	root ensureCreateDirectory.
+	(root / 'a.ts') writeStreamDo: [ :s | s nextPutAll: 'export const x = 1;' ].
+	ws := SmallChatTsWorkspace new
+		name: 'fixture';
+		path: root;
+		yourself.
+	SmallChatTsNav currentWorkspace: ws.
+	out := SmallChatTsNav readFile: 'a.ts'.
+	self assert: (out includesSubstring: 'export const x = 1;').
+	self assert: (out includesSubstring: '```typescript')
+]
