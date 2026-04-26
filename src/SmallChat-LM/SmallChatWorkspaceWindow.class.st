@@ -85,9 +85,10 @@ SmallChatWorkspaceWindow class >> resetDirectoryPickerBlock [
 { #category : 'lifecycle' }
 SmallChatWorkspaceWindow >> attachOnPath: aPath name: aNameOrNil [
 	"Resolve aPath, attach a SmallChatTsWorkspace if not already mounted,
-	 mount it on this window's registry, and bind it. Returns self for
-	 chaining. Idempotent on canonical path -- a second call with the same
-	 path reuses the existing mount."
+	 mount it on this window's registry, bind it, and replace the chat
+	 placeholder with a SmallChatLMChatPanel scoped to the bound workspace.
+	 Returns self for chaining. Idempotent on canonical path -- a second
+	 call with the same path reuses the existing mount."
 	| registry ref existing ws |
 	registry := self registry.
 	ref := SmallChatTsWorkspace canonicalise: aPath.
@@ -100,6 +101,7 @@ SmallChatWorkspaceWindow >> attachOnPath: aPath name: aNameOrNil [
 			fresh ]
 		ifNotNil: [ existing ].
 	self workspace: ws.
+	self installChatPanelFor: ws.
 	^ self
 ]
 
@@ -156,8 +158,10 @@ SmallChatWorkspaceWindow >> initializePresenters [
 { #category : 'initialization' }
 SmallChatWorkspaceWindow >> initializeWindow: aWindow [
 	"Title is the workspace name (set after #workspace: lands). whenClosedDo:
-	 unmounts the bound workspace via the registry and shuts its LSP client
-	 down -- detachAndClose is idempotent so a second close is safe."
+	 first cleans up the chat panel (drops the MCP-announcer subscription,
+	 terminates any in-flight reply fork) and then unmounts the bound
+	 workspace via the registry and shuts its LSP client down. Both
+	 cleanups are idempotent so a second close is safe."
 	| title |
 	title := workspace
 		ifNil: [ 'smallchat workspace' ]
@@ -165,7 +169,22 @@ SmallChatWorkspaceWindow >> initializeWindow: aWindow [
 	aWindow
 		title: title;
 		initialExtent: 480 @ 360;
-		whenClosedDo: [ self detachAndClose ]
+		whenClosedDo: [
+			(chatPlaceholder respondsTo: #cleanup) ifTrue: [ chatPlaceholder cleanup ].
+			self detachAndClose ]
+]
+
+{ #category : 'private' }
+SmallChatWorkspaceWindow >> installChatPanelFor: aWorkspace [
+	"Replace chatPlaceholder with a SmallChatLMChatPanel whose session is
+	 bound to aWorkspace. Spec2 instantiate: wires sub-presenter ownership
+	 so the panel renders inside the window. Called from attach paths once
+	 the workspace is known."
+	| panel session |
+	panel := self instantiate: SmallChatLMChatPanel.
+	session := SmallChatLMSession new workspace: aWorkspace; yourself.
+	panel session: session.
+	chatPlaceholder := panel
 ]
 
 { #category : 'accessing' }

@@ -44,6 +44,27 @@ SmallChatWorkspaceWindowTest >> testAttachOnSamePathReusesMountedWorkspace [
 ]
 
 { #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testChatPlaceholderHostsPanelBoundToWorkspace [
+	"After attachOnPath:name:, the chatPlaceholder slot is a
+	 SmallChatLMChatPanel whose SmallChatLMSession is bound to the same
+	 workspace the window is bound to. The panel's LM client carries a
+	 catalog scoped to the same workspace, so the LM only sees tools that
+	 fit its kind."
+	| registry window panel session |
+	registry := SmallChatCapabilityRegistry new.
+	window := SmallChatWorkspaceWindow new
+		registryProvider: [ registry ];
+		attachOnPath: '/tmp/smallchat-ws-panel' name: nil;
+		yourself.
+	panel := window chatPlaceholder.
+	self assert: (panel isKindOf: SmallChatLMChatPanel).
+	session := panel session.
+	self assert: session notNil.
+	self assert: session workspace == window workspace.
+	self assert: session client toolCatalog workspace == window workspace
+]
+
+{ #category : 'tests' }
 SmallChatWorkspaceWindowTest >> testDefaultLayoutContainsAllPresenters [
 	| ws window children |
 	ws := SmallChatTsWorkspace attachAt: '/tmp/smallchat-ws-fixture' name: 'fixture-ws'.
