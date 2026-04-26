@@ -141,6 +141,17 @@ SmallChatFamixImporter >> fetchDocumentSymbolsForUri: aUri [
   ^ response ifNil: [ #() ]
 ]
 
+{ #category : 'walking' }
+SmallChatFamixImporter >> importAllUnder: aFileReference [
+	"Recursively walk aFileReference, dispatching each *.ts / *.tsx / *.js /
+	 *.jsx file to importTsFileUri:text: and each *.module.css to
+	 importCssFileUri:text:. Skips node_modules, .git, dist, build, .next
+	 directories so a project-wide ingestion stays bounded. TS dispatch is
+	 LSP-blocking; the caller must supply a non-nil client."
+	self importInDirectory: aFileReference skipDirs: #('node_modules' '.git' 'dist' 'build' '.next').
+	^ self
+]
+
 { #category : 'orchestration' }
 SmallChatFamixImporter >> importCssFileUri: aUri text: aText [
   "Parse aUri (must end in .module.css; non-module CSS files are skipped
@@ -173,6 +184,30 @@ SmallChatFamixImporter >> importCssFileUri: aUri text: aText [
         fileUri: aUri
         startByte: sel startByte
         endByte: sel endByte) ] ]
+]
+
+{ #category : 'walking' }
+SmallChatFamixImporter >> importFileIfRecognised: aFile [
+	"Dispatch one disk file to the matching per-file importer. Unrecognised
+	 extensions are silently ignored -- the project walk is best-effort."
+	| name uri text |
+	name := aFile basename.
+	uri := 'file://' , aFile fullName.
+	(name endsWith: '.module.css') ifTrue: [
+		text := aFile readStreamDo: [ :s | s upToEnd ].
+		^ self importCssFileUri: uri text: text ].
+	((name endsWith: '.ts') or: [ (name endsWith: '.tsx')
+		or: [ (name endsWith: '.js') or: [ name endsWith: '.jsx' ] ] ]) ifTrue: [
+			text := aFile readStreamDo: [ :s | s upToEnd ].
+			^ self importTsFileUri: uri text: text ]
+]
+
+{ #category : 'walking' }
+SmallChatFamixImporter >> importInDirectory: aDir skipDirs: skipDirs [
+	aDir directories do: [ :d |
+		(skipDirs includes: d basename) ifFalse: [
+			self importInDirectory: d skipDirs: skipDirs ] ].
+	aDir files do: [ :f | self importFileIfRecognised: f ]
 ]
 
 { #category : 'orchestration' }
