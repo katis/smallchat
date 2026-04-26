@@ -121,6 +121,46 @@ SmallChatTsNavTest >> testReadFileReturnsFencedContent [
 ]
 
 { #category : 'tests' }
+SmallChatTsNavTest >> testRenameSymbolInFileAppliesLspEdit [
+	"renameSymbolInFile:line:character:to: builds a SmallChatTsRenameSymbolCommand
+	 against the workspace's LSP client + a freshly-constructed applier rooted
+	 at the workspace path's FileSystem, runs it, and reports the outcome.
+	 SmallChatStubLSPClient (vendored from SmallChat-Refactoring-Tests) returns
+	 a canned WorkspaceEdit; success is reflected on disk."
+	| fs root file uri stubClient ws workspaceEdit out |
+	fs := FileSystem memory.
+	root := fs / 'project'.
+	root ensureCreateDirectory.
+	file := root / 'Button.ts'.
+	file writeStreamDo: [ :s | s nextPutAll: 'const oldName = 1;' ].
+	uri := 'file://' , file fullName.
+	workspaceEdit := Dictionary new
+		at: 'changes' put: (Dictionary new
+			at: uri put: (Array with: (Dictionary new
+				at: 'range' put: (Dictionary new
+					at: 'start' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 6; yourself);
+					at: 'end' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 13; yourself);
+					yourself);
+				at: 'newText' put: 'newName';
+				yourself));
+			yourself);
+		yourself.
+	stubClient := SmallChatStubLSPClient new
+		cannedResponse: 'textDocument/rename' is: workspaceEdit;
+		cannedResponse: 'textDocument/diagnostic' is: nil;
+		yourself.
+	ws := SmallChatTsWorkspace new
+		name: 'fixture';
+		path: root;
+		lspClient: stubClient;
+		yourself.
+	SmallChatTsNav currentWorkspace: ws.
+	out := SmallChatTsNav renameSymbolInFile: 'Button.ts' line: 0 character: 7 to: 'newName'.
+	self assert: (out includesSubstring: 'success').
+	self assert: (file readStreamDo: [ :s | s upToEnd ]) equals: 'const newName = 1;'
+]
+
+{ #category : 'tests' }
 SmallChatTsNavTest >> testWriteFileWritesDiskAndReimportsFamix [
 	"writeFile:contents: writes through the file's FileSystem (memory-FS in
 	 tests), notifies the workspace LSP client when the doc is open, then

@@ -208,6 +208,40 @@ SmallChatTsNav class >> relativePathsInWorkspace: aWs matching: aGlob [
 ]
 
 { #category : 'private' }
+SmallChatTsNav class >> rename: aRelPath line: aLine character: aChar to: aNewName inWorkspace: aWs [
+	| file uri client applier cmd outcome |
+	client := aWs lspClient.
+	client ifNil: [ ^ '_no LSP client on workspace; cannot rename_' ].
+	file := aWs path / aRelPath.
+	uri := 'file://' , file fullName.
+	applier := SmallChatWorkspaceEditApplier new
+		fileSystem: file fileSystem;
+		yourself.
+	cmd := SmallChatTsRenameSymbolCommand new
+		client: client;
+		applier: applier;
+		fileUri: uri;
+		line: aLine;
+		character: aChar;
+		newName: aNewName;
+		yourself.
+	outcome := cmd apply.
+	outcome isSuccess ifTrue: [
+		aWs reimportUri: uri text: (file readStreamDo: [ :s | s upToEnd ]) ].
+	^ self renderRenameOutcome: outcome relPath: aRelPath newName: aNewName
+]
+
+{ #category : 'editing' }
+SmallChatTsNav class >> renameSymbolInFile: aRelPath line: aLine character: aChar to: aNewName [
+	"Drive a SmallChatTsRenameSymbolCommand against the workspace's LSP
+	 client and a fresh applier rooted at the workspace path's FileSystem.
+	 Position is LSP {line, character}: 0-based line, UTF-16 code units. On
+	 success, reads the post-edit content from disk and refreshes the cached
+	 Famix model so a subsequent findSymbol: sees the new name."
+	^ self withWorkspaceDo: [ :ws | self rename: aRelPath line: aLine character: aChar to: aNewName inWorkspace: ws ]
+]
+
+{ #category : 'private' }
 SmallChatTsNav class >> renderGrepResults: triples [
 	triples isEmpty ifTrue: [ ^ '_no matches_' ].
 	^ String streamContents: [ :s | | shown limit |
@@ -242,6 +276,13 @@ SmallChatTsNav class >> renderPathList: paths [
 			s nextPutAll: '_'; print: paths size;
 			  nextPutAll: ' matches; showing first '; print: shown;
 			  nextPutAll: '._'; lf ] ]
+]
+
+{ #category : 'private' }
+SmallChatTsNav class >> renderRenameOutcome: anOutcome relPath: aRelPath newName: aNewName [
+	anOutcome isSuccess ifFalse: [
+		^ '_rename failed for `' , aRelPath , '`: ' , (anOutcome errorReason ifNil: [ '<unknown>' ]) , '_' ].
+	^ 'rename success: `' , aRelPath , '` -> `' , aNewName , '`. Use SmallChatTsNav diagnosticsFor: ''' , aRelPath , ''' to verify.'
 ]
 
 { #category : 'private' }
