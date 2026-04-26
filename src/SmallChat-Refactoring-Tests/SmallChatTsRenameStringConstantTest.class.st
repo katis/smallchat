@@ -54,3 +54,30 @@ SmallChatTsRenameStringConstantTest >> testRenamesExactStringMatchInSingleFile [
   self assert: outcome isSuccess.
   self assert: (file readStreamDo: [ :s | s upToEnd ]) equals: expectedText
 ]
+
+{ #category : 'tests' }
+SmallChatTsRenameStringConstantTest >> testRewritesLiteralTemplateString [
+  "Literal-only template strings (no ${...}) are rewritten the same as
+   `string` literals. Interpolated templates are skipped: even if the
+   identifier inside ${...} matches oldText, only string fragments are
+   rewritten -- backticks-with-substitution stay untouched."
+  | fs file uri applier cmd outcome originalText expectedText |
+  fs := FileSystem memory.
+  file := fs / '/foo.tsx'.
+  originalText := 'const a = `isDocEmpty`;
+const b = `pre ${isDocEmpty} post`;'.
+  expectedText := 'const a = `isDocumentEmpty`;
+const b = `pre ${isDocEmpty} post`;'.
+  file writeStreamDo: [ :s | s nextPutAll: originalText ].
+  uri := 'file://' , file fullName.
+  applier := SmallChatWorkspaceEditApplier new fileSystem: fs; yourself.
+  cmd := SmallChatTsRenameStringConstantCommand new
+    applier: applier;
+    rootUri: 'file:///';
+    oldText: 'isDocEmpty';
+    newText: 'isDocumentEmpty';
+    yourself.
+  outcome := cmd apply.
+  self assert: outcome isSuccess.
+  self assert: (file readStreamDo: [ :s | s upToEnd ]) equals: expectedText
+]
