@@ -37,12 +37,17 @@ SmallChatTsWorkspaceTest >> testAttachUsesLauncherBlockToBuildLspClient [
 { #category : 'tests' }
 SmallChatTsWorkspaceTest >> testDefaultSystemPromptMentionsTsNav [
 	"The TS workspace owns its own system prompt; the LM session reads it
-	 via the workspace, so it must mention TypeScript and the canonical nav
-	 entry SmallChatTsNav (the TS analogue of SmallChatNav)."
+	 via the workspace, so it must teach the agent about the canonical
+	 entry SmallChatTsNav, name the dead-end APIs to avoid (FileDirectory),
+	 and surface the rename / discovery selectors the rename loop relies on."
 	| prompt |
 	prompt := SmallChatTsWorkspace defaultSystemPrompt.
 	self assert: (prompt includesSubstring: 'TypeScript').
-	self assert: (prompt includesSubstring: 'SmallChatTsNav')
+	self assert: (prompt includesSubstring: 'SmallChatTsNav').
+	self assert: (prompt includesSubstring: 'evaluate').
+	self assert: (prompt includesSubstring: 'findSymbol:').
+	self assert: (prompt includesSubstring: 'renameSymbolInFile:').
+	self assert: (prompt includesSubstring: 'FileDirectory')
 ]
 
 { #category : 'tests' }

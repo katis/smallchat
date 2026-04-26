@@ -52,11 +52,31 @@ SmallChatTsWorkspace class >> default [
 
 { #category : 'accessing' }
 SmallChatTsWorkspace class >> defaultSystemPrompt [
-	"System prompt for chats bound to a TypeScript workspace. Placeholder --
-	 final body lands in slice 5 alongside the SmallChatTsNav helper. For
-	 now: mention the workspace kind and the canonical nav entry the agent
-	 should reach for."
-	^ 'You are working inside a TypeScript workspace. Drive reads, edits, and refactors through the evaluate(code) tool calling SmallChatTsNav.'
+	"System prompt for chats bound to a TypeScript workspace. Names the
+	 LSP server (tsgo) + Famix model, forbids dead-end Pharo APIs, and
+	 walks the agent through SmallChatTsNav's discovery / edit / refactor
+	 surface. Kept ASCII-only because Tonel + Pharo do not round-trip BMP
+	 unicode reliably."
+	^ String streamContents: [ :s |
+		s nextPutAll: 'You are working inside a TypeScript workspace served by a tsgo Language Server, with an in-image Famix model that indexes the project. You drive every read, edit, and refactor through the evaluate(code) tool by calling the SmallChatTsNav class-side API.'; lf; lf.
+		s nextPutAll: 'Hard rule: do not reach for FileDirectory, FileSystem disk, OSSubprocess, or shell commands. They are dead ends in this context. SmallChatNav is the Pharo-image helper and is not available here. Use SmallChatTsNav for project work, and evaluate(code) for raw Smalltalk against the live image when you need it.'; lf; lf.
+		s nextPutAll: 'The first call to a discovery selector (findFiles:, findSymbol:, findReferencesOf:, grep:in:) walks the project to populate the Famix model and may take several seconds. Subsequent calls are in-memory.'; lf; lf.
+		s nextPutAll: 'Discovery selectors (Famix-backed):'; lf.
+		s nextPutAll: '* SmallChatTsNav findFiles: <glob> -- bullet list of workspace-relative paths whose tail matches the glob.'; lf.
+		s nextPutAll: '* SmallChatTsNav findSymbol: <name> -- matching Class/Interface/Function/Method/Field/TypeAlias/JSXComponent/CSSClass entities with their declaration path:line:character.'; lf.
+		s nextPutAll: '* SmallChatTsNav findReferencesOf: <name> -- workspace-relative import-site paths from the Famix import graph.'; lf.
+		s nextPutAll: '* SmallChatTsNav grep: <pattern> in: <glob> -- regex matches as path:line: text.'; lf; lf.
+		s nextPutAll: 'Reading + editing:'; lf.
+		s nextPutAll: '* SmallChatTsNav readFile: <path> -- workspace-relative file content fenced with a language hint.'; lf.
+		s nextPutAll: '* SmallChatTsNav writeFile: <path> contents: <text> -- overwrites disk, fires textDocument/didChange when the doc is open, refreshes Famix.'; lf; lf.
+		s nextPutAll: 'Refactor + verify (LSP-driven):'; lf.
+		s nextPutAll: '* SmallChatTsNav renameSymbolInFile: <path> line: <l> character: <c> to: <newName> -- runs textDocument/rename and applies the WorkspaceEdit.'; lf.
+		s nextPutAll: '* SmallChatTsNav diagnosticsFor: <path> -- LSP textDocument/diagnostic count + items.'; lf.
+		s nextPutAll: '* SmallChatTsNav codeActionsAt: <path> line: <l> character: <c> -- numbered list of code actions; SmallChatTsNav applyCodeAction: N resolves the N-th action from the most recent listing.'; lf; lf.
+		s nextPutAll: 'Escape hatch:'; lf.
+		s nextPutAll: '* SmallChatTsNav lspRequest: <method> params: <dict> -- one-shot LSP request for methods without a dedicated selector.'; lf; lf.
+		s nextPutAll: 'Typical rename loop: findSymbol: to locate the right path:line:character, renameSymbolInFile: to apply, diagnosticsFor: to confirm the file still parses.'; lf; lf.
+		s nextPutAll: 'Tool results are plain Markdown. Compose multiple calls when you need to refine an answer. Keep edits scoped; one symbol per turn is safer than a batch.' ]
 ]
 
 { #category : 'accessing' }
