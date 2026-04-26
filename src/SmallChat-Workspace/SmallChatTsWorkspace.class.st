@@ -49,6 +49,15 @@ SmallChatTsWorkspace class >> default [
 ]
 
 { #category : 'accessing' }
+SmallChatTsWorkspace class >> defaultSystemPrompt [
+	"System prompt for chats bound to a TypeScript workspace. Placeholder --
+	 final body lands in slice 5 alongside the SmallChatTsNav helper. For
+	 now: mention the workspace kind and the canonical nav entry the agent
+	 should reach for."
+	^ 'You are working inside a TypeScript workspace. Drive reads, edits, and refactors through the evaluate(code) tool calling SmallChatTsNav.'
+]
+
+{ #category : 'accessing' }
 SmallChatTsWorkspace class >> kind [ ^ #ts
 ]
 

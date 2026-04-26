@@ -35,6 +35,17 @@ SmallChatTsWorkspaceTest >> testAttachUsesLauncherBlockToBuildLspClient [
 ]
 
 { #category : 'tests' }
+SmallChatTsWorkspaceTest >> testDefaultSystemPromptMentionsTsNav [
+	"The TS workspace owns its own system prompt; the LM session reads it
+	 via the workspace, so it must mention TypeScript and the canonical nav
+	 entry SmallChatTsNav (the TS analogue of SmallChatNav)."
+	| prompt |
+	prompt := SmallChatTsWorkspace defaultSystemPrompt.
+	self assert: (prompt includesSubstring: 'TypeScript').
+	self assert: (prompt includesSubstring: 'SmallChatTsNav')
+]
+
+{ #category : 'tests' }
 SmallChatTsWorkspaceTest >> testShutdownTearsDownLspClient [
 	"shutdown should propagate to the workspace's LSP client (and through it
 	 to the transport). Verify via the stub transport's shutdownCalled flag."
