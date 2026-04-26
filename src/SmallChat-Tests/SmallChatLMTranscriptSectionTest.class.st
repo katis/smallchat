@@ -57,6 +57,20 @@ SmallChatLMTranscriptSectionTest >> testLabelTruncatesLongContent [
 ]
 
 { #category : 'tests' }
+SmallChatLMTranscriptSectionTest >> testOutputOnlyForToolCalls [
+    | userMsg asstMsg tc plumbingMsg |
+    userMsg := SmallChatLMMessage role: #user content: 'hi'.
+    asstMsg := SmallChatLMMessage role: #assistant content: 'final' thinking: 'reason'.
+    tc := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{}'.
+    plumbingMsg := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc }.
+    self assert: (SmallChatLMTranscriptSection userOn: userMsg) output equals: ''.
+    self assert: (SmallChatLMTranscriptSection assistantOn: asstMsg) output equals: ''.
+    self assert: (SmallChatLMTranscriptSection thinkingOn: asstMsg) output equals: ''.
+    self assert: (SmallChatLMTranscriptSection toolCallOn: plumbingMsg call: tc result: '42') output equals: '42'.
+    self assert: (SmallChatLMTranscriptSection toolCallOn: plumbingMsg call: tc result: nil) output equals: ''
+]
+
+{ #category : 'tests' }
 SmallChatLMTranscriptSectionTest >> testStreamingAssistantSectionLabelShowsPlaceholder [
     | msg s |
     msg := SmallChatLMMessage role: #assistant content: ''.

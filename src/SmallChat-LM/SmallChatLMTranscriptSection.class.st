@@ -92,6 +92,12 @@ SmallChatLMTranscriptSection >> message [
     ^ message
 ]
 
+{ #category : 'displaying' }
+SmallChatLMTranscriptSection >> output [
+    kind = #toolCall ifTrue: [ ^ toolResult ifNil: [ '' ] ].
+    ^ ''
+]
+
 { #category : 'private' }
 SmallChatLMTranscriptSection >> setKind: aSymbol message: aMessage [
     kind := aSymbol.
