@@ -10,6 +10,9 @@ Class {
 		'stderrReaderProcess',
 		'stderrRunning'
 	],
+	#classVars : [
+		'PnpmTsgoProbeBlock'
+	],
 	#category : 'SmallChat-LSP',
 	#package : 'SmallChat-LSP'
 }
@@ -31,6 +34,69 @@ SmallChatLSPStdioTransport class >> logToFile: aString [
 		file := Smalltalk vm imageFile parent / 'smallchat-lsp.log'.
 		file writeStreamDo: [ :s | s setToEnd; nextPutAll: aString; lf ] ]
 		on: Error do: [ :e | ]
+]
+
+{ #category : 'tsgo resolution' }
+SmallChatLSPStdioTransport class >> pnpmCanRunTsgoIn: aWorkspaceRoot [
+	"Probe: returns true when `pnpm exec --silent tsgo --version` exits 0
+	 from aWorkspaceRoot -- support hoisted installs where node_modules/.bin
+	 does not list tsgo. Honours pnpmTsgoProbeBlock: as a test seam.
+	 Live path bounds the probe to ~5s so a hung pnpm cannot stall attach."
+	| procClass proc deadline |
+	PnpmTsgoProbeBlock ifNotNil: [ ^ PnpmTsgoProbeBlock value: aWorkspaceRoot ].
+	procClass := Smalltalk globals at: #OSSUnixSubprocess ifAbsent: [ ^ false ].
+	proc := procClass new
+		command: 'pnpm';
+		arguments: #('exec' '--silent' 'tsgo' '--version');
+		workingDirectory: aWorkspaceRoot pathString;
+		redirectStdin;
+		redirectStdout;
+		redirectStderr;
+		yourself.
+	[ proc run ] on: Error do: [ :_ | ^ false ].
+	deadline := Time millisecondClockValue + 5000.
+	[ proc isRunning ] whileTrue: [
+		Time millisecondClockValue > deadline ifTrue: [
+			[ proc terminate ] on: Error do: [ :_ | ].
+			^ false ].
+		(Delay forMilliseconds: 25) wait ].
+	^ proc exitStatusInterpreter isSuccess
+]
+
+{ #category : 'tsgo resolution' }
+SmallChatLSPStdioTransport class >> pnpmTsgoProbeBlock: aBlock [
+	"Test seam: replace the pnpm-exec probe used by resolveTsgoCommandIn:.
+	 Block receives the workspace FileReference and answers a Boolean (true ->
+	 pnpm exec --silent tsgo --version exits 0). resetPnpmTsgoProbeBlock
+	 restores the live shell-out."
+	PnpmTsgoProbeBlock := aBlock
+]
+
+{ #category : 'tsgo resolution' }
+SmallChatLSPStdioTransport class >> resetPnpmTsgoProbeBlock [
+	"Drop the test-installed probe so resolveTsgoCommandIn: shells out for real."
+	PnpmTsgoProbeBlock := nil
+]
+
+{ #category : 'tsgo resolution' }
+SmallChatLSPStdioTransport class >> resolveTsgoCommandIn: aWorkspaceRoot [
+	"Resolve the spawn command for tsgo --lsp --stdio against aWorkspaceRoot.
+	 Returns an Array whose first element is the executable and the rest are
+	 base arguments (--lsp / --stdio are appended by launchWith:at:).
+
+	 Rule:
+	   1. <root>/node_modules/.bin/tsgo if it exists -> { binPath }.
+	   2. Else if pnpm exec --silent tsgo --version exits 0 from aWorkspaceRoot
+	      -> #('pnpm' 'exec' '--silent' 'tsgo') for hoisted installs.
+	   3. Else raise an Error naming aWorkspaceRoot so the agent knows where
+	      to install tsgo.
+	 No global PATH lookup -- the workspace owns its tsgo binary."
+	| binPath |
+	binPath := aWorkspaceRoot asFileReference / 'node_modules' / '.bin' / 'tsgo'.
+	binPath exists ifTrue: [ ^ Array with: binPath fullName ].
+	(self pnpmCanRunTsgoIn: aWorkspaceRoot) ifTrue: [
+		^ #('pnpm' 'exec' '--silent' 'tsgo') ].
+	^ self error: 'tsgo not installed in ' , aWorkspaceRoot pathString , '; install it as a dev dependency in the project'
 ]
 
 { #category : 'initialization' }

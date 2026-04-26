@@ -134,6 +134,51 @@ SmallChatLSPStdioTransportTest >> testReadTwoFramesReturnsBoth [
 	self assert: transport readMessage equals: second
 ]
 
+{ #category : 'tests - resolution' }
+SmallChatLSPStdioTransportTest >> testResolveTsgoErrorsWhenMissing [
+	"With no node_modules and the pnpm probe stubbed off, resolveTsgoCommandIn:
+	 must raise an Error that names the workspace path so the agent knows where
+	 to install tsgo."
+	| tmpRoot |
+	tmpRoot := FileLocator temp asFileReference / ('smallchat-tsgo-missing-' , UUID new asString36).
+	tmpRoot ensureCreateDirectory.
+	[
+		SmallChatLSPStdioTransport pnpmTsgoProbeBlock: [ :_ | false ].
+		[
+			self
+				should: [ SmallChatLSPStdioTransport resolveTsgoCommandIn: tmpRoot ]
+				raise: Error
+				withExceptionDo: [ :e |
+					self assert: (e messageText includesSubstring: 'tsgo').
+					self assert: (e messageText includesSubstring: tmpRoot pathString) ]
+		] ensure: [ SmallChatLSPStdioTransport resetPnpmTsgoProbeBlock ]
+	] ensure: [ tmpRoot exists ifTrue: [ tmpRoot deleteAll ] ]
+]
+
+{ #category : 'tests - resolution' }
+SmallChatLSPStdioTransportTest >> testResolveTsgoFindsLocalNodeModulesBin [
+	"Happy path: a workspace with tsgo installed at node_modules/.bin/tsgo
+	 resolves to that exact path -- proving the rule reaches the workspace
+	 tree and never falls through to a global PATH lookup."
+	| tmpRoot binDir tsgoFile resolved |
+	tmpRoot := FileLocator temp asFileReference / ('smallchat-tsgo-resolve-' , UUID new asString36).
+	tmpRoot ensureCreateDirectory.
+	[
+		binDir := tmpRoot / 'node_modules' / '.bin'.
+		binDir ensureCreateDirectory.
+		tsgoFile := binDir / 'tsgo'.
+		tsgoFile writeStreamDo: [ :s | s nextPutAll: '#!/bin/sh' ].
+		"Stub the pnpm probe to ALWAYS true so any miss would silently fall
+		 through to it -- this asserts the local-bin path takes precedence."
+		SmallChatLSPStdioTransport pnpmTsgoProbeBlock: [ :_ | true ].
+		[
+			resolved := SmallChatLSPStdioTransport resolveTsgoCommandIn: tmpRoot.
+			self assert: (resolved isKindOf: SequenceableCollection).
+			self assert: resolved first equals: tsgoFile fullName
+		] ensure: [ SmallChatLSPStdioTransport resetPnpmTsgoProbeBlock ]
+	] ensure: [ tmpRoot exists ifTrue: [ tmpRoot deleteAll ] ]
+]
+
 { #category : 'tests - framing' }
 SmallChatLSPStdioTransportTest >> testWriteEncodesContentLengthFrame [
 	"Writing a JSON-RPC message must emit a LSP-style header plus body:
