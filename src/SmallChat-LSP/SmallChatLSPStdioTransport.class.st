@@ -130,18 +130,30 @@ SmallChatLSPStdioTransport >> isInputAliveBlock: aBlock [
 
 { #category : 'lifecycle' }
 SmallChatLSPStdioTransport >> launchTsgoAt: aWorkspaceRoot [
-	"Spawn tsgo --lsp --stdio under aWorkspaceRoot, wire stdin/stdout for the
-	 framing layer, and fork a stderr reader that forwards each line to the
-	 shared log file. Raises on missing binary or missing OSSubprocess."
-	| path procClass proc |
+	"Resolve tsgo for aWorkspaceRoot per the workspace-local rule and spawn it
+	 in --lsp --stdio mode. Convenience wrapper around resolveTsgoCommandIn:
+	 + launchWith:at: -- prefer that pair when you already know the command
+	 (e.g. tests injecting a fixture script)."
+	^ self launchWith: (self class resolveTsgoCommandIn: aWorkspaceRoot)
+		at: aWorkspaceRoot
+]
+
+{ #category : 'lifecycle' }
+SmallChatLSPStdioTransport >> launchWith: aCommandArray at: aWorkspaceRoot [
+	"Spawn aCommandArray (executable + base args) under aWorkspaceRoot, append
+	 LSP-mode flags --lsp --stdio, wire stdin/stdout for the framing layer, and
+	 fork a stderr reader that forwards each line to the shared log file. Caller
+	 is responsible for ensuring aCommandArray actually starts tsgo (use
+	 SmallChatLSPStdioTransport class>>resolveTsgoCommandIn: to compute it).
+	 Raises if OSSubprocess is not loaded."
+	| procClass exe baseArgs proc |
 	procClass := Smalltalk globals at: #OSSUnixSubprocess ifAbsent: [
 		^ self error: 'OSSubprocess is not loaded; launch the dev image' ].
-	path := self class defaultTsgoPathFor: aWorkspaceRoot.
-	path exists ifFalse: [
-		^ self error: 'tsgo binary missing at ' , path pathString ].
+	exe := aCommandArray first.
+	baseArgs := aCommandArray allButFirst asArray.
 	proc := procClass new
-		command: path pathString;
-		arguments: #('--lsp' '--stdio');
+		command: exe;
+		arguments: baseArgs , #('--lsp' '--stdio');
 		workingDirectory: aWorkspaceRoot pathString;
 		redirectStdin;
 		redirectStdout;
@@ -151,7 +163,8 @@ SmallChatLSPStdioTransport >> launchTsgoAt: aWorkspaceRoot [
 	input := proc stdoutStream.
 	output := proc stdinStream.
 	isInputAliveBlock := [ process isNotNil and: [ process isRunning ] ].
-	self class logToFile: 'launchTsgoAt: pid=' , ([ proc pid printString ] on: Error do: [ :_ | '<?>' ]).
+	self class logToFile: 'launch ' , exe , ' ' , baseArgs printString
+		, ' pid=' , ([ proc pid printString ] on: Error do: [ :_ | '<?>' ]).
 	self startStderrReader.
 	^ self
 ]
