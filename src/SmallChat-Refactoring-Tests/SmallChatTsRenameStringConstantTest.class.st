@@ -6,6 +6,28 @@ Class {
 }
 
 { #category : 'tests' }
+SmallChatTsRenameStringConstantTest >> testEmptyMatchSetReturnsErrorReason [
+  "When no string fragment matches oldText, apply returns a failed
+   outcome with errorReason. Files on disk stay unchanged."
+  | fs file applier cmd outcome originalText |
+  fs := FileSystem memory.
+  file := fs / '/foo.tsx'.
+  originalText := 'const x = "other";'.
+  file writeStreamDo: [ :s | s nextPutAll: originalText ].
+  applier := SmallChatWorkspaceEditApplier new fileSystem: fs; yourself.
+  cmd := SmallChatTsRenameStringConstantCommand new
+    applier: applier;
+    rootUri: 'file:///';
+    oldText: 'isDocEmpty';
+    newText: 'isDocumentEmpty';
+    yourself.
+  outcome := cmd apply.
+  self deny: outcome isSuccess.
+  self assert: (outcome errorReason includesSubstring: 'isDocEmpty').
+  self assert: (file readStreamDo: [ :s | s upToEnd ]) equals: originalText
+]
+
+{ #category : 'tests' }
 SmallChatTsRenameStringConstantTest >> testFileNameFilterRestrictsScope [
   "fileNameFilter is a Pharo regex (RxMatcher search:) tested against
    each candidate URI. Only matching files are processed; the unfiltered
