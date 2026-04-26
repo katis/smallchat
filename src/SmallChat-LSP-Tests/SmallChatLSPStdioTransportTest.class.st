@@ -24,17 +24,22 @@ SmallChatLSPStdioTransportTest >> testPumpStderrFromStreamLogsEachLine [
 	"pumpStderrFrom:while: reads bytes from a stream and writes one log line
 	 per LF-terminated chunk via SmallChatLSPStdioTransport class>>logToFile:.
 	 The test drives it with a ReadStream and an aliveBlock that turns off when
-	 the stream is empty."
-	| transport source logFile preSize tail lf bytes |
+	 the stream is empty. The log seed contains a multi-byte UTF-8 char so the
+	 tail extraction must operate on bytes -- mixing logFile size (byte count)
+	 with logFile contents size (char count) crashes copyFrom:to: on a log that
+	 already carries non-ASCII content from a previous live run."
+	| transport source logFile preSize tail lf bytes nonAsciiSeed |
 	logFile := Smalltalk vm imageFile parent / 'smallchat-lsp.log'.
-	preSize := logFile exists ifTrue: [ logFile size ] ifFalse: [ 0 ].
+	nonAsciiSeed := (String with: (Character codePoint: 233)) utf8Encoded.
+	logFile binaryWriteStreamDo: [ :s | s setToEnd; nextPutAll: nonAsciiSeed ].
+	preSize := logFile size.
 	transport := SmallChatLSPStdioTransport new.
 	lf := (String with: Character lf) asByteArray.
 	bytes := 'abc' asByteArray , lf , 'def' asByteArray , lf.
 	source := ReadStream on: bytes.
 	transport pumpStderrFrom: source while: [ source atEnd not ].
 	self assert: logFile exists.
-	tail := logFile contents copyFrom: preSize + 1 to: logFile contents size.
+	tail := (logFile binaryReadStreamDo: [ :s | s skip: preSize. s upToEnd ]) utf8Decoded.
 	self assert: (tail includesSubstring: 'stderr: abc').
 	self assert: (tail includesSubstring: 'stderr: def')
 ]
