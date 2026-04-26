@@ -104,6 +104,22 @@ SmallChatLMSession >> initialize [
 	client := SmallChatLMChatClient new
 ]
 
+{ #category : 'private' }
+SmallChatLMSession >> installSystemPromptFromWorkspace [
+	"Replace any existing system message with one sourced from the bound
+	 workspace's defaultSystemPrompt. Called from #workspace: so re-binding
+	 a workspace swaps the prompt cleanly. No-op when the workspace is nil
+	 or its prompt is empty."
+	| msgs prompt newSystem |
+	(workspace isNil or: [ conversation isNil ]) ifTrue: [ ^ self ].
+	prompt := workspace class defaultSystemPrompt.
+	(prompt isNil or: [ prompt isEmpty ]) ifTrue: [ ^ self ].
+	msgs := conversation messages.
+	msgs removeAllSuchThat: [ :m | m role = #system ].
+	newSystem := SmallChatLMMessage role: #system content: prompt.
+	msgs addFirst: newSystem
+]
+
 { #category : 'cancellation' }
 SmallChatLMSession >> lspPendings [
   "IdentitySet of LSP pending requests this session has been told about
@@ -258,10 +274,15 @@ SmallChatLMSession >> workspace [
 
 { #category : 'accessing' }
 SmallChatLMSession >> workspace: aWorkspace [
-	"Bind this session to aWorkspace and refresh the live client's catalog
-	 so the LM only sees capabilities applicable to the workspace kind. Mock
-	 clients that do not know toolCatalog: are left alone."
+	"Bind this session to aWorkspace, refresh the live client's catalog so
+	 the LM only sees capabilities applicable to the workspace kind, and
+	 ensure the conversation carries exactly one system message, sourced
+	 from the workspace's defaultSystemPrompt. Re-binding replaces the
+	 prior system message rather than appending so the prompt always
+	 reflects the currently bound workspace. Mock clients that do not know
+	 toolCatalog: are left alone."
 	workspace := aWorkspace.
 	(client notNil and: [ client respondsTo: #toolCatalog: ])
-		ifTrue: [ client toolCatalog: (SmallChatLMCapabilityCatalog forWorkspace: aWorkspace) ]
+		ifTrue: [ client toolCatalog: (SmallChatLMCapabilityCatalog forWorkspace: aWorkspace) ].
+	self installSystemPromptFromWorkspace
 ]

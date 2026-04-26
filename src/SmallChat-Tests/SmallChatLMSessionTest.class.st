@@ -214,3 +214,19 @@ SmallChatLMSessionTest >> testTranscriptTextOmitsThinking [
 	self assert: (text includesSubstring: 'assistant: hello back').
 	self deny: (text includesSubstring: 'reasoning')
 ]
+
+{ #category : 'tests' }
+SmallChatLMSessionTest >> testWorkspaceBindReplacesSystemPromptWithWorkspaceDefault [
+	"Binding a workspace must leave the conversation with exactly one system
+	 message, sourced from aWorkspace class defaultSystemPrompt. A TS chat
+	 must not inherit the Pharo prompt that an earlier #initialize might
+	 have seeded."
+	| session ts systemMessages |
+	ts := SmallChatTsWorkspace new name: 'ts-fixture'; yourself.
+	session := SmallChatLMSession new workspace: ts; yourself.
+	systemMessages := session conversation messages select: [ :m | m role = #system ].
+	self assert: systemMessages size equals: 1.
+	self
+		assert: systemMessages first content
+		equals: SmallChatTsWorkspace defaultSystemPrompt
+]
