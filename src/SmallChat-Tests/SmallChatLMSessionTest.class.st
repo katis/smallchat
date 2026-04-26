@@ -283,6 +283,41 @@ SmallChatLMSessionTest >> testSessionInitializesWithChatClient [
 ]
 
 { #category : 'tests' }
+SmallChatLMSessionTest >> testStatusSetterAnnouncesChange [
+  "status: emits a SmallChatLMSessionStatusChanged carrying the session
+   and the new status so the agent tree (and any future subscriber) can
+   refresh just that row when a turn changes lifecycle phase."
+  | session received |
+  session := SmallChatLMSession new.
+  received := OrderedCollection new.
+  session announcer
+    when: SmallChatLMSessionStatusChanged
+    do: [ :a | received add: a ]
+    for: self.
+  session status: #running.
+  self assert: received size equals: 1.
+  self assert: received first session == session.
+  self assert: received first status equals: #running
+]
+
+{ #category : 'tests' }
+SmallChatLMSessionTest >> testStatusSetterIsIdempotent [
+  "Setting status: to the current value is a no-op -- no announcement is
+   fired so subscribers never thrash on self-transitions (e.g. a streaming
+   delta arriving while already #running)."
+  | session received |
+  session := SmallChatLMSession new.
+  session status: #running.
+  received := OrderedCollection new.
+  session announcer
+    when: SmallChatLMSessionStatusChanged
+    do: [ :a | received add: a ]
+    for: self.
+  session status: #running.
+  self assert: received isEmpty
+]
+
+{ #category : 'tests' }
 SmallChatLMSessionTest >> testTranscriptTextIncludesBothTurns [
 	| session |
 	session := self sessionWithCannedReply: 'hello back'.

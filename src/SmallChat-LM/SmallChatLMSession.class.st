@@ -19,7 +19,8 @@ Class {
 		'workspace',
 		'name',
 		'profile',
-		'status'
+		'status',
+		'announcer'
 	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
@@ -34,6 +35,16 @@ SmallChatLMSession class >> profile: aProfile workspace: aWorkspace [
     applyProfile: aProfile;
     workspace: aWorkspace;
     yourself
+]
+
+{ #category : 'accessing' }
+SmallChatLMSession >> announcer [
+  "Per-session Announcer. Mirrors SmallChatMCPTcpServer>>announcer:
+   subscribers (the agent tree, the chat panel) wire themselves in once
+   per addSession: / session: and unsubscribe in their cleanup paths.
+   Lazy-init so a fresh session has nothing to disturb until someone
+   actually subscribes."
+  ^ announcer ifNil: [ announcer := Announcer new ]
 ]
 
 { #category : 'profile' }
@@ -255,6 +266,22 @@ SmallChatLMSession >> status [
    #cancelled. Lazy-default to #idle so a fresh session has a visible
    row before any turn has run."
   ^ status ifNil: [ status := #idle ]
+]
+
+{ #category : 'accessing' }
+SmallChatLMSession >> status: aSymbol [
+  "Single seam for every lifecycle transition. Announces a
+   SmallChatLMSessionStatusChanged only when aSymbol differs from the
+   current value -- self-transitions stay quiet so subscribers do not
+   thrash on streaming deltas that re-enter #running. The announcement
+   carries both the session and the new status; subscribers that touch
+   Spec2 must hop to UI via UIManager default defer:."
+  status = aSymbol ifTrue: [ ^ self ].
+  status := aSymbol.
+  self announcer announce: (SmallChatLMSessionStatusChanged new
+    session: self;
+    status: aSymbol;
+    yourself)
 ]
 
 { #category : 'chat' }
