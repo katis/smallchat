@@ -9,6 +9,24 @@ Class {
 }
 
 { #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testAttachOnPathAttachesAndMounts [
+	| registry window prior |
+	registry := SmallChatCapabilityRegistry new.
+	prior := registry mountedWorkspaces size.
+	window := SmallChatWorkspaceWindow new
+		registryProvider: [ registry ];
+		attachOnPath: '/tmp/smallchat-ws-attach' name: nil;
+		yourself.
+	self assert: window workspace notNil.
+	self assert: (registry mountedWorkspaces includes: window workspace).
+	self assert: registry mountedWorkspaces size = (prior + 1).
+	self assert: window workspace path fullName = '/tmp/smallchat-ws-attach'.
+	self assert: window workspace name = 'smallchat-ws-attach'.
+	self assert: (window headerLabel label includesSubstring: 'smallchat-ws-attach').
+	self assert: (window pathLabel label = '/tmp/smallchat-ws-attach')
+]
+
+{ #category : 'tests' }
 SmallChatWorkspaceWindowTest >> testDefaultLayoutContainsAllPresenters [
 	| ws window children |
 	ws := SmallChatTsWorkspace attachAt: '/tmp/smallchat-ws-fixture' name: 'fixture-ws'.

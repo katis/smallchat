@@ -21,6 +21,27 @@ Class {
 	#package : 'SmallChat-LM'
 }
 
+{ #category : 'lifecycle' }
+SmallChatWorkspaceWindow >> attachOnPath: aPath name: aNameOrNil [
+	"Resolve aPath, attach a SmallChatTsWorkspace if not already mounted,
+	 mount it on this window's registry, and bind it. Returns self for
+	 chaining. Idempotent on canonical path -- a second call with the same
+	 path reuses the existing mount."
+	| registry ref existing ws |
+	registry := self registry.
+	ref := SmallChatTsWorkspace canonicalise: aPath.
+	existing := registry mountedWorkspaceForPath: ref.
+	ws := existing
+		ifNil: [
+			| fresh |
+			fresh := SmallChatTsWorkspace attachAt: aPath name: aNameOrNil.
+			registry mountWorkspace: fresh.
+			fresh ]
+		ifNotNil: [ existing ].
+	self workspace: ws.
+	^ self
+]
+
 { #category : 'accessing' }
 SmallChatWorkspaceWindow >> chatPlaceholder [
 	^ chatPlaceholder
