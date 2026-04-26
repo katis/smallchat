@@ -6,6 +6,35 @@ Class {
 }
 
 { #category : 'tests' }
+SmallChatTsRenameStringConstantTest >> testFileNameFilterRestrictsScope [
+  "fileNameFilter is a Pharo regex (RxMatcher search:) tested against
+   each candidate URI. Only matching files are processed; the unfiltered
+   src file is left byte-for-byte unchanged."
+  | fs srcFile testFile applier cmd outcome srcOriginal testOriginal testExpected |
+  fs := FileSystem memory.
+  (fs / '/proj') ensureCreateDirectory.
+  srcFile := fs / '/proj/foo.tsx'.
+  testFile := fs / '/proj/foo.test.tsx'.
+  srcOriginal := 'const x = "isDocEmpty";'.
+  testOriginal := 'describe("isDocEmpty", () => {});'.
+  testExpected := 'describe("isDocumentEmpty", () => {});'.
+  srcFile writeStreamDo: [ :s | s nextPutAll: srcOriginal ].
+  testFile writeStreamDo: [ :s | s nextPutAll: testOriginal ].
+  applier := SmallChatWorkspaceEditApplier new fileSystem: fs; yourself.
+  cmd := SmallChatTsRenameStringConstantCommand new
+    applier: applier;
+    rootUri: 'file:///proj';
+    oldText: 'isDocEmpty';
+    newText: 'isDocumentEmpty';
+    fileNameFilter: '\.test\.tsx?$';
+    yourself.
+  outcome := cmd apply.
+  self assert: outcome isSuccess.
+  self assert: (srcFile readStreamDo: [ :s | s upToEnd ]) equals: srcOriginal.
+  self assert: (testFile readStreamDo: [ :s | s upToEnd ]) equals: testExpected
+]
+
+{ #category : 'tests' }
 SmallChatTsRenameStringConstantTest >> testLeavesIdentifierOccurrencesUntouched [
   "Identifier occurrences with the same name are NOT rewritten -- only
    string-fragment matches are. Regression guard against the walker
@@ -29,6 +58,33 @@ describe("isDocumentEmpty", () => isDocEmpty());'.
   outcome := cmd apply.
   self assert: outcome isSuccess.
   self assert: (file readStreamDo: [ :s | s upToEnd ]) equals: expectedText
+]
+
+{ #category : 'tests' }
+SmallChatTsRenameStringConstantTest >> testNilFileNameFilterRewritesEveryDiscoveredFile [
+  "Without a fileNameFilter, every discovered file under rootUri is
+   processed. Mirrors testFileNameFilterRestrictsScope but omits the
+   filter -- both files end up rewritten."
+  | fs srcFile testFile applier cmd outcome srcExpected testExpected |
+  fs := FileSystem memory.
+  (fs / '/proj') ensureCreateDirectory.
+  srcFile := fs / '/proj/foo.tsx'.
+  testFile := fs / '/proj/foo.test.tsx'.
+  srcFile writeStreamDo: [ :s | s nextPutAll: 'const x = "isDocEmpty";' ].
+  testFile writeStreamDo: [ :s | s nextPutAll: 'describe("isDocEmpty", () => {});' ].
+  srcExpected := 'const x = "isDocumentEmpty";'.
+  testExpected := 'describe("isDocumentEmpty", () => {});'.
+  applier := SmallChatWorkspaceEditApplier new fileSystem: fs; yourself.
+  cmd := SmallChatTsRenameStringConstantCommand new
+    applier: applier;
+    rootUri: 'file:///proj';
+    oldText: 'isDocEmpty';
+    newText: 'isDocumentEmpty';
+    yourself.
+  outcome := cmd apply.
+  self assert: outcome isSuccess.
+  self assert: (srcFile readStreamDo: [ :s | s upToEnd ]) equals: srcExpected.
+  self assert: (testFile readStreamDo: [ :s | s upToEnd ]) equals: testExpected
 ]
 
 { #category : 'tests' }

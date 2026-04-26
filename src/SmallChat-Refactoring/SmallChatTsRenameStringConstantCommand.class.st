@@ -39,14 +39,20 @@ SmallChatTsRenameStringConstantCommand >> apply [
 
 { #category : 'private' }
 SmallChatTsRenameStringConstantCommand >> discoverFileUris [
-  "Walk rootUri (directory or single file), keep .ts/.tsx/.js/.jsx, return URIs."
-  | extensions root files |
+  "Walk rootUri (directory or single file), keep .ts/.tsx/.js/.jsx,
+   apply fileNameFilter regex (when set) against each URI. Returns
+   the surviving URIs as an Array."
+  | extensions root files matcher uris |
   extensions := #('ts' 'tsx' 'js' 'jsx').
   root := self resolveRoot.
   files := root isDirectory
     ifTrue: [ root allChildren select: [ :c | c isFile and: [ extensions includes: c extension ] ] ]
     ifFalse: [ { root } ].
-  ^ (files collect: [ :f | 'file://' , f fullName ]) asArray
+  uris := files collect: [ :f | 'file://' , f fullName ].
+  matcher := fileNameFilter ifNotNil: [ fileNameFilter asRegex ].
+  ^ (matcher
+    ifNil: [ uris ]
+    ifNotNil: [ uris select: [ :uri | matcher search: uri ] ]) asArray
 ]
 
 { #category : 'private' }
