@@ -82,8 +82,16 @@ SmallChatAgentProfileWindow >> deleteButton [
 
 { #category : 'actions' }
 SmallChatAgentProfileWindow >> deleteSelectedProfile [
-	"Slice 12."
-	^ self
+	"Drop the currently-selected profile from the registry, refresh the
+	 list, and clear the editor so a stale form can't overwrite another
+	 row on the next Save. Capture the profile locally first because
+	 refreshProfileList's items: fires the selection-change handler."
+	| profile |
+	profile := currentProfile.
+	profile ifNil: [ ^ self ].
+	profile name ifNotNil: [ :n | SmallChatAgentProfile removeNamed: n ].
+	self refreshProfileList.
+	self profileSelected: nil
 ]
 
 { #category : 'initialization' }

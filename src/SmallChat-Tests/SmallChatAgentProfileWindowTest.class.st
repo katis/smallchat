@@ -24,6 +24,29 @@ SmallChatAgentProfileWindowTest >> testAddNewProfileSelectsNewDraft [
 ]
 
 { #category : 'tests' }
+SmallChatAgentProfileWindowTest >> testDeleteSelectedRemovesAndClearsForm [
+	"Delete drops the selected profile from the registry, refreshes the
+	 list, and clears the editor so a stale form can't be saved over a
+	 different row."
+	| win profile |
+	SmallChatAgentProfile reset.
+	profile := SmallChatAgentProfile new
+		name: 'delete-fixture';
+		systemPrompt: 'doomed prompt';
+		yourself.
+	SmallChatAgentProfile add: profile.
+	win := SmallChatAgentProfileWindow new.
+	win refreshProfileList.
+	win profileList selectItem: profile.
+	win deleteSelectedProfile.
+	self assert: (SmallChatAgentProfile named: 'delete-fixture' ifAbsent: [ #absent ]) equals: #absent.
+	self assert: (win profileList items collect: [ :p | p name ]) asArray equals: #('Default').
+	self assert: win currentProfile isNil.
+	self assert: win nameInput text equals: ''.
+	self assert: win promptText text equals: ''
+]
+
+{ #category : 'tests' }
 SmallChatAgentProfileWindowTest >> testProfileSelectedPopulatesFields [
 	"Selecting a profile copies its fields into the editor inputs so the
 	 user sees its current state."
