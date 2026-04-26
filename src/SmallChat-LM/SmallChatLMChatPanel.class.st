@@ -29,6 +29,21 @@ Class {
 	#package : 'SmallChat-LM'
 }
 
+{ #category : 'rendering' }
+SmallChatLMChatPanel class >> labelForSessionStatus: aSymbolOrNil [
+  "Map a SmallChatLMSession status symbol to the chat panel's human
+   readable label. Both #running and #awaiting collapse to the same
+   'waiting...' string -- the dot in the agent tree carries the amber/
+   green distinction; the panel's text only conveys 'am I in the middle
+   of a turn?'. Errors get a generic floor text; the panel's own error
+   path overwrites with the exception text."
+  aSymbolOrNil = #running ifTrue: [ ^ 'waiting...' ].
+  aSymbolOrNil = #awaiting ifTrue: [ ^ 'waiting...' ].
+  aSymbolOrNil = #errored ifTrue: [ ^ '[error]' ].
+  aSymbolOrNil = #cancelled ifTrue: [ ^ '[cancelled]' ].
+  ^ ''
+]
+
 { #category : 'private' }
 SmallChatLMChatPanel >> appendStreamingDelta: aString [
     | placeholder client split |
@@ -39,14 +54,19 @@ SmallChatLMChatPanel >> appendStreamingDelta: aString [
     split := client splitThinkingAndContent: placeholder rawStream.
     placeholder thinking: (split at: 1).
     placeholder content: (split at: 2).
-    statusLabel label isEmpty ifFalse: [ statusLabel label: '' ].
     self rebuildSections
 ]
 
 { #category : 'private' }
 SmallChatLMChatPanel >> beginPendingSendOf: aString [
+    "Append the user turn, flip the session into #running synchronously
+     (the announcer reaction writes 'waiting...' into statusLabel via
+     uiDeferrer), and disable the send button. Setting #running here means
+     the user sees feedback before the dispatch fork has had a chance to
+     run -- the fork's own status: #running call inside the streaming
+     loop is idempotent."
     session conversation addUser: aString.
-    statusLabel label: 'waiting...'.
+    session status: #running.
     sendButton disable.
     self rebuildSections
 ]
@@ -54,8 +74,11 @@ SmallChatLMChatPanel >> beginPendingSendOf: aString [
 { #category : 'lifecycle' }
 SmallChatLMChatPanel >> cleanup [
   "Release per-panel external bindings: terminate any in-flight reply fork
-   and cancel the session's outstanding request. Idempotent. The host
-   window calls this from whenClosedDo: before its own teardown."
+   and cancel the session's outstanding request. Unsubscribes from the
+   session's announcer first so a status flip racing the cancel does not
+   call back. Idempotent. The host window calls this from whenClosedDo:
+   before its own teardown."
+  session ifNotNil: [ :s | s announcer unsubscribe: self ].
   session ifNotNil: [ :s | s cancelInFlight ].
   pendingRequest ifNotNil: [ :p |
     p isTerminated ifFalse: [ p terminate ] ].
@@ -135,9 +158,10 @@ SmallChatLMChatPanel >> finishStreamingWith: aFinalMessage placeholder: aPlaceho
 	 (each round sets content/thinking/toolCalls and clears rawStream), so
 	 nothing about the conversation needs reconciling here -- the final
 	 placeholder IS aFinalMessage. Mutating aPlaceholder would corrupt the
-	 first round's placeholder when the loop advanced through tool calls."
+	 first round's placeholder when the loop advanced through tool calls.
+	 The statusLabel clears via the session's announcer when the loop
+	 transitions to #idle."
 	self rebuildSections.
-	statusLabel label: ''.
 	sendButton enable.
 	pendingRequest := nil
 ]
@@ -166,6 +190,18 @@ SmallChatLMChatPanel >> initializePresenters [
 { #category : 'accessing' }
 SmallChatLMChatPanel >> input [
 	^ input
+]
+
+{ #category : 'private' }
+SmallChatLMChatPanel >> onSessionStatusChanged: anAnnouncement [
+  "Announcer reaction. Hops to UI via uiDeferrer (the announcement may be
+   firing on a forked worker process from dispatchToolCall: or the streaming
+   loop) and writes the human-readable mirror of the new status into
+   statusLabel. Specific paths -- finishPendingWithError: most notably --
+   may overwrite with richer text after this fires; that is intentional,
+   the announcer reaction is the floor, the specific path is the topping."
+  uiDeferrer value: [
+    statusLabel label: (self class labelForSessionStatus: anAnnouncement status) ]
 ]
 
 { #category : 'accessing' }
@@ -268,8 +304,21 @@ SmallChatLMChatPanel >> session [
 
 { #category : 'accessing' }
 SmallChatLMChatPanel >> session: aSession [
-    session := aSession.
-    sectionList isNil ifFalse: [ self rebuildSections ]
+  "Bind aSession (replacing any previous one). Unsubscribes the old
+   session's announcer and subscribes the new one so this panel's
+   statusLabel reflects the bound session's lifecycle. Updates the label
+   from the new status immediately so a freshly-bound session's dot and
+   label agree."
+  session ifNotNil: [ :old | old announcer unsubscribe: self ].
+  session := aSession.
+  aSession ifNotNil: [
+    aSession announcer
+      when: SmallChatLMSessionStatusChanged
+      send: #onSessionStatusChanged:
+      to: self ].
+  sectionList isNil ifFalse: [ self rebuildSections ].
+  statusLabel isNil ifFalse: [
+    statusLabel label: (self class labelForSessionStatus: aSession status) ]
 ]
 
 { #category : 'private' }

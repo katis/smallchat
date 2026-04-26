@@ -464,6 +464,30 @@ SmallChatLMChatPanelTest >> testSendFromInputReturnsImmediatelyWhilePendingReply
 ]
 
 { #category : 'tests' }
+SmallChatLMChatPanelTest >> testStatusLabelDerivesFromSessionStatus [
+  "The chat panel's statusLabel is the human-readable mirror of the
+   bound session's status. Subscribing in #session: and unsubscribing in
+   #cleanup is what keeps the label up to date when a turn flips through
+   #running, #idle, or #cancelled. Errors keep the rich exception text
+   the panel writes itself in finishPendingWithError: -- the announcer
+   reaction is the floor; specific paths can override."
+  | panel session |
+  panel := SmallChatLMChatPanel new
+    uiDeferrer: [ :blk | blk value ];
+    yourself.
+  session := SmallChatLMSession new.
+  panel session: session.
+  session status: #running.
+  self assert: panel statusLabel label equals: 'waiting...'.
+  session status: #awaiting.
+  self assert: panel statusLabel label equals: 'waiting...'.
+  session status: #idle.
+  self assert: panel statusLabel label isEmpty.
+  session status: #cancelled.
+  self assert: panel statusLabel label equals: '[cancelled]'
+]
+
+{ #category : 'tests' }
 SmallChatLMChatPanelTest >> testStreamingClearsStatusOnDone [
     | pair session panel |
     pair := self stubSessionWithChunks: { self deltaChunkWithContent: 'hi' }.
