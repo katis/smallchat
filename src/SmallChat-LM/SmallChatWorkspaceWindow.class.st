@@ -92,6 +92,21 @@ SmallChatWorkspaceWindow >> initializePresenters [
 	chatPlaceholder layout: SpBoxLayout newTopToBottom
 ]
 
+{ #category : 'initialization' }
+SmallChatWorkspaceWindow >> initializeWindow: aWindow [
+	"Title is the workspace name (set after #workspace: lands). whenClosedDo:
+	 unmounts the bound workspace via the registry and shuts its LSP client
+	 down -- detachAndClose is idempotent so a second close is safe."
+	| title |
+	title := workspace
+		ifNil: [ 'smallchat workspace' ]
+		ifNotNil: [ 'smallchat / ' , workspace name ].
+	aWindow
+		title: title;
+		initialExtent: 480 @ 360;
+		whenClosedDo: [ self detachAndClose ]
+]
+
 { #category : 'accessing' }
 SmallChatWorkspaceWindow >> pathLabel [
 	^ pathLabel
