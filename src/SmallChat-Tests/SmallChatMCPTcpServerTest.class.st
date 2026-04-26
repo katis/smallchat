@@ -13,14 +13,32 @@ SmallChatMCPTcpServerTest >> testActiveClientCountStartsAtZero [
 ]
 
 { #category : 'tests' }
+SmallChatMCPTcpServerTest >> testConnectionsReturnsSnapshot [
+    "The snapshot must be a copy: mutating it must not perturb the server's
+     active set, and the order must match registration order."
+    | server c1 c2 snapshot |
+    server := SmallChatMCPTcpServer new.
+    c1 := SmallChatMCPConnection on: Object new.
+    c2 := SmallChatMCPConnection on: Object new.
+    server registerConnection: c1.
+    server registerConnection: c2.
+    snapshot := server connections.
+    self assert: snapshot size equals: 2.
+    self assert: (snapshot includes: c1).
+    self assert: (snapshot includes: c2).
+    snapshot removeAll: snapshot copy.
+    self assert: server activeClientCount equals: 2
+]
+
+{ #category : 'tests' }
 SmallChatMCPTcpServerTest >> testCurrentStateReflectsRunningAndCount [
     | server state |
     server := SmallChatMCPTcpServer new.
     state := server currentState.
     self deny: state running.
     self assert: state clientCount equals: 0.
-    server registerClient: #a.
-    server registerClient: #b.
+    server registerConnection: (SmallChatMCPConnection on: Object new).
+    server registerConnection: (SmallChatMCPConnection on: Object new).
     state := server currentState.
     self assert: state clientCount equals: 2
 ]
@@ -65,42 +83,132 @@ SmallChatMCPTcpServerTest >> testHandleConnectionUnregistersOnSessionError [
 ]
 
 { #category : 'tests' }
-SmallChatMCPTcpServerTest >> testRegisterAndUnregisterClient [
-    | server marker |
+SmallChatMCPTcpServerTest >> testRecordIfToolsCallAppendsAndAnnounces [
+    | server conn req resp received |
     server := SmallChatMCPTcpServer new.
-    marker := Object new.
-    server registerClient: marker.
+    conn := SmallChatMCPConnection on: Object new.
+    received := OrderedCollection new.
+    server announcer
+        when: SmallChatMCPToolCallRecorded
+        do: [ :ann | received add: ann ]
+        for: self.
+    req := Dictionary new
+        at: 'method' put: 'tools/call';
+        at: 'id' put: 1;
+        at: 'params' put: (Dictionary new
+            at: 'name' put: 'eval.smalltalk';
+            at: 'arguments' put: (Dictionary new at: 'code' put: '42'; yourself);
+            yourself);
+        yourself.
+    resp := Dictionary new
+        at: 'result' put: (Dictionary new
+            at: 'content' put: { Dictionary new
+                at: 'type' put: 'text';
+                at: 'text' put: '42';
+                yourself };
+            yourself);
+        yourself.
+    [ server recordIfToolsCall: req response: resp durationMs: 5 onConnection: conn ]
+        ensure: [ server announcer unsubscribe: self ].
+    self assert: conn calls size equals: 1.
+    self assert: received size equals: 1.
+    self assert: received first connection == conn.
+    self assert: received first record name equals: 'eval.smalltalk'
+]
+
+{ #category : 'tests' }
+SmallChatMCPTcpServerTest >> testRecordIfToolsCallSkipsNonToolsCall [
+    | server conn req resp received |
+    server := SmallChatMCPTcpServer new.
+    conn := SmallChatMCPConnection on: Object new.
+    received := OrderedCollection new.
+    server announcer
+        when: SmallChatMCPToolCallRecorded
+        do: [ :ann | received add: ann ]
+        for: self.
+    req := Dictionary new at: 'method' put: 'ping'; at: 'id' put: 1; yourself.
+    resp := Dictionary new at: 'result' put: Dictionary new; yourself.
+    [ server recordIfToolsCall: req response: resp durationMs: 1 onConnection: conn ]
+        ensure: [ server announcer unsubscribe: self ].
+    self assert: conn calls isEmpty.
+    self assert: received isEmpty
+]
+
+{ #category : 'tests' }
+SmallChatMCPTcpServerTest >> testRegisterAndUnregisterConnection [
+    | server conn |
+    server := SmallChatMCPTcpServer new.
+    conn := SmallChatMCPConnection on: Object new.
+    server registerConnection: conn.
     self assert: server activeClientCount equals: 1.
-    server unregisterClient: marker.
+    server unregisterConnection: conn.
     self assert: server activeClientCount equals: 0
 ]
 
 { #category : 'tests' }
-SmallChatMCPTcpServerTest >> testRegisterEmitsStateChangedWithCount [
-    | server received |
+SmallChatMCPTcpServerTest >> testRegisterConnectionFiresAddedAnnouncement [
+    | server conn received |
     server := SmallChatMCPTcpServer new.
+    conn := SmallChatMCPConnection on: Object new.
+    received := OrderedCollection new.
+    server announcer
+        when: SmallChatMCPConnectionAdded
+        do: [ :ann | received add: ann ]
+        for: self.
+    [ server registerConnection: conn ]
+        ensure: [ server announcer unsubscribe: self ].
+    self assert: server activeClientCount equals: 1.
+    self assert: received size equals: 1.
+    self assert: received first connection == conn
+]
+
+{ #category : 'tests' }
+SmallChatMCPTcpServerTest >> testRegisterEmitsStateChangedWithCount [
+    | server received conn |
+    server := SmallChatMCPTcpServer new.
+    conn := SmallChatMCPConnection on: Object new.
     received := OrderedCollection new.
     server announcer
         when: SmallChatMCPStateChanged
         do: [ :ann | received add: ann ]
         for: self.
-    [ server registerClient: #c1 ]
+    [ server registerConnection: conn ]
         ensure: [ server announcer unsubscribe: self ].
     self assert: received size equals: 1.
     self assert: received first clientCount equals: 1
 ]
 
 { #category : 'tests' }
-SmallChatMCPTcpServerTest >> testUnregisterEmitsStateChangedWithDecrementedCount [
-    | server received |
+SmallChatMCPTcpServerTest >> testUnregisterConnectionFiresRemovedAndMarksClosed [
+    | server conn received |
     server := SmallChatMCPTcpServer new.
-    server registerClient: #c1.
+    conn := SmallChatMCPConnection on: Object new.
+    server registerConnection: conn.
+    received := OrderedCollection new.
+    server announcer
+        when: SmallChatMCPConnectionRemoved
+        do: [ :ann | received add: ann ]
+        for: self.
+    [ server unregisterConnection: conn ]
+        ensure: [ server announcer unsubscribe: self ].
+    self assert: conn isClosed.
+    self assert: received size equals: 1.
+    self assert: received first connection == conn.
+    self assert: server activeClientCount equals: 0
+]
+
+{ #category : 'tests' }
+SmallChatMCPTcpServerTest >> testUnregisterEmitsStateChangedWithDecrementedCount [
+    | server received conn |
+    server := SmallChatMCPTcpServer new.
+    conn := SmallChatMCPConnection on: Object new.
+    server registerConnection: conn.
     received := OrderedCollection new.
     server announcer
         when: SmallChatMCPStateChanged
         do: [ :ann | received add: ann ]
         for: self.
-    [ server unregisterClient: #c1 ]
+    [ server unregisterConnection: conn ]
         ensure: [ server announcer unsubscribe: self ].
     self assert: received size equals: 1.
     self assert: received first clientCount equals: 0

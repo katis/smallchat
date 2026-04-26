@@ -93,6 +93,14 @@ SmallChatMCPTcpServer >> announcer [
 ]
 
 { #category : 'accessing' }
+SmallChatMCPTcpServer >> connections [
+    "Snapshot of the active connection set. Mutating the returned
+     collection does not affect the server. Live updates flow through
+     the announcer (Added / Removed / ToolCallRecorded)."
+    ^ clientsMutex critical: [ activeClients copy ]
+]
+
+{ #category : 'accessing' }
 SmallChatMCPTcpServer >> currentState [
 	"Fresh snapshot of running + client count. Safe to call from any process."
 	^ SmallChatMCPStateChanged new
@@ -103,14 +111,16 @@ SmallChatMCPTcpServer >> currentState [
 
 { #category : 'listening' }
 SmallChatMCPTcpServer >> handleConnection: clientSocket [
-	"Register the client, run the JSON-RPC loop, then unregister on any exit
-	 path (normal EOF, internal error, or an exception that escapes the session
-	 body)."
-	self registerClient: clientSocket.
-	[ self runClientSessionOn: clientSocket ]
-		ensure: [
-			self unregisterClient: clientSocket.
-			SmallChatMCPServer logToFile: 'tcp: client closed' ]
+    "Wrap the raw socket in a SmallChatMCPConnection, register it, run the
+     JSON-RPC loop, then unregister on any exit path (normal EOF, internal
+     error, or an exception that escapes the session body)."
+    | conn |
+    conn := SmallChatMCPConnection on: clientSocket.
+    self registerConnection: conn.
+    [ self runClientSessionOn: conn ]
+        ensure: [
+            self unregisterConnection: conn.
+            SmallChatMCPServer logToFile: 'tcp: client closed' ]
 ]
 
 { #category : 'initialization' }
@@ -139,9 +149,36 @@ SmallChatMCPTcpServer >> readLineFrom: stream [
 ]
 
 { #category : 'private' }
-SmallChatMCPTcpServer >> registerClient: aClient [
-	clientsMutex critical: [ activeClients add: aClient ].
-	self announceState
+SmallChatMCPTcpServer >> recordIfToolsCall: aMessageDict response: aResponseDict durationMs: aMs onConnection: aConnection [
+    "If aMessageDict is a tools/call request, build a SmallChatMCPCallRecord
+     against the rendered response and append it to the connection's call
+     log; broadcast SmallChatMCPToolCallRecorded so the console window picks
+     it up. Other JSON-RPC methods (initialize, tools/list, ping,
+     notifications) are silently skipped."
+    | record |
+    aResponseDict ifNil: [ ^ self ].
+    record := SmallChatMCPCallRecord
+        from: aMessageDict
+        response: aResponseDict
+        durationMs: aMs.
+    record ifNil: [ ^ self ].
+    aConnection calls add: record.
+    self announcer announce: (SmallChatMCPToolCallRecorded new
+        connection: aConnection;
+        record: record;
+        yourself)
+]
+
+{ #category : 'connections' }
+SmallChatMCPTcpServer >> registerConnection: aConnection [
+    "Add aConnection to the active set, announce a fresh
+     SmallChatMCPConnectionAdded for tab-builders, and re-emit
+     SmallChatMCPStateChanged for the running+count subscribers."
+    clientsMutex critical: [ activeClients add: aConnection ].
+    self announcer announce: (SmallChatMCPConnectionAdded new
+        connection: aConnection;
+        yourself).
+    self announceState
 ]
 
 { #category : 'private' }
@@ -153,45 +190,46 @@ SmallChatMCPTcpServer >> removePortFile [
 ]
 
 { #category : 'private' }
-SmallChatMCPTcpServer >> runClientSessionOn: clientSocket [
-	"Serve JSON-RPC over the socket until EOF. Extracted from #handleConnection:
-	 so tests can substitute this step to simulate failure without a real socket."
-	| stream |
-	stream := SocketStream on: clientSocket.
-	stream timeout: 3600.
-	[
-		[ stream atEnd ] whileFalse: [ self serveOneMessage: stream ]
-	] on: Error do: [ :e |
-		SmallChatMCPServer logToFile: 'tcp handleConnection: ', e messageText ].
-	[ stream close ] on: Error do: [ :e | ].
-	[ clientSocket destroy ] on: Error do: [ :e | ]
+SmallChatMCPTcpServer >> runClientSessionOn: aConnection [
+    "Serve JSON-RPC over aConnection's socket until EOF. Extracted from
+     #handleConnection: so tests can substitute this step to simulate
+     failure without a real socket."
+    | stream socket |
+    socket := aConnection socket.
+    stream := SocketStream on: socket.
+    stream timeout: 3600.
+    [
+        [ stream atEnd ] whileFalse: [ self serveOneMessage: stream on: aConnection ]
+    ] on: Error do: [ :e |
+        SmallChatMCPServer logToFile: 'tcp handleConnection: ', e messageText ].
+    [ stream close ] on: Error do: [ :e | ].
+    [ socket destroy ] on: Error do: [ :e | ]
 ]
 
 { #category : 'listening' }
-SmallChatMCPTcpServer >> serveOneMessage: stream [
-	| line message response |
-	line := self readLineFrom: stream.
-	line ifNil: [ ^ self ].
-	line isEmpty ifTrue: [ ^ self ].
-	message := [ STONJSON fromString: line ]
-		on: Error
-		do: [ :e |
-			SmallChatMCPServer logToFile: 'tcp parse error: ', e messageText.
-			^ self ].
-	response := protocol handleMessage: message.
-	response ifNotNil: [
-		| json |
-		json := STONJSON toString: response.
-		"Encode to UTF-8 bytes (wrapped back into a ByteString so the
-		 text-mode SocketStream writes them 1:1). If we write the raw
-		 WideString, SocketStream emits each code point as 4 raw bytes,
-		 which shows up as UTF-32-looking gibberish on the wire and
-		 silently breaks the client's newline framing from that message
-		 onwards."
-		stream
-			nextPutAll: json utf8Encoded asString;
-			nextPut: Character lf;
-			flush ]
+SmallChatMCPTcpServer >> serveOneMessage: stream on: aConnection [
+    "Read one JSON-RPC line, dispatch via the protocol, record the call
+     onto aConnection if it was a tools/call, and write the response."
+    | line message response startMs durationMs |
+    line := self readLineFrom: stream.
+    line ifNil: [ ^ self ].
+    line isEmpty ifTrue: [ ^ self ].
+    message := [ STONJSON fromString: line ]
+        on: Error
+        do: [ :e |
+            SmallChatMCPServer logToFile: 'tcp parse error: ', e messageText.
+            ^ self ].
+    startMs := Time millisecondClockValue.
+    response := protocol handleMessage: message.
+    durationMs := Time millisecondClockValue - startMs.
+    self recordIfToolsCall: message response: response durationMs: durationMs onConnection: aConnection.
+    response ifNotNil: [
+        | json |
+        json := STONJSON toString: response.
+        stream
+            nextPutAll: json utf8Encoded asString;
+            nextPut: Character lf;
+            flush ]
 ]
 
 { #category : 'lifecycle' }
@@ -226,10 +264,17 @@ SmallChatMCPTcpServer >> stop [
 	self removePortFile
 ]
 
-{ #category : 'private' }
-SmallChatMCPTcpServer >> unregisterClient: aClient [
-	clientsMutex critical: [ activeClients remove: aClient ifAbsent: [ nil ] ].
-	self announceState
+{ #category : 'connections' }
+SmallChatMCPTcpServer >> unregisterConnection: aConnection [
+    "Mark aConnection closed, drop it from the active set, announce
+     SmallChatMCPConnectionRemoved (with isClosed already true on the
+     payload), then re-emit SmallChatMCPStateChanged."
+    aConnection markClosed.
+    clientsMutex critical: [ activeClients remove: aConnection ifAbsent: [ nil ] ].
+    self announcer announce: (SmallChatMCPConnectionRemoved new
+        connection: aConnection;
+        yourself).
+    self announceState
 ]
 
 { #category : 'private' }
