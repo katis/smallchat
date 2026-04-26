@@ -7,12 +7,10 @@ Class {
 
 { #category : 'api' }
 SmallChatNav class >> describeClass: classNameOrSymbol [
-	| name cls protocols keys |
+	| name cls |
 	name := classNameOrSymbol asSymbol.
 	cls := Smalltalk globals at: name ifAbsent: [ nil ].
 	cls ifNil: [ ^ '_class not found: ', name asString, '_' ].
-	protocols := self publicProtocolsOf: cls.
-	keys := self keySelectorsOf: cls.
 	^ String streamContents: [ :s |
 		s nextPutAll: '## '; nextPutAll: cls name;
 		  nextPutAll: ' (package: '; nextPutAll: cls package name;
@@ -22,11 +20,9 @@ SmallChatNav class >> describeClass: classNameOrSymbol [
 			s nextPutAll: (self firstSentenceOf: c); lf; lf ].
 		cls instVarNames ifNotEmpty: [ :vs |
 			s nextPutAll: '**Instance vars:** ';
-			  nextPutAll: (', ' join: vs); lf ].
-		s nextPutAll: '**Public protocols:** ';
-		  nextPutAll: (', ' join: protocols); lf.
-		s nextPutAll: '**Key selectors:** ';
-		  nextPutAll: (', ' join: (keys collect: [ :sel | sel asString ])); lf.
+			  nextPutAll: (', ' join: vs); lf; lf ].
+		self renderSelectorsByProtocolFor: cls heading: 'Instance-side selectors' on: s.
+		self renderSelectorsByProtocolFor: cls class heading: 'Class-side selectors' on: s.
 		s nextPutAll: '**Examples:** see `SmallChatNav examplesFor: #';
 		  nextPutAll: cls name; nextPutAll: '`'; lf ]
 ]
@@ -110,20 +106,41 @@ SmallChatNav class >> firstSentenceOf: aString [
 ]
 
 { #category : 'private' }
-SmallChatNav class >> keySelectorsOf: aClass [
-	"Top ~8 lex selectors, excluding any whose protocol begins with private."
-	| publicSels |
-	publicSels := (aClass selectors
-		reject: [ :sel | (aClass protocolNameOfSelector: sel) ifNil: [ false ] ifNotNil: [ :p | p asString beginsWith: 'private' ] ])
-		asSortedCollection.
-	^ (publicSels first: (publicSels size min: 8)) asArray
+SmallChatNav class >> publicProtocolsOf: aClass [
+	"Protocol objects in lex order, dropping anything whose name starts
+	 with 'private'. Empty for either side when only private protocols exist."
+	^ (aClass protocols
+		reject: [ :p | p name asString beginsWith: 'private' ])
+		asSortedCollection: [ :a :b | a name asString < b name asString ]
 ]
 
 { #category : 'private' }
-SmallChatNav class >> publicProtocolsOf: aClass [
-	^ (aClass protocols
-		reject: [ :p | p name asString beginsWith: 'private' ])
-		collect: [ :p | p name asString ]
+SmallChatNav class >> renderSelectorsByProtocolFor: aClass heading: aHeading on: aStream [
+	"Append a section listing aClass's public selectors grouped by their
+	 (non-private) protocol. No-op when the side has no public protocols
+	 -- avoids empty headings on instance-only or class-only classes."
+	| protocols selectorsByProto perProtoCap |
+	protocols := self publicProtocolsOf: aClass.
+	selectorsByProto := OrderedCollection new.
+	protocols do: [ :p | | sels |
+		sels := (aClass selectorsInProtocol: p name) asSortedCollection asArray.
+		sels isEmpty ifFalse: [
+			selectorsByProto add: p name asString -> sels ] ].
+	selectorsByProto isEmpty ifTrue: [ ^ self ].
+	perProtoCap := 12.
+	aStream nextPutAll: '**'; nextPutAll: aHeading;
+		nextPutAll: '** (by protocol):'; lf.
+	selectorsByProto do: [ :assoc | | shown total |
+		total := assoc value size.
+		shown := total min: perProtoCap.
+		aStream nextPutAll: '* '; nextPutAll: assoc key; nextPutAll: ': '.
+		1 to: shown do: [ :i |
+			i > 1 ifTrue: [ aStream nextPutAll: ', ' ].
+			aStream nextPutAll: (assoc value at: i) asString ].
+		shown < total ifTrue: [
+			aStream nextPutAll: ', ...(+'; print: total - shown; nextPutAll: ')' ].
+		aStream lf ].
+	aStream lf
 ]
 
 { #category : 'api' }
