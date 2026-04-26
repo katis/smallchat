@@ -27,6 +27,23 @@ SmallChatWorkspaceWindowTest >> testAttachOnPathAttachesAndMounts [
 ]
 
 { #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testAttachOnSamePathReusesMountedWorkspace [
+	| registry w1 w2 prior |
+	registry := SmallChatCapabilityRegistry new.
+	prior := registry mountedWorkspaces size.
+	w1 := SmallChatWorkspaceWindow new
+		registryProvider: [ registry ];
+		attachOnPath: '/tmp/smallchat-ws-idem' name: nil;
+		yourself.
+	w2 := SmallChatWorkspaceWindow new
+		registryProvider: [ registry ];
+		attachOnPath: '/tmp/smallchat-ws-idem' name: nil;
+		yourself.
+	self assert: w1 workspace == w2 workspace.
+	self assert: registry mountedWorkspaces size = (prior + 1)
+]
+
+{ #category : 'tests' }
 SmallChatWorkspaceWindowTest >> testDefaultLayoutContainsAllPresenters [
 	| ws window children |
 	ws := SmallChatTsWorkspace attachAt: '/tmp/smallchat-ws-fixture' name: 'fixture-ws'.
