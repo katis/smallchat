@@ -111,11 +111,14 @@ SmallChatWorkspaceWindow >> addButton [
 
 { #category : 'sessions' }
 SmallChatWorkspaceWindow >> addSession: aSession [
-  "Append aSession to the window's in-memory collection and make it the
-   selected (visible) session. The agent tree picks the row up in a later
-   slice; for now this just routes through selectSession: so the chat
-   panel renders aSession."
+  "Append aSession to the window's in-memory collection, refresh the
+   agent tree's roots so the new row appears, and select it. The
+   selection wiring in initializePresenters then routes back through
+   selectSession: to rebind the chat panel."
   self sessions add: aSession.
+  agentTree
+    roots: self sessions asArray;
+    selectItem: aSession.
   self selectSession: aSession
 ]
 
@@ -207,8 +210,8 @@ SmallChatWorkspaceWindow >> ensureChatPanel [
 SmallChatWorkspaceWindow >> initializePresenters [
   "Build the bare presenters: an empty SpPresenter as the chat slot (lazily
    replaced with a SmallChatLMChatPanel by ensureChatPanel), the agent tree
-   on the left, and the + button above the tree. Layout assembly lives in
-   defaultLayout."
+   on the left wired to drive selectSession: on selection-change, and the
+   + button above the tree."
   chatPlaceholder := self newPresenter.
   chatPlaceholder layout: SpBoxLayout newTopToBottom.
   agentTree := self newTreeTable.
@@ -218,7 +221,9 @@ SmallChatWorkspaceWindow >> initializePresenters [
       evaluated: [ :s | s name ifNil: [ '' ] ];
       yourself);
     children: [ :s | #() ];
-    roots: #().
+    roots: #();
+    whenSelectionChangedDo: [ :sel |
+      sel selectedItem ifNotNil: [ :s | self selectSession: s ] ].
   addButton := self newButton
     label: '+';
     yourself

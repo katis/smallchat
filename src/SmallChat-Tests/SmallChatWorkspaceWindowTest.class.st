@@ -39,6 +39,22 @@ SmallChatWorkspaceWindowTest >> testAddSessionAppendsAndSelects [
 ]
 
 { #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testAddSessionShowsRowAndSelects [
+  "Each addSession: drops the new session into the agent tree's roots and
+   makes it the selected row. Adding two sessions in sequence leaves both
+   visible with the most recent one selected -- selection follows the
+   creation that just happened."
+  | window a b |
+  window := SmallChatWorkspaceWindow new.
+  a := SmallChatLMSession new.
+  b := SmallChatLMSession new.
+  window addSession: a.
+  window addSession: b.
+  self assert: window agentTree roots asArray equals: { a. b }.
+  self assert: window agentTree selectedItem == b
+]
+
+{ #category : 'tests' }
 SmallChatWorkspaceWindowTest >> testAttachOnPathAttachesAndMounts [
 	| registry window prior |
 	registry := SmallChatCapabilityRegistry new.
@@ -199,6 +215,22 @@ SmallChatWorkspaceWindowTest >> testLayoutHasAgentTreeAndPaned [
   self assert: (window agentTree isKindOf: SpTreeTablePresenter).
   self assert: window agentTree roots isEmpty.
   self assert: (window defaultLayout isKindOf: SpPanedLayout)
+]
+
+{ #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testTreeSelectionDrivesChatPanel [
+  "Selecting a different row in the agent tree must rebind the chat
+   panel's session and update the window's selectedSession so the
+   right pane shows the chat for the picked row."
+  | window a b |
+  window := SmallChatWorkspaceWindow new.
+  a := SmallChatLMSession new.
+  b := SmallChatLMSession new.
+  window addSession: a.
+  window addSession: b.
+  window agentTree selectItem: a.
+  self assert: window selectedSession == a.
+  self assert: window chatPlaceholder session == a
 ]
 
 { #category : 'tests' }
