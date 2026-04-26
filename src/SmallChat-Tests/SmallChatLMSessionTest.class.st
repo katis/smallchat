@@ -182,17 +182,17 @@ SmallChatLMSessionTest >> testSendUserInputStopsAfterToolIterationBudget [
 	| mock session result tc replyWithCall |
 	mock := SmallChatLMMockClient new.
 	tc := SmallChatLMToolCall id: 'c1' name: 'eval.smalltalk' arguments: '{"code":"1"}'.
-	"Queue enough tool-call replies to trip the 8-round budget, plus one more."
-	1 to: 12 do: [ :_ |
+	"Queue enough tool-call replies to trip the 30-round budget, plus one more."
+	1 to: 34 do: [ :_ |
 		replyWithCall := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc }.
 		mock queueReply: replyWithCall ].
 	session := SmallChatLMSession new client: mock; yourself.
 	result := session sendUserInput: 'loop forever'.
 	self assert: result role equals: #assistant.
 	self assert: (result content includesSubstring: 'budget').
-	self assert: mock callCount <= 9.
-	"Exactly 1 initial + 8 tool rounds = 9 calls max."
-	self assert: mock callCount equals: 9
+	self assert: mock callCount <= 31.
+	"Exactly 1 initial + 30 tool rounds = 31 calls max."
+	self assert: mock callCount equals: 31
 ]
 
 { #category : 'tests' }

@@ -136,8 +136,8 @@ SmallChatLMSession >> lspPendings [
 SmallChatLMSession >> maxToolIterations [
 	"Per-turn budget on tool-call rounds before the loop gives up and inserts
 	 a synthetic error message. Tight enough to stop runaway loops, loose
-	 enough to support a handful of honest tool hops in one answer."
-	^ 8
+	 enough to support multi-file edits in one answer."
+	^ 30
 ]
 
 { #category : 'chat' }
