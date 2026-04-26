@@ -55,6 +55,23 @@ SmallChatLMChatPanelTest >> stubSessionWithChunks: anArray [
 ]
 
 { #category : 'tests' }
+SmallChatLMChatPanelTest >> testAssistantWithOnlyThinkingIsVisible [
+    "Problem 1 regression: an assistant turn whose only output is a thinking
+     block must produce a visible #thinking section rather than vanishing
+     from the transcript entirely."
+    | session panel msg secs |
+    session := self stubSessionWithCannedReply: 'unused'.
+    panel := SmallChatLMChatPanel new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    msg := SmallChatLMMessage role: #assistant content: '' thinking: 'only reasoning, no answer yet'.
+    session conversation addMessage: msg.
+    secs := panel sections.
+    self assert: (secs anySatisfy: [ :s | s kind = #thinking and: [ s message == msg ] ])
+]
+
+{ #category : 'tests' }
 SmallChatLMChatPanelTest >> testChatPanelHasNoMCPSurface [
     "After moving MCP observability to a dedicated console window, the chat
      panel must not expose MCP state or subscribe to the MCP announcer.
@@ -486,6 +503,24 @@ SmallChatLMChatPanelTest >> testStreamingPlaceholderAssistantBubbleAppearsBefore
 ]
 
 { #category : 'tests' }
+SmallChatLMChatPanelTest >> testStreamingPlaceholderEmitsAssistantSection [
+    "An assistant message with empty content but non-nil rawStream is the
+     streaming placeholder -- it must produce an [asst] section so the user
+     sees the bubble exists before the first token lands."
+    | session panel placeholder secs |
+    session := self stubSessionWithCannedReply: 'unused'.
+    panel := SmallChatLMChatPanel new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    placeholder := SmallChatLMMessage role: #assistant content: ''.
+    placeholder rawStream: ''.
+    session conversation addMessage: placeholder.
+    secs := panel sections.
+    self assert: (secs anySatisfy: [ :s | s kind = #assistant and: [ s message == placeholder ] ])
+]
+
+{ #category : 'tests' }
 SmallChatLMChatPanelTest >> testStreamingThinkingAppearingMidStreamDoesNotRaise [
     "When </think> closes mid-stream the cached presenter must instantiate
      the thinking widgets and re-apply its layout. The previous
@@ -520,6 +555,24 @@ SmallChatLMChatPanelTest >> testSystemMessagesNotRendered [
 	self assert: (session conversation messages anySatisfy: [ :m | m role = #system ])
 		description: 'precondition: session has a seeded system turn'.
 	self deny: (panel messagePresenters anySatisfy: [ :p | p message role = #system ])
+]
+
+{ #category : 'tests' }
+SmallChatLMChatPanelTest >> testToolPlumbingMessageProducesToolCallSectionOnly [
+    "An assistant message with empty content + non-empty toolCalls is plumbing.
+     It must emit a #toolCall section per call but no [asst] row."
+    | session panel tc plumbingMsg secs |
+    session := self stubSessionWithCannedReply: 'unused'.
+    panel := SmallChatLMChatPanel new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    tc := SmallChatLMToolCall id: 'c1' name: 'evaluate' arguments: '{}'.
+    plumbingMsg := SmallChatLMMessage role: #assistant content: '' toolCalls: { tc }.
+    session conversation addMessage: plumbingMsg.
+    secs := panel sections.
+    self assert: (secs collect: [ :s | s kind ]) asArray equals: #( #toolCall ).
+    self assert: (secs first) toolCall == tc
 ]
 
 { #category : 'tests' }
