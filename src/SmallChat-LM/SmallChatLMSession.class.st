@@ -296,13 +296,14 @@ SmallChatLMSession >> streamToolLoopUsingPlaceholder: initialPlaceholder onDelta
 	 current placeholder is reconciled from the reply. If the reply carries
 	 tool_calls, each call is dispatched and a tool-result message appended; a
 	 fresh placeholder is then added and the loop re-enters. Status flips to
-	 #running on entry and back to #idle on a clean return; budget exhaustion
-	 transitions to #errored before returning the synthetic message."
+	 #running on entry, #idle on a clean return, #errored on budget exhaustion
+	 and on any raised exception (re-signalled so the chat panel's catch can
+	 still surface the message text)."
 	| iterations placeholder |
 	self status: #running.
 	placeholder := initialPlaceholder.
 	iterations := 0.
-	[ true ] whileTrue: [
+	[ [ true ] whileTrue: [
 		| reply snapshot |
 		placeholder rawStream: ''.
 		snapshot := self snapshotExcluding: placeholder.
@@ -331,7 +332,11 @@ SmallChatLMSession >> streamToolLoopUsingPlaceholder: initialPlaceholder onDelta
 		placeholder toolCalls do: [ :tc |
 			conversation addTool: (self dispatchToolCall: tc) forCallId: tc id ].
 		placeholder := SmallChatLMMessage role: #assistant content: '' thinking: nil.
-		conversation addMessage: placeholder ]
+		conversation addMessage: placeholder ] ]
+		on: Error
+		do: [ :e |
+			self status: #errored.
+			e signal ]
 ]
 
 { #category : 'cancellation' }

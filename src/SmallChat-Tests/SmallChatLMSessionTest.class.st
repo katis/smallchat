@@ -388,6 +388,29 @@ SmallChatLMSessionTest >> testStatusSetterIsIdempotent [
 ]
 
 { #category : 'tests' }
+SmallChatLMSessionTest >> testStreamLoopErrorSetsErroredAndPropagates [
+  "If the client raises during streaming, the session transitions to
+   #errored before the exception propagates -- the agent tree paints the
+   red dot on the failed session even though the chat panel's catch block
+   is what surfaces the error message text."
+  | session sequence raised |
+  session := SmallChatLMSession new
+    client: SmallChatLMSessionTestRaisingClient new;
+    yourself.
+  sequence := OrderedCollection new.
+  session announcer
+    when: SmallChatLMSessionStatusChanged
+    do: [ :a | sequence add: a status ]
+    for: self.
+  raised := false.
+  [ session sendUserInput: 'hi' onDelta: [ :d | ] ]
+    on: Error do: [ :e | raised := true ].
+  self assert: raised description: 'exception must propagate to the caller'.
+  self assert: session status equals: #errored.
+  self assert: sequence asArray equals: #(#running #errored)
+]
+
+{ #category : 'tests' }
 SmallChatLMSessionTest >> testStreamLoopTransitionsRunningThenIdle [
   "The streaming variant must move through #running -> #idle around a
    clean (no tool_calls) reply, mirroring sendUserInput: but for the
