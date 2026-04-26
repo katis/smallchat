@@ -671,3 +671,23 @@ SmallChatLMChatPanelTest >> testToolPlumbingMessageProducesToolCallSectionOnly [
     self assert: (secs collect: [ :s | s kind ]) asArray equals: #( #toolCall ).
     self assert: (secs first) toolCall == tc
 ]
+
+{ #category : 'tests' }
+SmallChatLMChatPanelTest >> testWhitespaceOnlyAssistantContentDoesNotEmitAssistantSection [
+	"LM Studio commonly emits a trailing '\n\n' as the assistant message
+	 'content' field alongside tool_calls. Treat whitespace-only content as
+	 empty -- otherwise every tool-call round produces a stray empty [asst]
+	 row in the section list."
+	| session panel msg tc secs |
+	session := self stubSessionWithCannedReply: 'unused'.
+	panel := SmallChatLMChatPanel new
+		session: session;
+		uiDeferrer: [ :blk | blk value ];
+		yourself.
+	tc := SmallChatLMToolCall id: 'c1' name: 'noop' arguments: '{}'.
+	msg := SmallChatLMMessage role: #assistant content: String lf , String lf thinking: nil.
+	msg toolCalls: { tc }.
+	session conversation addMessage: msg.
+	secs := panel sections.
+	self assert: (secs collect: [ :s | s kind ]) asArray equals: #( #toolCall )
+]
