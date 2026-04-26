@@ -106,6 +106,27 @@ SmallChatWorkspaceWindowTest >> testAttachOnSamePathReusesMountedWorkspace [
 ]
 
 { #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testAttachSeedsDefaultSession [
+  "Opening a window seeds one session built from the first profile in
+   the registry so the right pane is never blank. The profileRegistry
+   is a block test seam (default reads SmallChatAgentProfile all) so
+   the test can pin the seeded profile without mutating global state."
+  | picked window |
+  picked := SmallChatAgentProfile new
+    name: 'Stub';
+    modelName: SmallChatAgentProfile availableModels first;
+    systemPrompt: 'stub-prompt';
+    yourself.
+  window := SmallChatWorkspaceWindow new
+    profileRegistry: [ { picked } ];
+    attachOnPharoWorkspace;
+    yourself.
+  self assert: window sessions size equals: 1.
+  self assert: window selectedSession profile == picked.
+  self assert: window selectedSession name equals: 'Stub'
+]
+
+{ #category : 'tests' }
 SmallChatWorkspaceWindowTest >> testChatPlaceholderHostsPanelBoundToWorkspace [
 	"After attachOnPath:name:, the chatPlaceholder slot is a
 	 SmallChatLMChatPanel whose SmallChatLMSession is bound to the same

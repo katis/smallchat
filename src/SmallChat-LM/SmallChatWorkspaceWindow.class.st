@@ -16,7 +16,8 @@ Class {
 		'selectedSession',
 		'agentTree',
 		'addButton',
-		'profileChooser'
+		'profileChooser',
+		'profileRegistry'
 	],
 	#classInstVars : [
 		'directoryPickerBlock'
@@ -173,9 +174,10 @@ SmallChatWorkspaceWindow >> chatPlaceholder [
 SmallChatWorkspaceWindow >> createSessionFromChooser [
   "Pop the profile chooser; if the user picks one, build a session
    bound to that profile + this window's workspace and add it. Wired to
-   the + button's action -- also called directly from tests."
+   the + button's action -- also called directly from tests. Profile list
+   comes from #profileRegistry so tests can inject a stub list."
   | profiles picked |
-  profiles := SmallChatAgentProfile all.
+  profiles := self profileRegistry value.
   profiles isEmpty ifTrue: [ ^ self ].
   picked := self profileChooser value: profiles.
   picked ifNil: [ ^ self ].
@@ -257,11 +259,16 @@ SmallChatWorkspaceWindow >> initializeWindow: aWindow [
 
 { #category : 'private' }
 SmallChatWorkspaceWindow >> installChatPanelFor: aWorkspace [
-  "Bridge for the existing attach paths: build a session bound to
-   aWorkspace and route it through #addSession: so the new sessions
-   collection stays in sync. Slice 11 will move session construction
-   out to the attach call sites with profile injection."
-  self addSession: (SmallChatLMSession new workspace: aWorkspace; yourself)
+  "Called by the attach paths once the workspace is bound. Builds the
+   chat panel (lazily) and seeds one default session from the first
+   profile in the registry so the right pane shows a chat from the
+   moment the window opens. No-op session-side if the registry is
+   empty -- the panel still exists, ready for the + button."
+  | profiles |
+  self ensureChatPanel.
+  profiles := self profileRegistry value.
+  profiles isEmpty ifTrue: [ ^ self ].
+  self addSession: (SmallChatLMSession profile: profiles first workspace: aWorkspace)
 ]
 
 { #category : 'accessing' }
@@ -282,6 +289,20 @@ SmallChatWorkspaceWindow >> profileChooser [
 { #category : 'accessing' }
 SmallChatWorkspaceWindow >> profileChooser: aBlock [
   profileChooser := aBlock
+]
+
+{ #category : 'accessing' }
+SmallChatWorkspaceWindow >> profileRegistry [
+  "Block returning the collection of SmallChatAgentProfile instances the
+   tree will offer for new sessions. Defaults to the class-side registry;
+   tests inject a block returning a fixed list to avoid global-state
+   coupling."
+  ^ profileRegistry ifNil: [ [ SmallChatAgentProfile all ] ]
+]
+
+{ #category : 'accessing' }
+SmallChatWorkspaceWindow >> profileRegistry: aBlock [
+  profileRegistry := aBlock
 ]
 
 { #category : 'accessing' }
