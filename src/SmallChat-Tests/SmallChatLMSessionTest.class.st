@@ -388,6 +388,26 @@ SmallChatLMSessionTest >> testStatusSetterIsIdempotent [
 ]
 
 { #category : 'tests' }
+SmallChatLMSessionTest >> testStreamLoopTransitionsRunningThenIdle [
+  "The streaming variant must move through #running -> #idle around a
+   clean (no tool_calls) reply, mirroring sendUserInput: but for the
+   path the chat panel actually drives."
+  | mock session sequence final result |
+  mock := SmallChatLMMockClient new.
+  final := SmallChatLMMessage role: #assistant content: 'streamed reply'.
+  mock queueReply: final.
+  session := SmallChatLMSession new client: mock; yourself.
+  sequence := OrderedCollection new.
+  session announcer
+    when: SmallChatLMSessionStatusChanged
+    do: [ :a | sequence add: a status ]
+    for: self.
+  result := session sendUserInput: 'hi' onDelta: [ :d | ].
+  self assert: result content equals: 'streamed reply'.
+  self assert: sequence asArray equals: #(#running #idle)
+]
+
+{ #category : 'tests' }
 SmallChatLMSessionTest >> testTranscriptTextIncludesBothTurns [
 	| session |
 	session := self sessionWithCannedReply: 'hello back'.

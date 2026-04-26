@@ -295,9 +295,11 @@ SmallChatLMSession >> streamToolLoopUsingPlaceholder: initialPlaceholder onDelta
 	 an empty string and mutated as chunks arrive. On each client round the
 	 current placeholder is reconciled from the reply. If the reply carries
 	 tool_calls, each call is dispatched and a tool-result message appended; a
-	 fresh placeholder is then added and the loop re-enters. Budget exhaustion
-	 appends a synthetic error message and returns it."
+	 fresh placeholder is then added and the loop re-enters. Status flips to
+	 #running on entry and back to #idle on a clean return; budget exhaustion
+	 transitions to #errored before returning the synthetic message."
 	| iterations placeholder |
+	self status: #running.
 	placeholder := initialPlaceholder.
 	iterations := 0.
 	[ true ] whileTrue: [
@@ -314,7 +316,9 @@ SmallChatLMSession >> streamToolLoopUsingPlaceholder: initialPlaceholder onDelta
 		placeholder toolCalls: reply toolCalls.
 		placeholder rawStream: nil.
 		(placeholder toolCalls isNil or: [ placeholder toolCalls isEmpty ])
-			ifTrue: [ ^ placeholder ].
+			ifTrue: [
+				self status: #idle.
+				^ placeholder ].
 		iterations := iterations + 1.
 		iterations > self maxToolIterations ifTrue: [
 			| synthetic |
@@ -322,6 +326,7 @@ SmallChatLMSession >> streamToolLoopUsingPlaceholder: initialPlaceholder onDelta
 				role: #assistant
 				content: 'Error: tool-call budget (' , self maxToolIterations printString , ' rounds) exhausted.'.
 			conversation addMessage: synthetic.
+			self status: #errored.
 			^ synthetic ].
 		placeholder toolCalls do: [ :tc |
 			conversation addTool: (self dispatchToolCall: tc) forCallId: tc id ].
