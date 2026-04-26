@@ -189,3 +189,32 @@ const b = `pre ${isDocEmpty} post`;'.
   self assert: outcome isSuccess.
   self assert: (file readStreamDo: [ :s | s upToEnd ]) equals: expectedText
 ]
+
+{ #category : 'tests' }
+SmallChatTsRenameStringConstantTest >> testRollbackRestoresAllFilesByteForByte [
+  "After a multi-file rename, rollback: restores every touched file
+   byte-for-byte from the rollbackToken (delegated to the applier)."
+  | fs fileA fileB applier cmd outcome originalA originalB |
+  fs := FileSystem memory.
+  (fs / '/proj') ensureCreateDirectory.
+  fileA := fs / '/proj/a.tsx'.
+  fileB := fs / '/proj/b.tsx'.
+  originalA := 'const x = "isDocEmpty";'.
+  originalB := 'describe("isDocEmpty", () => {});'.
+  fileA writeStreamDo: [ :s | s nextPutAll: originalA ].
+  fileB writeStreamDo: [ :s | s nextPutAll: originalB ].
+  applier := SmallChatWorkspaceEditApplier new fileSystem: fs; yourself.
+  cmd := SmallChatTsRenameStringConstantCommand new
+    applier: applier;
+    rootUri: 'file:///proj';
+    oldText: 'isDocEmpty';
+    newText: 'isDocumentEmpty';
+    yourself.
+  outcome := cmd apply.
+  self assert: outcome isSuccess.
+  self deny: (fileA readStreamDo: [ :s | s upToEnd ]) equals: originalA.
+  self deny: (fileB readStreamDo: [ :s | s upToEnd ]) equals: originalB.
+  cmd rollback: outcome rollbackToken.
+  self assert: (fileA readStreamDo: [ :s | s upToEnd ]) equals: originalA.
+  self assert: (fileB readStreamDo: [ :s | s upToEnd ]) equals: originalB
+]
