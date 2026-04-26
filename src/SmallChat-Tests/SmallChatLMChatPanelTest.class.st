@@ -297,6 +297,21 @@ SmallChatLMChatPanelTest >> testSectionsForFullConversationInArrivalOrder [
 ]
 
 { #category : 'tests' }
+SmallChatLMChatPanelTest >> testSelectingUserSectionShowsContentAndEmptyOutput [
+    | session panel userSec |
+    session := self stubSessionWithCannedReply: 'unused'.
+    panel := SmallChatLMChatPanel new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    session conversation addUser: 'hello world'.
+    userSec := panel sections first.
+    panel selectSection: userSec.
+    self assert: panel contentText text asString equals: 'hello world'.
+    self assert: panel outputText text asString isEmpty
+]
+
+{ #category : 'tests' }
 SmallChatLMChatPanelTest >> testSendAfterErrorIsAccepted [
     | stub client session panel userTurns |
     stub := SmallChatLMHttpStub new

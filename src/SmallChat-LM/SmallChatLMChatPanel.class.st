@@ -17,7 +17,10 @@ Class {
 		'presentersByMessage',
 		'pendingRequest',
 		'statusLabel',
-		'uiDeferrer'
+		'uiDeferrer',
+		'contentText',
+		'outputText',
+		'sectionList'
 	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
@@ -55,6 +58,11 @@ SmallChatLMChatPanel >> cleanup [
   pendingRequest ifNotNil: [ :p |
     p isTerminated ifFalse: [ p terminate ] ].
   pendingRequest := nil
+]
+
+{ #category : 'accessing' }
+SmallChatLMChatPanel >> contentText [
+    ^ contentText
 ]
 
 { #category : 'layout' }
@@ -154,6 +162,13 @@ SmallChatLMChatPanel >> initializePresenters [
     messagesContent layout: SpBoxLayout newTopToBottom.
     messagesPane := self newPresenter.
     messagesPane layout: (SpScrollableLayout with: messagesContent).
+    sectionList := self newList.
+    sectionList display: [ :section | section ifNil: [ '' ] ifNotNil: [ section label ] ].
+    sectionList whenSelectionChangedDo: [ :sel | self showSection: sel selectedItem ].
+    contentText := self newText.
+    contentText beNotEditable.
+    outputText := self newText.
+    outputText beNotEditable.
     statusLabel := self newLabel.
     input := self newTextInput
         placeholder: 'message';
@@ -209,6 +224,11 @@ SmallChatLMChatPanel >> messagesPane [
 ]
 
 { #category : 'accessing' }
+SmallChatLMChatPanel >> outputText [
+    ^ outputText
+]
+
+{ #category : 'accessing' }
 SmallChatLMChatPanel >> pendingRequest [
     ^ pendingRequest
 ]
@@ -235,6 +255,11 @@ SmallChatLMChatPanel >> refreshMessages [
     inner := SpBoxLayout newTopToBottom.
     self messagePresenters do: [ :p | inner add: p expand: false ].
     messagesContent layout: inner
+]
+
+{ #category : 'accessing' }
+SmallChatLMChatPanel >> sectionList [
+    ^ sectionList
 ]
 
 { #category : 'accessing' }
@@ -268,6 +293,14 @@ SmallChatLMChatPanel >> sections [
     ^ result asArray
 ]
 
+{ #category : 'binding' }
+SmallChatLMChatPanel >> selectSection: aSection [
+    "Test seam: programmatically pick a section, mirror it into the
+     content/output panes synchronously."
+    sectionList selectItem: aSection.
+    self showSection: aSection
+]
+
 { #category : 'accessing' }
 SmallChatLMChatPanel >> sendButton [
     ^ sendButton
@@ -293,6 +326,16 @@ SmallChatLMChatPanel >> session [
 SmallChatLMChatPanel >> session: aSession [
 	session := aSession.
 	presentersByMessage isNil ifFalse: [ self refreshMessages ]
+]
+
+{ #category : 'private' }
+SmallChatLMChatPanel >> showSection: aSectionOrNil [
+    aSectionOrNil ifNil: [
+        contentText text: ''.
+        outputText text: ''.
+        ^ self ].
+    contentText text: aSectionOrNil content.
+    outputText text: aSectionOrNil output
 ]
 
 { #category : 'accessing' }
