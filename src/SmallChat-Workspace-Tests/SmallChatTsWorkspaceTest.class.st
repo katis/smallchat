@@ -46,7 +46,7 @@ SmallChatTsWorkspaceTest >> testDefaultSystemPromptMentionsTsNav [
 	self assert: (prompt includesSubstring: 'SmallChatTsNav').
 	self assert: (prompt includesSubstring: 'evaluate').
 	self assert: (prompt includesSubstring: 'findSymbol:').
-	self assert: (prompt includesSubstring: 'renameSymbolInFile:').
+	self assert: (prompt includesSubstring: 'renameSymbolAt:').
 	self assert: (prompt includesSubstring: 'FileDirectory')
 ]
 

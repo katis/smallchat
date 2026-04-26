@@ -1,5 +1,5 @@
 "
-Class-side discovery + edit API for chat sessions bound to a TypeScript workspace. Mirrors the SmallChatNav pattern: every selector returns budgeted Markdown via SmallChatNavBudget default size. Discovery (findFiles:, findSymbol:, findReferencesOf:, grep:in:) reads from the workspace's lazy Famix model. Mutations + live diagnostics (writeFile:contents:, diagnosticsFor:, renameSymbolInFile:..., codeActionsAt:..., applyCodeAction:) drive the workspace's LSP client. The workspace is bound per evaluate call by SmallChatEvalSmalltalkCapability.
+Class-side discovery + edit API for chat sessions bound to a TypeScript workspace. Mirrors the SmallChatNav pattern: every selector returns budgeted Markdown via SmallChatNavBudget default size. Discovery (findFiles:, findSymbol:, findReferencesOf:, grep:in:) reads from the workspace's lazy Famix model. Mutations + live diagnostics (writeFile:contents:, diagnosticsFor:, renameSymbolAt:..., codeActionsAt:..., applyCodeAction:) drive the workspace's LSP client. The workspace is bound per evaluate call by SmallChatEvalSmalltalkCapability.
 "
 Class {
 	#name : 'SmallChatTsNav',
@@ -168,7 +168,7 @@ SmallChatTsNav class >> findSymbol: aPattern [
 	 Method, Field, TypeAlias, JSXComponent, CSSClass. Each row reports
 	 the workspace-relative file plus the LSP-compatible line:character of
 	 the entity's declaration anchor -- ready to feed into
-	 renameSymbolInFile:line:character:to:."
+	 renameSymbolAt:line:character:to:."
 	^ self withWorkspaceDo: [ :ws | self findSymbol: aPattern inWorkspace: ws ]
 ]
 
@@ -367,12 +367,15 @@ SmallChatTsNav class >> rename: aRelPath line: aLine character: aChar to: aNewNa
 ]
 
 { #category : 'editing' }
-SmallChatTsNav class >> renameSymbolInFile: aRelPath line: aLine character: aChar to: aNewName [
+SmallChatTsNav class >> renameSymbolAt: aRelPath line: aLine character: aChar to: aNewName [
 	"Drive a SmallChatTsRenameSymbolCommand against the workspace's LSP
 	 client and a fresh applier rooted at the workspace path's FileSystem.
-	 Position is LSP {line, character}: 0-based line, UTF-16 code units. On
-	 success, reads the post-edit content from disk and refreshes the cached
-	 Famix model so a subsequent findSymbol: sees the new name."
+	 Position is LSP {line, character}: 0-based line, UTF-16 code units. The
+	 LSP returns a project-wide WorkspaceEdit -- one call from the
+	 declaration site rewrites every reference across the workspace, not
+	 just inside aRelPath. On success, reads each touched file from disk and
+	 reimports the cached Famix model so subsequent findSymbol: reflects the
+	 new names."
 	^ self withWorkspaceDo: [ :ws | self rename: aRelPath line: aLine character: aChar to: aNewName inWorkspace: ws ]
 ]
 

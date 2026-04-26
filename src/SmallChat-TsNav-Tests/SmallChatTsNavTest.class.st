@@ -263,8 +263,8 @@ SmallChatTsNavTest >> testReadFileReturnsFencedContent [
 ]
 
 { #category : 'tests' }
-SmallChatTsNavTest >> testRenameSymbolInFileAppliesLspEdit [
-	"renameSymbolInFile:line:character:to: builds a SmallChatTsRenameSymbolCommand
+SmallChatTsNavTest >> testRenameSymbolAtAppliesLspEdit [
+	"renameSymbolAt:line:character:to: builds a SmallChatTsRenameSymbolCommand
 	 against the workspace's LSP client + a freshly-constructed applier rooted
 	 at the workspace path's FileSystem, runs it, and reports the outcome.
 	 SmallChatStubLSPClient (vendored from SmallChat-Refactoring-Tests) returns
@@ -297,7 +297,7 @@ SmallChatTsNavTest >> testRenameSymbolInFileAppliesLspEdit [
 		lspClient: stubClient;
 		yourself.
 	SmallChatTsNav currentWorkspace: ws.
-	out := SmallChatTsNav renameSymbolInFile: 'Button.ts' line: 0 character: 7 to: 'newName'.
+	out := SmallChatTsNav renameSymbolAt: 'Button.ts' line: 0 character: 7 to: 'newName'.
 	self assert: (out includesSubstring: 'success').
 	self assert: (file readStreamDo: [ :s | s upToEnd ]) equals: 'const newName = 1;'
 ]

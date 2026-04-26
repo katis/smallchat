@@ -70,12 +70,12 @@ SmallChatTsWorkspace class >> defaultSystemPrompt [
 		s nextPutAll: '* SmallChatTsNav readFile: <path> -- workspace-relative file content fenced with a language hint.'; lf.
 		s nextPutAll: '* SmallChatTsNav writeFile: <path> contents: <text> -- overwrites disk, fires textDocument/didChange when the doc is open, refreshes Famix.'; lf; lf.
 		s nextPutAll: 'Refactor + verify (LSP-driven):'; lf.
-		s nextPutAll: '* SmallChatTsNav renameSymbolInFile: <path> line: <l> character: <c> to: <newName> -- runs textDocument/rename and applies the WorkspaceEdit.'; lf.
+		s nextPutAll: '* SmallChatTsNav renameSymbolAt: <path> line: <l> character: <c> to: <newName> -- runs textDocument/rename and applies the WorkspaceEdit. The edit is project-wide: one call from the declaration site rewrites every reference across the workspace.'; lf.
 		s nextPutAll: '* SmallChatTsNav diagnosticsFor: <path> -- LSP textDocument/diagnostic count + items.'; lf.
 		s nextPutAll: '* SmallChatTsNav codeActionsAt: <path> line: <l> character: <c> -- numbered list of code actions; SmallChatTsNav applyCodeAction: N resolves the N-th action from the most recent listing.'; lf; lf.
 		s nextPutAll: 'Escape hatch:'; lf.
 		s nextPutAll: '* SmallChatTsNav lspRequest: <method> params: <dict> -- one-shot LSP request for methods without a dedicated selector.'; lf; lf.
-		s nextPutAll: 'Typical rename loop: findSymbol: to locate the right path:line:character, renameSymbolInFile: to apply, diagnosticsFor: to confirm the file still parses.'; lf; lf.
+		s nextPutAll: 'Typical rename loop: findSymbol: to locate the right path:line:character of the declaration, renameSymbolAt: to apply the project-wide rename, diagnosticsFor: on the touched files to confirm they still parse.'; lf; lf.
 		s nextPutAll: 'Tool results are plain Markdown. Compose multiple calls when you need to refine an answer. Keep edits scoped; one symbol per turn is safer than a batch.' ]
 ]
 
