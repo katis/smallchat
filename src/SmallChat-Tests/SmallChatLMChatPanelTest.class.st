@@ -188,6 +188,26 @@ SmallChatLMChatPanelTest >> testMessagesPaneIsScrollable [
 ]
 
 { #category : 'tests' }
+SmallChatLMChatPanelTest >> testNewTurnPreservesPriorSelection [
+    | session panel firstUser |
+    session := self stubSessionWithCannedReply: 'unused'.
+    panel := SmallChatLMChatPanel new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    session conversation addUser: 'first'.
+    panel rebuildSections.
+    firstUser := panel sectionList items first.
+    panel selectSection: firstUser.
+    "Second turn lands."
+    session conversation addAssistant: 'reply'.
+    panel rebuildSections.
+    self assert: panel sectionList selectedItem notNil.
+    self assert: panel sectionList selectedItem kind equals: #user.
+    self assert: panel sectionList selectedItem message content equals: 'first'
+]
+
+{ #category : 'tests' }
 SmallChatLMChatPanelTest >> testPresenterCachePreservesFoldStateAcrossSends [
     | panel session firstAssistantPresenter |
     session := self stubSessionWithCannedReply: '<think>reasoning</think>hello'.
@@ -510,6 +530,24 @@ SmallChatLMChatPanelTest >> testStreamingDeltasGrowAssistantContent [
     assistantTurns := session conversation messages select: [ :m | m role = #assistant ].
     self assert: assistantTurns size equals: 1.
     self assert: assistantTurns first content equals: 'abc'
+]
+
+{ #category : 'tests' }
+SmallChatLMChatPanelTest >> testStreamingDeltasUpdateSectionList [
+    | pair session panel asstSec |
+    pair := self stubSessionWithChunks: {
+        self deltaChunkWithContent: 'hi'.
+        self deltaChunkWithContent: ' there' }.
+    session := pair first.
+    panel := SmallChatLMChatPanel new
+        session: session;
+        uiDeferrer: [ :blk | blk value ];
+        yourself.
+    panel input text: 'hi'.
+    panel sendFromInput.
+    panel waitForPending.
+    asstSec := panel sectionList items detect: [ :s | s kind = #assistant ].
+    self assert: asstSec message content equals: 'hi there'
 ]
 
 { #category : 'tests' }

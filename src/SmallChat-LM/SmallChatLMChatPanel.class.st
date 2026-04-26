@@ -267,7 +267,8 @@ SmallChatLMChatPanel >> refreshMessages [
     | inner |
     inner := SpBoxLayout newTopToBottom.
     self messagePresenters do: [ :p | inner add: p expand: false ].
-    messagesContent layout: inner
+    messagesContent layout: inner.
+    self rebuildSections
 ]
 
 { #category : 'accessing' }
