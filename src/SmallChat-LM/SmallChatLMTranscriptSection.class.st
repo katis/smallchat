@@ -52,6 +52,9 @@ SmallChatLMTranscriptSection >> label [
 SmallChatLMTranscriptSection >> labelPrefix [
     kind = #thinking ifTrue: [ ^ message thinking ifNil: [ '' ] ].
     kind = #toolCall ifTrue: [ ^ toolCall name ifNil: [ '' ] ].
+    kind = #assistant ifTrue: [
+        (message content isNil or: [ message content isEmpty ])
+            ifTrue: [ ^ '(streaming...)' ] ].
     ^ message content ifNil: [ '' ]
 ]
 

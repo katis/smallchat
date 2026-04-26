@@ -26,6 +26,15 @@ SmallChatLMTranscriptSectionTest >> testAssistantLabelUsesContent [
 ]
 
 { #category : 'tests' }
+SmallChatLMTranscriptSectionTest >> testStreamingAssistantSectionLabelShowsPlaceholder [
+    | msg s |
+    msg := SmallChatLMMessage role: #assistant content: ''.
+    msg rawStream: ''.
+    s := SmallChatLMTranscriptSection assistantOn: msg.
+    self assert: s label equals: '[asst] (streaming...)'
+]
+
+{ #category : 'tests' }
 SmallChatLMTranscriptSectionTest >> testThinkingLabelUsesThinkingText [
     | msg s |
     msg := SmallChatLMMessage role: #assistant content: 'final' thinking: 'reasoning'.
