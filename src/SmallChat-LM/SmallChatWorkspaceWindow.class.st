@@ -11,7 +11,9 @@ Class {
 	#instVars : [
 		'workspace',
 		'chatPlaceholder',
-		'registryProvider'
+		'registryProvider',
+		'sessions',
+		'selectedSession'
 	],
 	#classInstVars : [
 		'directoryPickerBlock'
@@ -100,6 +102,16 @@ SmallChatWorkspaceWindow class >> resetDirectoryPickerBlock [
 	directoryPickerBlock := nil
 ]
 
+{ #category : 'sessions' }
+SmallChatWorkspaceWindow >> addSession: aSession [
+  "Append aSession to the window's in-memory collection and make it the
+   selected (visible) session. The agent tree picks the row up in a later
+   slice; for now this just routes through selectSession: so the chat
+   panel renders aSession."
+  self sessions add: aSession.
+  self selectSession: aSession
+]
+
 { #category : 'lifecycle' }
 SmallChatWorkspaceWindow >> attachOnPath: aPath name: aNameOrNil [
 	"Resolve aPath, attach a SmallChatTsWorkspace if not already mounted,
@@ -158,6 +170,17 @@ SmallChatWorkspaceWindow >> detachAndClose [
 	workspace := nil
 ]
 
+{ #category : 'private' }
+SmallChatWorkspaceWindow >> ensureChatPanel [
+  "Build the SmallChatLMChatPanel sub-presenter on first use and cache it
+   in chatPlaceholder. selectSession: drives this so the panel is created
+   lazily -- a bare SpPresenter sits there until a session is bound."
+  (chatPlaceholder isKindOf: SmallChatLMChatPanel)
+    ifTrue: [ ^ chatPlaceholder ].
+  chatPlaceholder := self instantiate: SmallChatLMChatPanel.
+  ^ chatPlaceholder
+]
+
 { #category : 'initialization' }
 SmallChatWorkspaceWindow >> initializePresenters [
 	chatPlaceholder := self newPresenter.
@@ -180,15 +203,11 @@ SmallChatWorkspaceWindow >> initializeWindow: aWindow [
 
 { #category : 'private' }
 SmallChatWorkspaceWindow >> installChatPanelFor: aWorkspace [
-	"Replace chatPlaceholder with a SmallChatLMChatPanel whose session is
-	 bound to aWorkspace. Spec2 instantiate: wires sub-presenter ownership
-	 so the panel renders inside the window. Called from attach paths once
-	 the workspace is known."
-	| panel session |
-	panel := self instantiate: SmallChatLMChatPanel.
-	session := SmallChatLMSession new workspace: aWorkspace; yourself.
-	panel session: session.
-	chatPlaceholder := panel
+  "Bridge for the existing attach paths: build a session bound to
+   aWorkspace and route it through #addSession: so the new sessions
+   collection stays in sync. Slice 11 will move session construction
+   out to the attach call sites with profile injection."
+  self addSession: (SmallChatLMSession new workspace: aWorkspace; yourself)
 ]
 
 { #category : 'accessing' }
@@ -204,6 +223,25 @@ SmallChatWorkspaceWindow >> registry [
 { #category : 'accessing' }
 SmallChatWorkspaceWindow >> registryProvider: aBlock [
 	registryProvider := aBlock
+]
+
+{ #category : 'sessions' }
+SmallChatWorkspaceWindow >> selectSession: aSession [
+  "Mark aSession as the visible session and rebind the chat panel's session
+   to it. Idempotent: re-selecting the current session is a no-op."
+  selectedSession == aSession ifTrue: [ ^ self ].
+  selectedSession := aSession.
+  self ensureChatPanel session: aSession
+]
+
+{ #category : 'accessing' }
+SmallChatWorkspaceWindow >> selectedSession [
+  ^ selectedSession
+]
+
+{ #category : 'accessing' }
+SmallChatWorkspaceWindow >> sessions [
+  ^ sessions ifNil: [ sessions := OrderedCollection new ]
 ]
 
 { #category : 'accessing' }

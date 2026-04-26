@@ -24,6 +24,21 @@ SmallChatWorkspaceWindowTest >> tearDown [
 ]
 
 { #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testAddSessionAppendsAndSelects [
+  "addSession: appends to the window's sessions collection, makes the new
+   session the selectedSession, and rebinds the chat panel so its session
+   matches. This is the seam the future + button and the default-on-open
+   path both go through."
+  | window session |
+  window := SmallChatWorkspaceWindow new.
+  session := SmallChatLMSession new.
+  window addSession: session.
+  self assert: (window sessions includes: session).
+  self assert: window selectedSession == session.
+  self assert: window chatPlaceholder session == session
+]
+
+{ #category : 'tests' }
 SmallChatWorkspaceWindowTest >> testAttachOnPathAttachesAndMounts [
 	| registry window prior |
 	registry := SmallChatCapabilityRegistry new.
