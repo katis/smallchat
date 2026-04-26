@@ -1,3 +1,15 @@
+"
+One row in the chat panel's sections list. Decomposes a SmallChatLMMessage into per-chunk views that the master-detail panel can render and select independently:
+
+  #user      one per user message
+  #assistant one per assistant message that has visible content (or is streaming)
+  #thinking  one per assistant message that has non-empty thinking text
+  #toolCall  one per SmallChatLMToolCall, with its matched #tool-message result attached as toolResult
+
+Equality is by kind plus message/toolCall identity so SpListPresenter selectItem: round-trips selection across rebuilds even when the section instance is re-created.
+
+#label is what the list shows. #content is the right pane's text. #output is the bottom pane's text (only non-empty for #toolCall sections).
+"
 Class {
 	#name : 'SmallChatLMTranscriptSection',
 	#superclass : 'Object',
