@@ -140,6 +140,19 @@ SmallChatTsWorkspace >> path [ ^ path
 SmallChatTsWorkspace >> path: aRef [ path := aRef
 ]
 
+{ #category : 'famix' }
+SmallChatTsWorkspace >> reimportUri: aUri text: aText [
+	"Drop and re-import a single URI in the cached Famix model so writes
+	 (TsNav writeFile:, rename success, code-action apply) keep the
+	 in-memory model aligned with the on-disk file. No-op when the model
+	 has not been built yet -- the next famixModel call will pick up the
+	 fresh disk state via the project-wide walk."
+	famixModel ifNil: [ ^ self ].
+	self famixImporter
+		reimportUris: (Dictionary new at: aUri put: aText; yourself).
+	^ self
+]
+
 { #category : 'lifecycle' }
 SmallChatTsWorkspace >> shutdown [
 	"Stop the LSP client and drop it; clear the cached Famix model +

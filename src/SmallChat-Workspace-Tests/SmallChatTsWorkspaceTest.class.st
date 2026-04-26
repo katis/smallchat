@@ -68,6 +68,31 @@ SmallChatTsWorkspaceTest >> testFamixModelLazyBuildIsIdempotent [
 ]
 
 { #category : 'tests' }
+SmallChatTsWorkspaceTest >> testReimportUriRefreshesEntitiesAfterEdit [
+	"reimportUri:text: drops + reimports one URI in the cached Famix model so
+	 a TsNav writeFile: / rename / code-action-apply leaves the model in
+	 sync with the new file content. Caller supplies text (already on hand)
+	 to avoid a re-read."
+	| fs root ws css uri before after |
+	fs := FileSystem memory.
+	root := fs / 'project'.
+	root ensureCreateDirectory.
+	css := root / 'styles.module.css'.
+	css writeStreamDo: [ :s | s nextPutAll: '.old { }' ].
+	ws := SmallChatTsWorkspace new
+		name: 'fixture';
+		path: root;
+		yourself.
+	ws famixModel.
+	before := ((ws famixModel allWithType: SmallChatFamixCSSClass) collect: [ :c | c name ]) asArray.
+	self assert: before equals: #('old').
+	uri := 'file://' , css fullName.
+	ws reimportUri: uri text: '.new { }'.
+	after := ((ws famixModel allWithType: SmallChatFamixCSSClass) collect: [ :c | c name ]) asArray.
+	self assert: after equals: #('new')
+]
+
+{ #category : 'tests' }
 SmallChatTsWorkspaceTest >> testShutdownClearsFamixState [
 	"shutdown drops the cached Famix model + importer alongside the LSP
 	 client so re-attaching the same path gets a fresh model rather than
