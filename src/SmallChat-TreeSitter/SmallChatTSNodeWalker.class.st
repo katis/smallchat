@@ -175,14 +175,16 @@ SmallChatTSNodeWalker >> memberExpressionsFor: aRootNode objectName: aName inSou
 { #category : 'walking' }
 SmallChatTSNodeWalker >> stringFragmentsIn: aRootNode source: aSource [
   "Return Array of (Dictionary at: 'text' put: String; at: 'startByte'
-   put: Integer; at: 'endByte' put: Integer) for every `string` node
-   whose sole named child is a `string_fragment`. Strings with escape
-   sequences (multi-child) and empty strings (no child) are skipped so
-   exact text equality is safe; the byte range covers only the fragment
-   contents between the quotes."
-  | strings |
-  strings := self allNodesOfType: 'string' under: aRootNode.
-  ^ (strings select: [ :s |
+   put: Integer; at: 'endByte' put: Integer) for every `string` or
+   `template_string` node whose sole named child is a `string_fragment`.
+   Strings with escape sequences (multi-child), empty strings (no child),
+   and interpolated template strings (template_substitution children)
+   are skipped so exact text equality is safe; the byte range covers
+   only the fragment contents between the quotes/backticks."
+  | nodes |
+  nodes := (self allNodesOfType: 'string' under: aRootNode)
+    , (self allNodesOfType: 'template_string' under: aRootNode).
+  ^ (nodes select: [ :s |
       s namedChildren size = 1
         and: [ s namedChildren first type = 'string_fragment' ] ])
     collect: [ :s | | frag |

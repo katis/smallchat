@@ -104,6 +104,23 @@ SmallChatTSNodeWalkerTest >> testMemberExpressionsForStylesOnCssBridgeTsxReturns
 ]
 
 { #category : 'tests - strings' }
+SmallChatTSNodeWalkerTest >> testStringFragmentsIncludesLiteralTemplateString [
+  "template_string nodes with no ${...} substitutions are treated as
+   plain strings. Interpolated templates (any template_substitution
+   child) are skipped -- the simple text-equality match would not be
+   safe across them."
+  | parser walker tree text fragments texts |
+  self isAvailable ifFalse: [ ^ self skip ].
+  parser := SmallChatTSParser new.
+  walker := SmallChatTSNodeWalker new.
+  text := 'const a = `hello`; const b = `pre ${x} post`;'.
+  tree := parser parseTsxString: text.
+  fragments := walker stringFragmentsIn: tree rootNode source: text.
+  texts := fragments collect: [ :f | f at: 'text' ].
+  self assert: texts asArray equals: #('hello')
+]
+
+{ #category : 'tests - strings' }
 SmallChatTSNodeWalkerTest >> testStringFragmentsReturnsTextAndByteRangeForSingleString [
   "stringFragmentsIn:source: returns a Dictionary per string node whose
    only named child is a string_fragment. Each dict carries the fragment
