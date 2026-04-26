@@ -18,7 +18,8 @@ Class {
 		'lspPendings',
 		'workspace',
 		'name',
-		'profile'
+		'profile',
+		'status'
 	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
@@ -245,6 +246,15 @@ SmallChatLMSession >> snapshotExcluding: aMessage [
 	snapshot := conversation copy.
 	snapshot messages remove: aMessage ifAbsent: [ ].
 	^ snapshot
+]
+
+{ #category : 'accessing' }
+SmallChatLMSession >> status [
+  "Lifecycle symbol observed by the agent tree to render a per-session
+   status dot. One of #idle | #running | #awaiting | #errored |
+   #cancelled. Lazy-default to #idle so a fresh session has a visible
+   row before any turn has run."
+  ^ status ifNil: [ status := #idle ]
 ]
 
 { #category : 'chat' }

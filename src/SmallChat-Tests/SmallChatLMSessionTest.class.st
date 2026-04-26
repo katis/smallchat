@@ -162,6 +162,16 @@ SmallChatLMSessionTest >> testNameAccessor [
 ]
 
 { #category : 'tests' }
+SmallChatLMSessionTest >> testNewSessionStatusIsIdle [
+  "A freshly built session reports #idle so the agent tree can render the
+   default hollow dot without the rest of the state machine being wired
+   yet -- this is the pin for the lazy default."
+  | session |
+  session := SmallChatLMSession new.
+  self assert: session status equals: #idle
+]
+
+{ #category : 'tests' }
 SmallChatLMSessionTest >> testProfileAccessor [
   "Sessions remember which agent profile they were built from so later
    slices can re-apply or display profile-derived data."
