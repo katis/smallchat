@@ -111,6 +111,28 @@ SmallChatWorkspaceWindowTest >> testChatPlaceholderHostsPanelBoundToWorkspace [
 ]
 
 { #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testCleanupCancelsEverySession [
+  "windowDidClose must walk every session in the window and call
+   cancelInFlight on each so a slow capability driven by an unselected
+   session can't outlive the UI it was driving. Verified by giving each
+   session a long-running worker process and asserting both are
+   terminated after windowDidClose runs."
+  | window s1 s2 w1 w2 |
+  window := SmallChatWorkspaceWindow new.
+  s1 := SmallChatLMSession new.
+  s2 := SmallChatLMSession new.
+  w1 := [ (Delay forSeconds: 60) wait ] newProcess.
+  w2 := [ (Delay forSeconds: 60) wait ] newProcess.
+  s1 trackInFlight: w1. w1 resume.
+  s2 trackInFlight: w2. w2 resume.
+  window addSession: s1.
+  window addSession: s2.
+  window windowDidClose.
+  self assert: w1 isTerminated.
+  self assert: w2 isTerminated
+]
+
+{ #category : 'tests' }
 SmallChatWorkspaceWindowTest >> testDefaultLayoutContainsOnlyChatPlaceholder [
 	| ws window children |
 	ws := SmallChatTsWorkspace attachAt: '/tmp/smallchat-ws-fixture' name: 'fixture-ws'.

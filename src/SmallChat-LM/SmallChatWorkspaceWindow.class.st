@@ -189,16 +189,13 @@ SmallChatWorkspaceWindow >> initializePresenters [
 
 { #category : 'initialization' }
 SmallChatWorkspaceWindow >> initializeWindow: aWindow [
-	"whenClosedDo: cleans up the chat panel (drops the MCP-announcer
-	 subscription, terminates any in-flight reply fork) and unmounts the
-	 bound workspace via the registry. Both cleanups are idempotent so a
-	 second close is safe."
-	aWindow
-		title: self windowTitle;
-		initialExtent: 480 @ 360;
-		whenClosedDo: [
-			(chatPlaceholder respondsTo: #cleanup) ifTrue: [ chatPlaceholder cleanup ].
-			self detachAndClose ]
+  "whenClosedDo: routes through windowDidClose so the per-window
+   teardown (cancel-all-sessions, panel cleanup, workspace unmount) is
+   testable without opening a real window."
+  aWindow
+    title: self windowTitle;
+    initialExtent: 480 @ 360;
+    whenClosedDo: [ self windowDidClose ]
 ]
 
 { #category : 'private' }
@@ -242,6 +239,20 @@ SmallChatWorkspaceWindow >> selectedSession [
 { #category : 'accessing' }
 SmallChatWorkspaceWindow >> sessions [
   ^ sessions ifNil: [ sessions := OrderedCollection new ]
+]
+
+{ #category : 'lifecycle' }
+SmallChatWorkspaceWindow >> windowDidClose [
+  "Tear down per-window external bindings. Walks every session calling
+   cancelInFlight (the panel's own #cleanup only knows about the
+   selected one) so background workers on unselected sessions don't
+   outlive the window. Then drops the panel's subscriptions and
+   unmounts the bound workspace. All steps idempotent so a second call
+   is safe."
+  self sessions do: [ :s |
+    [ s cancelInFlight ] on: Error do: [ :_ | "best-effort cancel" ] ].
+  (chatPlaceholder respondsTo: #cleanup) ifTrue: [ chatPlaceholder cleanup ].
+  self detachAndClose
 ]
 
 { #category : 'accessing' }
