@@ -178,8 +178,25 @@ SmallChatAgentProfileWindow >> saveButton [
 
 { #category : 'actions' }
 SmallChatAgentProfileWindow >> saveCurrentProfile [
-	"Slice 11."
-	^ self
+	"Flush editor inputs into the currently-selected profile through its
+	 validating setters, then refresh the list and reselect the row.
+	 Captures the profile in a local first because refreshProfileList's
+	 items: fires whenSelectionChangedDo:, which nils currentProfile via
+	 profileSelected:. Validation errors surface as a deferred dialog
+	 rather than raising -- this method may be invoked from the MCP reader
+	 where a raise would corrupt JSON-RPC framing."
+	| profile |
+	profile := currentProfile.
+	profile ifNil: [ ^ self ].
+	[ profile name: nameInput text.
+	  profile modelName: modelDropList selectedItem.
+	  profile systemPrompt: promptText text ]
+		on: Error
+		do: [ :ex |
+			UIManager default defer: [ self inform: ex messageText ].
+			^ self ].
+	self refreshProfileList.
+	profileList selectItem: profile
 ]
 
 { #category : 'private' }

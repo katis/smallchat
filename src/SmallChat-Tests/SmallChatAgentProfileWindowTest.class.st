@@ -45,6 +45,33 @@ SmallChatAgentProfileWindowTest >> testProfileSelectedPopulatesFields [
 ]
 
 { #category : 'tests' }
+SmallChatAgentProfileWindowTest >> testSaveWritesFormFieldsBack [
+	"Save flushes the editor inputs into the currently-selected profile,
+	 refreshes the list, and keeps the selection on the (possibly renamed)
+	 row so the user keeps their place."
+	| win profile |
+	SmallChatAgentProfile reset.
+	profile := SmallChatAgentProfile new
+		name: 'save-orig';
+		modelName: 'Qwen3.6-27B-MLX-8bit';
+		systemPrompt: 'orig prompt';
+		yourself.
+	SmallChatAgentProfile add: profile.
+	win := SmallChatAgentProfileWindow new.
+	win refreshProfileList.
+	win profileSelected: profile.
+	win nameInput text: 'save-renamed'.
+	win modelDropList selectItem: 'Qwen3.6-35B-A3B-nvfp4'.
+	win promptText text: 'renamed prompt'.
+	win saveCurrentProfile.
+	self assert: profile name equals: 'save-renamed'.
+	self assert: profile modelName equals: 'Qwen3.6-35B-A3B-nvfp4'.
+	self assert: profile systemPrompt equals: 'renamed prompt'.
+	self assert: (SmallChatAgentProfile named: 'save-renamed') == profile.
+	self assert: win profileList selectedItem == profile
+]
+
+{ #category : 'tests' }
 SmallChatAgentProfileWindowTest >> testWindowBuildsAndShowsDefault [
 	"A new window has all four editor presenters wired up, and its profile
 	 list reflects the registry -- so a fresh image opens to the seeded
