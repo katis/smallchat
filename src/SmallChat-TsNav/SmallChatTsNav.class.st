@@ -220,3 +220,26 @@ SmallChatTsNav class >> withWorkspaceDo: aOneArgBlock [
 		^ '_no TS workspace bound -- open or attach a TS workspace first_' ].
 	^ aOneArgBlock value: currentWorkspace
 ]
+
+{ #category : 'editing' }
+SmallChatTsNav class >> writeFile: aRelPath contents: aString [
+	"Overwrite the workspace-relative file at aRelPath with aString. Notifies
+	 the LSP client via textDocument/didChange when the document is open and
+	 reimports the URI into the cached Famix model so the next findSymbol:
+	 reflects the new content. Returns a one-line confirmation."
+	^ self withWorkspaceDo: [ :ws | self writeFile: aRelPath contents: aString inWorkspace: ws ]
+]
+
+{ #category : 'private' }
+SmallChatTsNav class >> writeFile: aRelPath contents: aString inWorkspace: aWs [
+	| file uri client |
+	file := aWs path / aRelPath.
+	file ensureDelete.
+	file writeStreamDo: [ :s | s nextPutAll: aString ].
+	uri := 'file://' , file fullName.
+	client := aWs lspClient.
+	(client notNil and: [ client documentCache isOpen: uri ])
+		ifTrue: [ client changeDocumentUri: uri text: aString ].
+	aWs reimportUri: uri text: aString.
+	^ 'wrote ' , aString size printString , ' bytes to ' , aRelPath
+]

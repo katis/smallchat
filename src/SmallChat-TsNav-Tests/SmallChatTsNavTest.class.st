@@ -93,3 +93,27 @@ SmallChatTsNavTest >> testReadFileReturnsFencedContent [
 	self assert: (out includesSubstring: 'export const x = 1;').
 	self assert: (out includesSubstring: '```typescript')
 ]
+
+{ #category : 'tests' }
+SmallChatTsNavTest >> testWriteFileWritesDiskAndReimportsFamix [
+	"writeFile:contents: writes through the file's FileSystem (memory-FS in
+	 tests), notifies the workspace LSP client when the doc is open, then
+	 invokes workspace reimportUri:text: so the cached Famix model reflects
+	 the new content for subsequent findSymbol: queries."
+	| fs root ws css after |
+	fs := FileSystem memory.
+	root := fs / 'project'.
+	root ensureCreateDirectory.
+	css := root / 'styles.module.css'.
+	css writeStreamDo: [ :s | s nextPutAll: '.old { }' ].
+	ws := SmallChatTsWorkspace new
+		name: 'fixture';
+		path: root;
+		yourself.
+	SmallChatTsNav currentWorkspace: ws.
+	ws famixModel.
+	SmallChatTsNav writeFile: 'styles.module.css' contents: '.new { }'.
+	after := ((ws famixModel allWithType: SmallChatFamixCSSClass) collect: [ :c | c name ]) asArray.
+	self assert: after equals: #( 'new' ).
+	self assert: (css readStreamDo: [ :s | s upToEnd ]) equals: '.new { }'
+]
