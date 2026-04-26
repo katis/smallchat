@@ -39,3 +39,29 @@ SmallChatAgentProfileTest >> testNewProfileHasDefaults [
 	self assert: profile systemPrompt equals: ''.
 	self assert: profile name isNil
 ]
+
+{ #category : 'tests' }
+SmallChatAgentProfileTest >> testRegistryAddLookupRemove [
+	"Class-side registry holds added profiles, looks them up by name,
+	 removes by name. Reset gives a clean baseline."
+	| profile |
+	SmallChatAgentProfile reset.
+	profile := SmallChatAgentProfile new name: 'alpha-fixture'; yourself.
+	SmallChatAgentProfile add: profile.
+	self assert: (SmallChatAgentProfile named: 'alpha-fixture') == profile.
+	self assert: ((SmallChatAgentProfile all collect: [ :p | p name ]) includes: 'alpha-fixture').
+	SmallChatAgentProfile removeNamed: 'alpha-fixture'.
+	self assert: (SmallChatAgentProfile named: 'alpha-fixture' ifAbsent: [ #absent ]) equals: #absent
+]
+
+{ #category : 'tests' }
+SmallChatAgentProfileTest >> testRegistryRejectsDuplicate [
+	"add: with a name already in the registry raises so the editor never
+	 ends up with two profiles under the same key."
+	SmallChatAgentProfile reset.
+	SmallChatAgentProfile add: (SmallChatAgentProfile new name: 'beta-fixture'; yourself).
+	self should: [
+		SmallChatAgentProfile add:
+			(SmallChatAgentProfile new name: 'beta-fixture'; yourself) ]
+		raise: Error
+]
