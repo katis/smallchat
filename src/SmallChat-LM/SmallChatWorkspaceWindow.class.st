@@ -290,11 +290,17 @@ SmallChatWorkspaceWindow >> initializePresenters [
   "Build the bare presenters: an empty SpPresenter as the chat slot (lazily
    replaced with a SmallChatLMChatPanel by ensureChatPanel), the agent tree
    on the left wired to drive selectSession: on selection-change, and the
-   + button above the tree wired to createSessionFromChooser."
+   + button above the tree wired to createSessionFromChooser. The tree has
+   two columns: a status dot rendered through SmallChatWorkspaceWindow
+   class>>dotFormFor: and the session name."
   chatPlaceholder := self newPresenter.
   chatPlaceholder layout: SpBoxLayout newTopToBottom.
   agentTree := self newTreeTable.
   agentTree
+    addColumn: (SpImageTableColumn new
+      width: 16;
+      evaluated: [ :s | SmallChatWorkspaceWindow dotFormFor: s status ];
+      yourself);
     addColumn: (SpStringTableColumn new
       title: 'Agent';
       evaluated: [ :s | s name ifNil: [ '' ] ];

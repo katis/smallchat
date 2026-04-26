@@ -70,6 +70,24 @@ SmallChatWorkspaceWindowTest >> testAddSessionShowsRowAndSelects [
 ]
 
 { #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testAgentTreeRendersStatusColumnAndNameColumn [
+  "The tree has two columns: a status icon on the left, then the name.
+   The icon column reads through SmallChatWorkspaceWindow class>>dotFormFor:
+   so a session's status flips its dot when the row is re-evaluated."
+  | window session iconColumn nameColumn |
+  window := SmallChatWorkspaceWindow new.
+  self assert: window agentTree columns size equals: 2.
+  iconColumn := window agentTree columns first.
+  nameColumn := window agentTree columns second.
+  self assert: (iconColumn isKindOf: SpImageTableColumn).
+  self assert: (nameColumn isKindOf: SpStringTableColumn).
+  session := SmallChatLMSession new name: 'Tester'; yourself.
+  session status: #running.
+  self assert: (iconColumn evaluation value: session) class equals: Form.
+  self assert: (nameColumn evaluation value: session) equals: 'Tester'
+]
+
+{ #category : 'tests' }
 SmallChatWorkspaceWindowTest >> testAttachOnPathAttachesAndMounts [
 	| registry window prior |
 	registry := SmallChatCapabilityRegistry new.
