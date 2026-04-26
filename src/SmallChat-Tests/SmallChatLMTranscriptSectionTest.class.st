@@ -30,6 +30,14 @@ SmallChatLMTranscriptSectionTest >> testToolCallSectionStoresCallAndResult [
 ]
 
 { #category : 'tests' }
+SmallChatLMTranscriptSectionTest >> testUserLabelHasTagAndContent [
+    | msg s |
+    msg := SmallChatLMMessage role: #user content: 'hello world'.
+    s := SmallChatLMTranscriptSection userOn: msg.
+    self assert: s label equals: '[user] hello world'
+]
+
+{ #category : 'tests' }
 SmallChatLMTranscriptSectionTest >> testUserSectionStoresKindAndMessage [
     | msg s |
     msg := SmallChatLMMessage role: #user content: 'hi'.

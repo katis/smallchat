@@ -40,6 +40,28 @@ SmallChatLMTranscriptSection >> kind [
     ^ kind
 ]
 
+{ #category : 'displaying' }
+SmallChatLMTranscriptSection >> label [
+    | tag prefix |
+    tag := self labelTag.
+    prefix := self labelPrefix.
+    ^ '[' , tag , '] ' , prefix
+]
+
+{ #category : 'displaying' }
+SmallChatLMTranscriptSection >> labelPrefix [
+    ^ message content ifNil: [ '' ]
+]
+
+{ #category : 'displaying' }
+SmallChatLMTranscriptSection >> labelTag [
+    kind = #user ifTrue: [ ^ 'user' ].
+    kind = #assistant ifTrue: [ ^ 'asst' ].
+    kind = #thinking ifTrue: [ ^ 'thnk' ].
+    kind = #toolCall ifTrue: [ ^ 'tool' ].
+    ^ '?'
+]
+
 { #category : 'accessing' }
 SmallChatLMTranscriptSection >> message [
     ^ message
