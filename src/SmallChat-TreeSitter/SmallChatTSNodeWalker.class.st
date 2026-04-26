@@ -173,6 +173,28 @@ SmallChatTSNodeWalker >> memberExpressionsFor: aRootNode objectName: aName inSou
 ]
 
 { #category : 'walking' }
+SmallChatTSNodeWalker >> stringFragmentsIn: aRootNode source: aSource [
+  "Return Array of (Dictionary at: 'text' put: String; at: 'startByte'
+   put: Integer; at: 'endByte' put: Integer) for every `string` node
+   whose sole named child is a `string_fragment`. Strings with escape
+   sequences (multi-child) and empty strings (no child) are skipped so
+   exact text equality is safe; the byte range covers only the fragment
+   contents between the quotes."
+  | strings |
+  strings := self allNodesOfType: 'string' under: aRootNode.
+  ^ (strings select: [ :s |
+      s namedChildren size = 1
+        and: [ s namedChildren first type = 'string_fragment' ] ])
+    collect: [ :s | | frag |
+      frag := s namedChildren first.
+      Dictionary new
+        at: 'text' put: (frag textFromSourceText: aSource);
+        at: 'startByte' put: frag startByte;
+        at: 'endByte' put: frag endByte;
+        yourself ]
+]
+
+{ #category : 'walking' }
 SmallChatTSNodeWalker >> topLevelDeclarations: aRootNode [
 	"Return the program's named children whose type is a known
 	 declaration kind. Imports are excluded; export_statement is

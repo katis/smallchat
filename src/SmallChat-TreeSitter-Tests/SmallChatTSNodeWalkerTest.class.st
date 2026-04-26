@@ -103,6 +103,26 @@ SmallChatTSNodeWalkerTest >> testMemberExpressionsForStylesOnCssBridgeTsxReturns
 	self assert: members size equals: 2
 ]
 
+{ #category : 'tests - strings' }
+SmallChatTSNodeWalkerTest >> testStringFragmentsReturnsTextAndByteRangeForSingleString [
+  "stringFragmentsIn:source: returns a Dictionary per string node whose
+   only named child is a string_fragment. Each dict carries the fragment
+   text and its byte range (the contents between the quotes -- quotes
+   themselves stay outside the range, mirroring importSpecifiersIn:source:)."
+  | parser walker tree text fragments frag |
+  self isAvailable ifFalse: [ ^ self skip ].
+  parser := SmallChatTSParser new.
+  walker := SmallChatTSNodeWalker new.
+  text := 'const x = "hello";'.
+  tree := parser parseTsxString: text.
+  fragments := walker stringFragmentsIn: tree rootNode source: text.
+  self assert: fragments size equals: 1.
+  frag := fragments first.
+  self assert: (frag at: 'text') equals: 'hello'.
+  self assert: (frag at: 'startByte') equals: 11.
+  self assert: (frag at: 'endByte') equals: 16
+]
+
 { #category : 'tests' }
 SmallChatTSNodeWalkerTest >> testTopLevelDeclarationsOnButtonTsxReturnsTwoDeclarations [
 	"ts-small/Button.tsx top-level: import_statement, type_alias_declaration,
