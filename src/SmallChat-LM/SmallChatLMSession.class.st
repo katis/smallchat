@@ -258,5 +258,10 @@ SmallChatLMSession >> workspace [
 
 { #category : 'accessing' }
 SmallChatLMSession >> workspace: aWorkspace [
-	workspace := aWorkspace
+	"Bind this session to aWorkspace and refresh the live client's catalog
+	 so the LM only sees capabilities applicable to the workspace kind. Mock
+	 clients that do not know toolCatalog: are left alone."
+	workspace := aWorkspace.
+	(client notNil and: [ client respondsTo: #toolCatalog: ])
+		ifTrue: [ client toolCatalog: (SmallChatLMCapabilityCatalog forWorkspace: aWorkspace) ]
 ]
