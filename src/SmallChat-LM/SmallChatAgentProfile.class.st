@@ -121,6 +121,17 @@ SmallChatAgentProfile >> name [
 
 { #category : 'accessing' }
 SmallChatAgentProfile >> name: aStringOrNil [
+	"Set the profile's name. If this profile is already in the class-side
+	 registry, the new name must not collide with another registered
+	 profile -- otherwise the registry could end up with two entries
+	 sharing a key. Reads the Profiles class var directly to avoid
+	 retriggering seed initialisation while the seeded profile itself is
+	 being constructed."
+	(Profiles notNil and: [ Profiles includes: self ]) ifTrue: [
+		aStringOrNil = name ifTrue: [ ^ self ].
+		aStringOrNil ifNil: [ Error signal: 'profile name must not be nil' ].
+		(Profiles anySatisfy: [ :p | p ~~ self and: [ p name = aStringOrNil ] ])
+			ifTrue: [ Error signal: 'duplicate profile name: ' , aStringOrNil printString ] ].
 	name := aStringOrNil
 ]
 

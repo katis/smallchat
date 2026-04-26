@@ -67,6 +67,23 @@ SmallChatAgentProfileTest >> testRegistryRejectsDuplicate [
 ]
 
 { #category : 'tests' }
+SmallChatAgentProfileTest >> testRenameUpdatesRegistryBinding [
+	"Renaming a registered profile via #name: must keep uniqueness intact:
+	 the old name no longer resolves, the new name resolves to the same
+	 instance, and a colliding rename raises."
+	| profile other |
+	SmallChatAgentProfile reset.
+	profile := SmallChatAgentProfile new name: 'rename-orig'; yourself.
+	SmallChatAgentProfile add: profile.
+	other := SmallChatAgentProfile new name: 'rename-other'; yourself.
+	SmallChatAgentProfile add: other.
+	profile name: 'rename-new'.
+	self assert: (SmallChatAgentProfile named: 'rename-orig' ifAbsent: [ #absent ]) equals: #absent.
+	self assert: (SmallChatAgentProfile named: 'rename-new') == profile.
+	self should: [ profile name: 'rename-other' ] raise: Error
+]
+
+{ #category : 'tests' }
 SmallChatAgentProfileTest >> testResetSeedsDefaultProfile [
 	"After reset, the registry exposes a single 'Default' profile whose
 	 model + system prompt mirror the current SmallChatConfig modelName +
