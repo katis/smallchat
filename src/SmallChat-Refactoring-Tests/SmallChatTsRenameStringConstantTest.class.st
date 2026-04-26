@@ -35,6 +35,36 @@ SmallChatTsRenameStringConstantTest >> testFileNameFilterRestrictsScope [
 ]
 
 { #category : 'tests' }
+SmallChatTsRenameStringConstantTest >> testIgnoresFilesOutsideDefaultExtensions [
+  "discoverFileUris keeps only .ts/.tsx/.js/.jsx files. A .css and .md
+   under the same root containing the literal text are left untouched."
+  | fs cssFile mdFile tsFile applier cmd outcome cssOriginal mdOriginal tsExpected |
+  fs := FileSystem memory.
+  (fs / '/proj') ensureCreateDirectory.
+  cssFile := fs / '/proj/styles.css'.
+  mdFile := fs / '/proj/notes.md'.
+  tsFile := fs / '/proj/foo.tsx'.
+  cssOriginal := '.btn { content: "isDocEmpty" }'.
+  mdOriginal := 'Use isDocEmpty for empty checks.'.
+  cssFile writeStreamDo: [ :s | s nextPutAll: cssOriginal ].
+  mdFile writeStreamDo: [ :s | s nextPutAll: mdOriginal ].
+  tsFile writeStreamDo: [ :s | s nextPutAll: 'const x = "isDocEmpty";' ].
+  tsExpected := 'const x = "isDocumentEmpty";'.
+  applier := SmallChatWorkspaceEditApplier new fileSystem: fs; yourself.
+  cmd := SmallChatTsRenameStringConstantCommand new
+    applier: applier;
+    rootUri: 'file:///proj';
+    oldText: 'isDocEmpty';
+    newText: 'isDocumentEmpty';
+    yourself.
+  outcome := cmd apply.
+  self assert: outcome isSuccess.
+  self assert: (cssFile readStreamDo: [ :s | s upToEnd ]) equals: cssOriginal.
+  self assert: (mdFile readStreamDo: [ :s | s upToEnd ]) equals: mdOriginal.
+  self assert: (tsFile readStreamDo: [ :s | s upToEnd ]) equals: tsExpected
+]
+
+{ #category : 'tests' }
 SmallChatTsRenameStringConstantTest >> testLeavesIdentifierOccurrencesUntouched [
   "Identifier occurrences with the same name are NOT rewritten -- only
    string-fragment matches are. Regression guard against the walker
