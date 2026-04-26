@@ -9,11 +9,69 @@ Class {
 	#name : 'SmallChatWorkspaceWindow',
 	#superclass : 'SpPresenter',
 	#instVars : [
-		'workspace'
+		'workspace',
+		'headerLabel',
+		'pathLabel',
+		'statusLabel',
+		'detachButton',
+		'chatPlaceholder'
 	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
 }
+
+{ #category : 'accessing' }
+SmallChatWorkspaceWindow >> chatPlaceholder [
+	^ chatPlaceholder
+]
+
+{ #category : 'lifecycle' }
+SmallChatWorkspaceWindow >> detachAndClose [
+	"Stub for now -- slice 4 wires registry unmount + ws shutdown."
+	^ self
+]
+
+{ #category : 'accessing' }
+SmallChatWorkspaceWindow >> detachButton [
+	^ detachButton
+]
+
+{ #category : 'accessing' }
+SmallChatWorkspaceWindow >> headerLabel [
+	^ headerLabel
+]
+
+{ #category : 'initialization' }
+SmallChatWorkspaceWindow >> initializePresenters [
+	headerLabel := self newLabel label: 'TS workspace'; yourself.
+	pathLabel := self newLabel label: ''; yourself.
+	statusLabel := self newLabel label: 'ready'; yourself.
+	detachButton := self newButton
+		label: 'Detach';
+		action: [ self detachAndClose ];
+		yourself.
+	chatPlaceholder := self newPresenter.
+	chatPlaceholder layout: SpBoxLayout newTopToBottom
+]
+
+{ #category : 'accessing' }
+SmallChatWorkspaceWindow >> pathLabel [
+	^ pathLabel
+]
+
+{ #category : 'private' }
+SmallChatWorkspaceWindow >> refreshFromWorkspace [
+	"Update header/path labels from workspace. Called from workspace: setter
+	 once presenters are initialized."
+	workspace ifNil: [ ^ self ].
+	headerLabel ifNotNil: [ headerLabel label: 'TS workspace: ' , workspace name ].
+	pathLabel ifNotNil: [ pathLabel label: workspace path fullName ]
+]
+
+{ #category : 'accessing' }
+SmallChatWorkspaceWindow >> statusLabel [
+	^ statusLabel
+]
 
 { #category : 'accessing' }
 SmallChatWorkspaceWindow >> workspace [
@@ -22,5 +80,6 @@ SmallChatWorkspaceWindow >> workspace [
 
 { #category : 'accessing' }
 SmallChatWorkspaceWindow >> workspace: aWorkspace [
-	workspace := aWorkspace
+	workspace := aWorkspace.
+	headerLabel isNil ifFalse: [ self refreshFromWorkspace ]
 ]
