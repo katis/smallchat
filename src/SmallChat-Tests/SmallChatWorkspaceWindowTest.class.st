@@ -8,6 +8,21 @@ Class {
 	#package : 'SmallChat-Tests'
 }
 
+{ #category : 'helpers' }
+SmallChatWorkspaceWindowTest >> assertCenter: aForm closeTo: aColor [
+  "Form rendering quantises 8-bit channels so the centre pixel of a dot
+   drawn with aColor differs by ~0.001 -- assert RGB channels match within
+   a tolerance instead of exact equality, which would couple the test to
+   sRGB rounding choices that are not the contract."
+  | actual tolerance |
+  actual := aForm colorAt: 6@6.
+  tolerance := 0.02.
+  self assert: (actual red - aColor red) abs < tolerance description: 'red channel off'.
+  self assert: (actual green - aColor green) abs < tolerance description: 'green channel off'.
+  self assert: (actual blue - aColor blue) abs < tolerance description: 'blue channel off'.
+  self assert: actual alpha equals: 1.0
+]
+
 { #category : 'running' }
 SmallChatWorkspaceWindowTest >> setUp [
 	"Default tsgo launcher now spawns a real subprocess; these window tests only
@@ -246,6 +261,58 @@ SmallChatWorkspaceWindowTest >> testDirectoryPickerBlockSeamReturnsConfiguredVal
 	[ result := SmallChatWorkspaceWindow pickDirectory ]
 		ensure: [ SmallChatWorkspaceWindow resetDirectoryPickerBlock ].
 	self assert: result == sentinel
+]
+
+{ #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testDotFormForAwaitingHasAmberCenter [
+  "#awaiting renders as a solid amber/orange dot."
+  | f |
+  f := SmallChatWorkspaceWindow dotFormFor: #awaiting.
+  self assertCenter: f closeTo: Color orange
+]
+
+{ #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testDotFormForCancelledHasGreyCenter [
+  "#cancelled renders as a solid grey dot, distinct from the hollow #idle ring."
+  | f |
+  f := SmallChatWorkspaceWindow dotFormFor: #cancelled.
+  self assertCenter: f closeTo: Color gray
+]
+
+{ #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testDotFormForErroredHasRedCenter [
+  "#errored renders as a solid red dot."
+  | f |
+  f := SmallChatWorkspaceWindow dotFormFor: #errored.
+  self assertCenter: f closeTo: Color red
+]
+
+{ #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testDotFormForIdleHasTransparentCenter [
+  "#idle renders as a hollow ring -- the centre pixel is transparent so
+   the row background shows through. Pinned at the centre to survive
+   palette tweaks; the rim of the ring is rendered separately."
+  | f |
+  f := SmallChatWorkspaceWindow dotFormFor: #idle.
+  self assert: (f colorAt: 6@6) isTransparent
+]
+
+{ #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testDotFormForRunningHasGreenCenter [
+  "#running renders as a solid green dot."
+  | f |
+  f := SmallChatWorkspaceWindow dotFormFor: #running.
+  self assertCenter: f closeTo: Color green
+]
+
+{ #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testDotFormForUnknownFallsBackToIdle [
+  "Unknown symbols fall back to the #idle hollow form so a future state
+   added to the session domain does not crash the tree before the helper
+   is updated."
+  | f |
+  f := SmallChatWorkspaceWindow dotFormFor: #unknownSymbol.
+  self assert: (f colorAt: 6@6) isTransparent
 ]
 
 { #category : 'tests' }

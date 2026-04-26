@@ -20,7 +20,8 @@ Class {
 		'profileRegistry'
 	],
 	#classInstVars : [
-		'directoryPickerBlock'
+		'directoryPickerBlock',
+		'dotForms'
 	],
 	#category : 'SmallChat-LM',
 	#package : 'SmallChat-LM'
@@ -38,6 +39,61 @@ SmallChatWorkspaceWindow class >> directoryPickerBlock [
 { #category : 'picker' }
 SmallChatWorkspaceWindow class >> directoryPickerBlock: aBlock [
 	directoryPickerBlock := aBlock
+]
+
+{ #category : 'dot rendering' }
+SmallChatWorkspaceWindow class >> dotFormFor: aStatusSymbol [
+  "Return the 12x12 dot Form for aStatusSymbol. Unknown symbols fall back
+   to the #idle hollow form so the tree stays renderable when the session
+   domain grows a new state ahead of the helper."
+  ^ self dotForms at: aStatusSymbol ifAbsent: [ self dotForms at: #idle ]
+]
+
+{ #category : 'dot rendering' }
+SmallChatWorkspaceWindow class >> dotForms [
+  "Lazy {status -> Form} map keyed by the five session lifecycle symbols.
+   The #idle entry is a hollow grey ring; the others are solid filled
+   circles. Built once on first access; tests reset via #resetDotForms.
+   ASCII rule: glyphs are constructed at runtime, never typed as Unicode
+   literals in source."
+  ^ dotForms ifNil: [
+    dotForms := Dictionary new.
+    dotForms at: #idle put: self hollowBuilder value.
+    dotForms at: #running put: (self fillBuilder value: Color green).
+    dotForms at: #awaiting put: (self fillBuilder value: Color orange).
+    dotForms at: #errored put: (self fillBuilder value: Color red).
+    dotForms at: #cancelled put: (self fillBuilder value: Color gray).
+    dotForms ]
+]
+
+{ #category : 'dot rendering' }
+SmallChatWorkspaceWindow class >> fillBuilder [
+  "Block returning a solid-coloured 12x12 oval Form for a given Color.
+   Internal helper for #dotForms construction. Drawing happens at runtime
+   so no Unicode glyph literals appear in source."
+  ^ [ :colour |
+    | f canvas |
+    f := Form extent: 12@12 depth: 32.
+    canvas := f getCanvas.
+    canvas fillOval: (1@1 corner: 11@11) color: colour.
+    f ]
+]
+
+{ #category : 'dot rendering' }
+SmallChatWorkspaceWindow class >> hollowBuilder [
+  "Block returning a hollow ring (outline only) Form. Used for the #idle
+   dot so the row background shows through and the cancelled dot stays
+   visually distinct."
+  ^ [
+    | f canvas |
+    f := Form extent: 12@12 depth: 32.
+    canvas := f getCanvas.
+    canvas
+      drawOval: (1@1 corner: 11@11)
+      color: Color transparent
+      borderWidth: 1
+      borderColor: Color gray.
+    f ]
 ]
 
 { #category : 'world menu' }
@@ -104,6 +160,13 @@ SmallChatWorkspaceWindow class >> pickDirectory [
 { #category : 'picker' }
 SmallChatWorkspaceWindow class >> resetDirectoryPickerBlock [
 	directoryPickerBlock := nil
+]
+
+{ #category : 'dot rendering' }
+SmallChatWorkspaceWindow class >> resetDotForms [
+  "Drop the cached dot Forms so the next #dotForms call rebuilds. Test
+   seam (palette tweaks during a green run) and tearDown safety."
+  dotForms := nil
 ]
 
 { #category : 'accessing' }
