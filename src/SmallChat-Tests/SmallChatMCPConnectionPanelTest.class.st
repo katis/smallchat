@@ -52,6 +52,28 @@ SmallChatMCPConnectionPanelTest >> recordNamed: aName output: aResult isError: a
     ^ SmallChatMCPCallRecord from: req response: resp durationMs: 1
 ]
 
+{ #category : 'helpers' }
+SmallChatMCPConnectionPanelTest >> recordWithArguments: anArgsDict [
+    | req resp |
+    req := Dictionary new
+        at: 'method' put: 'tools/call';
+        at: 'id' put: 1;
+        at: 'params' put: (Dictionary new
+            at: 'name' put: 'eval.smalltalk';
+            at: 'arguments' put: anArgsDict;
+            yourself);
+        yourself.
+    resp := Dictionary new
+        at: 'result' put: (Dictionary new
+            at: 'content' put: { Dictionary new
+                at: 'type' put: 'text';
+                at: 'text' put: 'ok';
+                yourself };
+            yourself);
+        yourself.
+    ^ SmallChatMCPCallRecord from: req response: resp durationMs: 1
+]
+
 { #category : 'tests' }
 SmallChatMCPConnectionPanelTest >> testCleanupUnsubscribesFromAnnouncer [
     | conn r announcer panel |
@@ -99,6 +121,56 @@ SmallChatMCPConnectionPanelTest >> testIgnoresAnnouncementsForOtherConnection [
 ]
 
 { #category : 'tests' }
+SmallChatMCPConnectionPanelTest >> testInputRendersEmptyArgumentsAsPlaceholder [
+    | conn record panel |
+    conn := SmallChatMCPConnection on: Object new.
+    record := self recordWithArguments: Dictionary new.
+    conn calls add: record.
+    panel := self panelOn: conn announcer: Announcer new.
+    panel selectRecord: record.
+    self assert: (panel inputText text asLowercase includesSubstring: 'no arguments')
+]
+
+{ #category : 'tests' }
+SmallChatMCPConnectionPanelTest >> testInputRendersMultilineCodeWithRealNewlines [
+    | conn record panel text |
+    conn := SmallChatMCPConnection on: Object new.
+    record := self recordWithArguments: (Dictionary new
+        at: 'code' put: '| x |
+x := 3 + 4.
+x factorial';
+        yourself).
+    conn calls add: record.
+    panel := self panelOn: conn announcer: Announcer new.
+    panel selectRecord: record.
+    text := panel inputText text.
+    self assert: (text includesSubstring: 'code:').
+    self assert: (text includesSubstring: '| x |').
+    self assert: (text includesSubstring: 'x := 3 + 4.').
+    self assert: (text includesSubstring: 'x factorial').
+    self deny: (text includesSubstring: '\n'). "no literal escaped newlines"
+    self deny: (text includesSubstring: '\"'). "no escaped quotes"
+]
+
+{ #category : 'tests' }
+SmallChatMCPConnectionPanelTest >> testInputRendersMultipleArgumentsOnSeparateLines [
+    | conn record panel text |
+    conn := SmallChatMCPConnection on: Object new.
+    record := self recordWithArguments: (Dictionary new
+        at: 'packagePattern' put: 'SmallChat.*';
+        at: 'testPattern' put: 'Foo';
+        yourself).
+    conn calls add: record.
+    panel := self panelOn: conn announcer: Announcer new.
+    panel selectRecord: record.
+    text := panel inputText text.
+    self assert: (text includesSubstring: 'packagePattern:').
+    self assert: (text includesSubstring: 'SmallChat.*').
+    self assert: (text includesSubstring: 'testPattern:').
+    self assert: (text includesSubstring: 'Foo')
+]
+
+{ #category : 'tests' }
 SmallChatMCPConnectionPanelTest >> testListsExistingCalls [
     | conn r1 r2 panel |
     conn := SmallChatMCPConnection on: Object new.
@@ -136,6 +208,7 @@ SmallChatMCPConnectionPanelTest >> testSelectionUpdatesInputAndOutput [
     conn calls add: r1.
     panel := self panelOn: conn announcer: Announcer new.
     panel selectRecord: r1.
-    self assert: panel inputText text equals: r1 argumentsJson.
+    self assert: (panel inputText text includesSubstring: 'arg:').
+    self assert: (panel inputText text includesSubstring: 'eval.smalltalk').
     self assert: panel outputText text equals: '42'
 ]

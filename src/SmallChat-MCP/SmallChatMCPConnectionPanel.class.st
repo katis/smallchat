@@ -66,6 +66,30 @@ SmallChatMCPConnectionPanel >> defaultLayout [
 ]
 
 { #category : 'private' }
+SmallChatMCPConnectionPanel >> formatInputFor: aRecord [
+    "Render argumentsJson as readable text. The common single-string-arg
+     shape (e.g. eval.smalltalk { code: '...' }) shows the value with
+     its embedded line breaks intact -- not as a JSON-escaped one-liner.
+     Multi-arg shapes render each entry as ``key:\\n<value>' separated
+     by a blank line, sorted by key for stable output. Falls back to the
+     raw JSON if parsing fails or the value is not a Dictionary."
+    | dict keys |
+    dict := [ STONJSON fromString: aRecord argumentsJson ]
+        on: Error
+        do: [ :_ | ^ aRecord argumentsJson ].
+    (dict isKindOf: Dictionary) ifFalse: [ ^ aRecord argumentsJson ].
+    dict isEmpty ifTrue: [ ^ '(no arguments)' ].
+    keys := dict keys asSortedCollection asArray.
+    ^ String streamContents: [ :s |
+        keys doWithIndex: [ :k :i |
+            i > 1 ifTrue: [ s nextPut: Character lf; nextPut: Character lf ].
+            s nextPutAll: k asString.
+            s nextPut: $:.
+            s nextPut: Character lf.
+            self renderValue: (dict at: k) on: s ] ]
+]
+
+{ #category : 'private' }
 SmallChatMCPConnectionPanel >> handleRecorded: anAnnouncement [
     callList items: connection calls asArray.
     callList selectItem: anAnnouncement record
@@ -114,6 +138,16 @@ SmallChatMCPConnectionPanel >> refreshFromConnection [
     outputText text: ''
 ]
 
+{ #category : 'private' }
+SmallChatMCPConnectionPanel >> renderValue: aValue on: aStream [
+    "String values render verbatim so embedded newlines stay newlines.
+     Other values fall back to printString -- numbers, booleans, nested
+     dicts/arrays land readable enough."
+    aValue isString ifTrue: [
+        ^ aStream nextPutAll: aValue ].
+    aStream print: aValue
+]
+
 { #category : 'binding' }
 SmallChatMCPConnectionPanel >> selectRecord: aRecord [
     "Test seam: programmatically select a record and update the input/
@@ -134,7 +168,7 @@ SmallChatMCPConnectionPanel >> showRecord: aRecordOrNil [
         inputText text: ''.
         outputText text: ''.
         ^ self ].
-    inputText text: aRecordOrNil argumentsJson.
+    inputText text: (self formatInputFor: aRecordOrNil).
     outputText text: (aRecordOrNil isError
         ifTrue: [ '[error] ' , aRecordOrNil resultText ]
         ifFalse: [ aRecordOrNil resultText ])
