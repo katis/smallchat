@@ -278,6 +278,24 @@ SmallChatLMSessionTest >> testSendUserInputStopsAfterToolIterationBudget [
 ]
 
 { #category : 'tests' }
+SmallChatLMSessionTest >> testSendUserInputTransitionsRunningThenIdle [
+  "Driving a turn through to a non-tool-calling reply must transition the
+   session #idle -> #running -> #idle. The agent tree subscribes to the
+   announcer to refresh its dot when the session moves out of #idle and
+   back, so the sequence ordering is the contract this test pins."
+  | session sequence reply |
+  session := self sessionWithCannedReply: 'hello back'.
+  sequence := OrderedCollection new.
+  session announcer
+    when: SmallChatLMSessionStatusChanged
+    do: [ :a | sequence add: a status ]
+    for: self.
+  reply := session sendUserInput: 'hi'.
+  self assert: reply content equals: 'hello back'.
+  self assert: sequence asArray equals: #(#running #idle)
+]
+
+{ #category : 'tests' }
 SmallChatLMSessionTest >> testSessionInitializesWithChatClient [
 	self assert: SmallChatLMSession new client class equals: SmallChatLMChatClient
 ]
