@@ -18,6 +18,51 @@ SmallChatTsNavTest >> tearDown [
 ]
 
 { #category : 'tests' }
+SmallChatTsNavTest >> testCodeActionsListAndApply [
+	"codeActionsAt:line:character: issues textDocument/codeAction and renders
+	 each action with [N] title (kind). The actions are remembered by
+	 1-based index so applyCodeAction: can resolve them; apply runs the
+	 WorkspaceEdit through SmallChatWorkspaceEditApplier and reports success."
+	| fs root file uri stub ws actions listOut applied |
+	fs := FileSystem memory.
+	root := fs / 'project'.
+	root ensureCreateDirectory.
+	file := root / 'a.ts'.
+	file writeStreamDo: [ :s | s nextPutAll: 'const x = 1;' ].
+	uri := 'file://' , file fullName.
+	actions := Array with: (Dictionary new
+		at: 'title' put: 'Add comment';
+		at: 'kind' put: 'quickfix';
+		at: 'edit' put: (Dictionary new
+			at: 'changes' put: (Dictionary new
+				at: uri put: (Array with: (Dictionary new
+					at: 'range' put: (Dictionary new
+						at: 'start' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 12; yourself);
+						at: 'end' put: (Dictionary new at: 'line' put: 0; at: 'character' put: 12; yourself);
+						yourself);
+					at: 'newText' put: ' /* fix */';
+					yourself));
+				yourself);
+			yourself);
+		yourself).
+	stub := SmallChatStubLSPClient new
+		cannedResponse: 'textDocument/codeAction' is: actions;
+		yourself.
+	ws := SmallChatTsWorkspace new
+		name: 'fixture';
+		path: root;
+		lspClient: stub;
+		yourself.
+	SmallChatTsNav currentWorkspace: ws.
+	listOut := SmallChatTsNav codeActionsAt: 'a.ts' line: 0 character: 5.
+	self assert: (listOut includesSubstring: 'Add comment').
+	self assert: (listOut includesSubstring: '[1]').
+	applied := SmallChatTsNav applyCodeAction: 1.
+	self assert: (applied includesSubstring: 'success').
+	self assert: (file readStreamDo: [ :s | s upToEnd ]) equals: 'const x = 1; /* fix */'
+]
+
+{ #category : 'tests' }
 SmallChatTsNavTest >> testDiagnosticsForRendersLspItems [
 	"diagnosticsFor: opens the workspace-relative file on the LSP client and
 	 issues textDocument/diagnostic. The canned response yields one Diagnostic

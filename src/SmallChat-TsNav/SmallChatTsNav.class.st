@@ -12,6 +12,70 @@ Class {
 	#package : 'SmallChat-TsNav'
 }
 
+{ #category : 'lsp' }
+SmallChatTsNav class >> applyCodeAction: anIndex [
+	"Apply the anIndex-th action from the last codeActionsAt: response.
+	 Indexes are 1-based. Runs the LSP WorkspaceEdit through the workspace's
+	 file system and reimports the changed URIs into the cached Famix model."
+	^ self withWorkspaceDo: [ :ws | self applyCodeAction: anIndex inWorkspace: ws ]
+]
+
+{ #category : 'private' }
+SmallChatTsNav class >> applyCodeAction: anIndex inWorkspace: aWs [
+	| action edit applier result |
+	(lastCodeActions isNil or: [ anIndex < 1 or: [ anIndex > lastCodeActions size ] ])
+		ifTrue: [ ^ '_no code action at index ' , anIndex printString ,
+			'. Run codeActionsAt:line:character: first._' ].
+	action := lastCodeActions at: anIndex.
+	edit := action at: 'edit' ifAbsent: [ nil ].
+	edit ifNil: [ ^ '_action requires LSP resolve / command -- not yet supported_' ].
+	applier := SmallChatWorkspaceEditApplier new fileSystem: aWs path fileSystem; yourself.
+	result := applier applyWorkspaceEdit: edit.
+	result isSuccess ifFalse: [
+		^ '_code action failed: ' , (result errorReason ifNil: [ '<unknown>' ]) , '_' ].
+	(edit at: 'changes' ifAbsent: [ Dictionary new ]) keysDo: [ :uri | | rel file |
+		rel := self relativePathFor: uri inWorkspace: aWs.
+		file := aWs path / rel.
+		file exists ifTrue: [
+			aWs reimportUri: uri text: (file readStreamDo: [ :s | s upToEnd ]) ] ].
+	^ 'code action success: ' , (action at: 'title' ifAbsent: [ '<unnamed>' ])
+]
+
+{ #category : 'lsp' }
+SmallChatTsNav class >> codeActionsAt: aRelPath line: aLine character: aChar [
+	"Issue textDocument/codeAction at the LSP {line, character} position
+	 inside aRelPath. Renders the response as `[N] title (kind)` rows and
+	 stores the actions class-side so applyCodeAction: can resolve them
+	 by 1-based index."
+	^ self withWorkspaceDo: [ :ws | self codeActionsAt: aRelPath line: aLine character: aChar inWorkspace: ws ]
+]
+
+{ #category : 'private' }
+SmallChatTsNav class >> codeActionsAt: aRelPath line: aLine character: aChar inWorkspace: aWs [
+	| client file uri text actions |
+	client := aWs lspClient.
+	client ifNil: [ ^ '_no LSP client on workspace_' ].
+	file := aWs path / aRelPath.
+	file exists ifFalse: [ ^ '_file not found: ' , aRelPath , '_' ].
+	uri := 'file://' , file fullName.
+	text := file readStreamDo: [ :s | s upToEnd ].
+	client openDocumentUri: uri languageId: (self languageIdForPath: aRelPath) text: text.
+	actions := client request: (Dictionary new
+		at: 'method' put: 'textDocument/codeAction';
+		at: 'params' put: (Dictionary new
+			at: 'textDocument' put: (Dictionary new at: 'uri' put: uri; yourself);
+			at: 'range' put: (Dictionary new
+				at: 'start' put: (Dictionary new at: 'line' put: aLine; at: 'character' put: aChar; yourself);
+				at: 'end' put: (Dictionary new at: 'line' put: aLine; at: 'character' put: aChar; yourself);
+				yourself);
+			at: 'context' put: (Dictionary new at: 'diagnostics' put: #(); yourself);
+			yourself);
+		yourself) onDocumentUri: uri.
+	(actions isNil or: [ actions isEmpty ]) ifTrue: [ ^ '_no code actions available_' ].
+	lastCodeActions := actions asArray.
+	^ self renderCodeActions: lastCodeActions
+]
+
 { #category : 'workspace binding' }
 SmallChatTsNav class >> currentWorkspace [
 	"The TS workspace this evaluate call is operating against. Set by
@@ -310,6 +374,19 @@ SmallChatTsNav class >> renameSymbolInFile: aRelPath line: aLine character: aCha
 	 success, reads the post-edit content from disk and refreshes the cached
 	 Famix model so a subsequent findSymbol: sees the new name."
 	^ self withWorkspaceDo: [ :ws | self rename: aRelPath line: aLine character: aChar to: aNewName inWorkspace: ws ]
+]
+
+{ #category : 'private' }
+SmallChatTsNav class >> renderCodeActions: actions [
+	^ String streamContents: [ :s | | i |
+		i := 0.
+		actions do: [ :a | | title kind |
+			i := i + 1.
+			title := a at: 'title' ifAbsent: [ '<unnamed>' ].
+			kind := a at: 'kind' ifAbsent: [ nil ].
+			s nextPutAll: '[' ; print: i; nextPutAll: '] '; nextPutAll: title.
+			kind ifNotNil: [ s nextPutAll: ' ('; nextPutAll: kind; nextPut: $) ].
+			s lf ] ]
 ]
 
 { #category : 'private' }
