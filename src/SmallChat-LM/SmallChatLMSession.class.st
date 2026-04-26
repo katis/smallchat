@@ -62,15 +62,18 @@ SmallChatLMSession >> applyProfile: aProfile [
 
 { #category : 'cancellation' }
 SmallChatLMSession >> cancelInFlight [
-  "Cancel every tracked LSP pending request first so the server sees
-   $/cancelRequest while the worker is still parked on its result wait,
-   then terminate any worker process #trackInFlight: was told about."
-  self lspPendings asArray do: [ :p |
-    [ p cancel ] on: Error do: [ :_ | "best-effort cancel" ] ].
-  self lspPendings removeAll: self lspPendings asArray.
-  self inFlightWorkers asArray do: [ :p |
-    p isTerminated ifFalse: [ p terminate ].
-    self untrackInFlight: p ]
+	"Cancel every tracked LSP pending request first so the server sees
+	 $/cancelRequest while the worker is still parked on its result wait,
+	 then terminate any worker process #trackInFlight: was told about, then
+	 transition to #cancelled. Status flips last so any in-flight worker
+	 racing to set #running on its way out cannot bring the dot back."
+	self lspPendings asArray do: [ :p |
+		[ p cancel ] on: Error do: [ :_ | "best-effort cancel" ] ].
+	self lspPendings removeAll: self lspPendings asArray.
+	self inFlightWorkers asArray do: [ :p |
+		p isTerminated ifFalse: [ p terminate ].
+		self untrackInFlight: p ].
+	self status: #cancelled
 ]
 
 { #category : 'accessing' }

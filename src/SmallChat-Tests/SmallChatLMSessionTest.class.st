@@ -123,6 +123,21 @@ SmallChatLMSessionTest >> testCancelInFlightTerminatesWorker [
 ]
 
 { #category : 'tests' }
+SmallChatLMSessionTest >> testCancelInFlightTransitionsToCancelled [
+  "Closing a window calls cancelInFlight on each session; the dot must
+   move to #cancelled so a stopped row is visually distinct from a fresh
+   #idle one."
+  | session worker |
+  session := SmallChatLMSession new.
+  worker := [ (Delay forSeconds: 60) wait ] newProcess.
+  session trackInFlight: worker.
+  worker resume.
+  session status: #running.
+  session cancelInFlight.
+  self assert: session status equals: #cancelled
+]
+
+{ #category : 'tests' }
 SmallChatLMSessionTest >> testConversationSeededWithDefaultPharoWorkspacePrompt [
 	"#initialize binds the always-mounted Pharo workspace, which seeds the
 	 conversation with that workspace's defaultSystemPrompt. Pin the
