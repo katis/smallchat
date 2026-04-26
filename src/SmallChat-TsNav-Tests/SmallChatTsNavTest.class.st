@@ -75,6 +75,32 @@ SmallChatTsNavTest >> testFindSymbolMatchesByName [
 ]
 
 { #category : 'tests' }
+SmallChatTsNavTest >> testGrepFindsMatchingLines [
+	"grep:in: regex-searches the Famix-known files matching the glob,
+	 returning path:line:text rows. Files outside the glob are skipped;
+	 lines that don't match are dropped."
+	| fs root ws out |
+	fs := FileSystem memory.
+	root := fs / 'project'.
+	root ensureCreateDirectory.
+	(root / 'a.module.css') writeStreamDo: [ :s |
+		s nextPutAll: '.alpha { }'; lf;
+		  nextPutAll: '.beta { }'; lf;
+		  nextPutAll: '.gamma { }'; lf ].
+	(root / 'b.module.css') writeStreamDo: [ :s |
+		s nextPutAll: '.beta { }'; lf ].
+	ws := SmallChatTsWorkspace new
+		name: 'fixture';
+		path: root;
+		yourself.
+	SmallChatTsNav currentWorkspace: ws.
+	out := SmallChatTsNav grep: 'beta' in: '*.module.css'.
+	self assert: (out includesSubstring: 'a.module.css').
+	self assert: (out includesSubstring: 'b.module.css').
+	self deny: (out includesSubstring: 'gamma')
+]
+
+{ #category : 'tests' }
 SmallChatTsNavTest >> testReadFileReturnsFencedContent [
 	"readFile: resolves a workspace-relative path against the workspace path
 	 and returns the content fenced with the matching code-fence language

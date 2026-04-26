@@ -40,15 +40,7 @@ SmallChatTsNav class >> findFiles: aGlob [
 
 { #category : 'private' }
 SmallChatTsNav class >> findFilesInWorkspace: aWs matching: aGlob [
-	| model uris paths matcher matches |
-	model := aWs famixModel.
-	uris := Set new.
-	(model allWithType: SmallChatFamixModule) do: [ :m | uris add: m sourceAnchor fileUri ].
-	(model allWithType: SmallChatFamixCSSModuleFile) do: [ :m | uris add: m sourceAnchor fileUri ].
-	paths := (uris collect: [ :u | self relativePathFor: u inWorkspace: aWs ]) asSortedCollection asArray.
-	matcher := RxMatcher forString: (self regexForGlob: aGlob).
-	matches := paths select: [ :p | matcher matches: p ].
-	^ self renderPathList: matches
+	^ self renderPathList: (self relativePathsInWorkspace: aWs matching: aGlob)
 ]
 
 { #category : 'discovery' }
@@ -82,6 +74,32 @@ SmallChatTsNav class >> findSymbol: aPattern inWorkspace: aWs [
 			(e name notNil and: [ matcher search: e name ])
 				ifTrue: [ matches add: e ] ] ].
 	^ self renderSymbolMatches: matches inWorkspace: aWs
+]
+
+{ #category : 'discovery' }
+SmallChatTsNav class >> grep: aPattern in: aGlob [
+	"Regex-search the Famix-known files matching aGlob; render rows as
+	 `path:line: text`. Lines are read through the workspace path so memory-
+	 FS fixtures work. Per-file capping happens through SmallChatNavBudget on
+	 the rendered output."
+	^ self withWorkspaceDo: [ :ws | self grep: aPattern in: aGlob inWorkspace: ws ]
+]
+
+{ #category : 'private' }
+SmallChatTsNav class >> grep: aPattern in: aGlob inWorkspace: aWs [
+	| matcher rels results |
+	matcher := RxMatcher forString: aPattern.
+	rels := self relativePathsInWorkspace: aWs matching: aGlob.
+	results := OrderedCollection new.
+	rels do: [ :rel |
+		| file text |
+		file := aWs path / rel.
+		file exists ifTrue: [
+			text := file readStreamDo: [ :s | s upToEnd ].
+			text lines withIndexDo: [ :line :lineNo |
+				(matcher search: line) ifTrue: [
+					results add: { rel. lineNo. line trimRight } ] ] ] ].
+	^ self renderGrepResults: results
 ]
 
 { #category : 'private' }
@@ -173,6 +191,38 @@ SmallChatTsNav class >> relativePathFor: aUri inWorkspace: aWs [
 	^ (aUri beginsWith: rootPrefix)
 		ifTrue: [ aUri copyFrom: rootPrefix size + 1 to: aUri size ]
 		ifFalse: [ aUri ]
+]
+
+{ #category : 'private' }
+SmallChatTsNav class >> relativePathsInWorkspace: aWs matching: aGlob [
+	"Workspace-relative paths from the Famix model whose tail matches aGlob.
+	 Shared by findFiles: (rendering) and grep:in: (scoping)."
+	| model uris matcher paths |
+	model := aWs famixModel.
+	uris := Set new.
+	(model allWithType: SmallChatFamixModule) do: [ :m | uris add: m sourceAnchor fileUri ].
+	(model allWithType: SmallChatFamixCSSModuleFile) do: [ :m | uris add: m sourceAnchor fileUri ].
+	matcher := RxMatcher forString: (self regexForGlob: aGlob).
+	paths := (uris collect: [ :u | self relativePathFor: u inWorkspace: aWs ]) asSortedCollection asArray.
+	^ paths select: [ :p | matcher matches: p ]
+]
+
+{ #category : 'private' }
+SmallChatTsNav class >> renderGrepResults: triples [
+	triples isEmpty ifTrue: [ ^ '_no matches_' ].
+	^ String streamContents: [ :s | | shown limit |
+		shown := 0.
+		limit := SmallChatNavBudget default size.
+		triples do: [ :triple |
+			s position < limit ifTrue: [
+				s nextPutAll: '`'; nextPutAll: triple first;
+				  nextPutAll: ':'; print: triple second;
+				  nextPutAll: '`: '; nextPutAll: triple third; lf.
+				shown := shown + 1 ] ].
+		shown < triples size ifTrue: [
+			s nextPutAll: '_'; print: triples size;
+			  nextPutAll: ' matches; showing first '; print: shown;
+			  nextPutAll: '._'; lf ] ]
 ]
 
 { #category : 'private' }
