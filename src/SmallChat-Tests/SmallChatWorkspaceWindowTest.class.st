@@ -27,6 +27,24 @@ SmallChatWorkspaceWindowTest >> testAttachOnPathAttachesAndMounts [
 ]
 
 { #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testAttachOnPharoWorkspaceBindsDefaultPharoWorkspace [
+	"The class-side launcher for the always-mounted Pharo workspace must
+	 bind to SmallChatPharoWorkspace default (no fresh mount -- Pharo is
+	 always in the registry) and install a chat panel scoped to it. The
+	 LM then sees the full pharo capability set: eval/debug/vcs/workspace."
+	| window panel session |
+	window := SmallChatWorkspaceWindow new
+		attachOnPharoWorkspace;
+		yourself.
+	self assert: window workspace == SmallChatPharoWorkspace default.
+	panel := window chatPlaceholder.
+	self assert: (panel isKindOf: SmallChatLMChatPanel).
+	session := panel session.
+	self assert: session workspace == SmallChatPharoWorkspace default.
+	self assert: session client toolCatalog workspace == SmallChatPharoWorkspace default
+]
+
+{ #category : 'tests' }
 SmallChatWorkspaceWindowTest >> testAttachOnSamePathReusesMountedWorkspace [
 	| registry w1 w2 prior |
 	registry := SmallChatCapabilityRegistry new.
@@ -127,4 +145,19 @@ SmallChatWorkspaceWindowTest >> testWorkspaceAccessorRoundTrip [
 	window := SmallChatWorkspaceWindow new.
 	window workspace: ws.
 	self assert: window workspace == ws
+]
+
+{ #category : 'tests' }
+SmallChatWorkspaceWindowTest >> testWorldMenuExposesPharoWorkspaceLauncher [
+	"There must be a <worldMenu> entry that opens a Pharo-flavoured
+	 workspace window. Verified by enumerating menu items the way
+	 PragmaMenuBuilder would assemble them."
+	| builder labels hasPharoEntry |
+	builder := PragmaMenuBuilder pragmaKeyword: #worldMenu model: Object new.
+	SmallChatWorkspaceWindow class methods do: [ :m |
+		(m pragmas anySatisfy: [ :p | p selector = #worldMenu ]) ifTrue: [
+			SmallChatWorkspaceWindow perform: m selector with: builder ] ].
+	labels := builder itemList collect: [ :item | item name asString ].
+	hasPharoEntry := labels anySatisfy: [ :l | l asLowercase includesSubstring: 'pharo' ].
+	self assert: hasPharoEntry description: 'world menu must include a Pharo-workspace launcher; got: ' , labels printString
 ]

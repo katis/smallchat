@@ -70,6 +70,28 @@ SmallChatWorkspaceWindow class >> openOnPath: aPath name: aNameOrNil [
 		yourself
 ]
 
+{ #category : 'opening' }
+SmallChatWorkspaceWindow class >> openOnPharoWorkspace [
+	"Build a workspace window bound to the always-mounted Pharo workspace
+	 and open it. Used by the world-menu launcher and by callers that want
+	 to chat with the live image (eval/debug/vcs tools all available)."
+	^ self new
+		attachOnPharoWorkspace;
+		open;
+		yourself
+]
+
+{ #category : 'world menu' }
+SmallChatWorkspaceWindow class >> pharoWorkspaceMenuCommandOn: aBuilder [
+	<worldMenu>
+	(aBuilder item: #'smallchat pharo image')
+		parent: #Tools;
+		order: 102;
+		help: 'Open a workspace window bound to the always-mounted Pharo workspace';
+		icon: (self iconNamed: #smallConfiguration);
+		action: [ UIManager default defer: [ self openOnPharoWorkspace ] ]
+]
+
 { #category : 'picker' }
 SmallChatWorkspaceWindow class >> pickDirectory [
 	"Pop the directory picker. Returns the FileReference the user chose,
@@ -100,6 +122,19 @@ SmallChatWorkspaceWindow >> attachOnPath: aPath name: aNameOrNil [
 			registry mountWorkspace: fresh.
 			fresh ]
 		ifNotNil: [ existing ].
+	self workspace: ws.
+	self installChatPanelFor: ws.
+	^ self
+]
+
+{ #category : 'lifecycle' }
+SmallChatWorkspaceWindow >> attachOnPharoWorkspace [
+	"Bind this window to the always-mounted Pharo workspace and install a
+	 chat panel scoped to it. No registry mount is needed -- Pharo is in
+	 mountedWorkspaces from registry construction. Returns self for
+	 chaining."
+	| ws |
+	ws := SmallChatPharoWorkspace default.
 	self workspace: ws.
 	self installChatPanelFor: ws.
 	^ self
@@ -195,10 +230,17 @@ SmallChatWorkspaceWindow >> pathLabel [
 { #category : 'private' }
 SmallChatWorkspaceWindow >> refreshFromWorkspace [
 	"Update header/path labels from workspace. Called from workspace: setter
-	 once presenters are initialized."
+	 once presenters are initialized. Pharo-flavoured workspaces have no
+	 filesystem path -- their pathLabel reads empty."
 	workspace ifNil: [ ^ self ].
-	headerLabel ifNotNil: [ headerLabel label: 'TS workspace: ' , workspace name ].
-	pathLabel ifNotNil: [ pathLabel label: workspace path fullName ]
+	headerLabel ifNotNil: [
+		headerLabel label: (workspace kind = #pharo
+			ifTrue: [ 'Pharo workspace: ' , workspace name ]
+			ifFalse: [ 'TS workspace: ' , workspace name ]) ].
+	pathLabel ifNotNil: [
+		pathLabel label: ((workspace respondsTo: #path)
+			ifTrue: [ workspace path fullName ]
+			ifFalse: [ '' ]) ]
 ]
 
 { #category : 'accessing' }
