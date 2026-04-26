@@ -42,7 +42,7 @@ BaselineOfSmallChat >> baseline: spec [
 			package: 'SmallChat-Famix-Tests'      with: [ spec requires: #('SmallChat-Famix' 'SmallChat-Tests') ];
 			package: 'SmallChat-Famix-Importer-Tests' with: [ spec requires: #('SmallChat-Famix-Importer' 'SmallChat-Tests') ];
 			package: 'SmallChat-Refactoring-Tests' with: [ spec requires: #('SmallChat-Refactoring' 'SmallChat-Tests') ];
-			package: 'SmallChat-TsNav-Tests'      with: [ spec requires: #('SmallChat-TsNav' 'SmallChat-Tests') ].
+			package: 'SmallChat-TsNav-Tests'      with: [ spec requires: #('SmallChat-TsNav' 'SmallChat-Tests' 'SmallChat-Refactoring-Tests') ].
 		spec
 			"All bindings (TreeSitter, Famix) load in default so just test exercises
 			 them for real. Leaving a binding out lets isAvailable-guarded tests
