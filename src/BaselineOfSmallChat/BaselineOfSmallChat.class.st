@@ -26,7 +26,7 @@ BaselineOfSmallChat >> baseline: spec [
 			package: 'SmallChat-Workspace'        with: [ spec requires: #('SmallChat' 'SmallChat-LSP') ];
 			package: 'SmallChat-Capability'       with: [ spec requires: #('SmallChat' 'SmallChat-Workspace') ];
 			package: 'SmallChat-MCP'              with: [ spec requires: #('SmallChat' 'SmallChat-Capability') ];
-			package: 'SmallChat-LM'               with: [ spec requires: #('SmallChat' 'SmallChat-MCP' 'SmallChat-Capability') ];
+			package: 'SmallChat-LM'               with: [ spec requires: #('SmallChat' 'SmallChat-Capability') ];
 			package: 'SmallChat-LSP'              with: [ spec requires: #('SmallChat') ];
 			package: 'SmallChat-TreeSitter'       with: [ spec requires: #('SmallChat') ];
 			package: 'SmallChat-Famix'            with: [ spec requires: #('SmallChat' 'SmallChat-TreeSitter') ];
