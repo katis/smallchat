@@ -13,6 +13,14 @@ SmallChatWorkspaceListCapability class >> capabilityName [ ^ 'workspace.list'
 SmallChatWorkspaceListCapability class >> description [ ^ 'List all workspaces mounted on this session. Returns {current, mounted[]}; current names the workspace dispatch defaults to.'
 ]
 
+{ #category : 'metadata' }
+SmallChatWorkspaceListCapability class >> isLmFacing [
+	"Workspace mount/list/detach are transport-facing only -- the in-image
+	 agent cannot change its bound workspace mid-session, so exposing these
+	 to the LM only invites confused calls. MCP still sees them."
+	^ false
+]
+
 { #category : 'execution' }
 SmallChatWorkspaceListCapability class >> run: aCapabilityCall [
 	| registry mounted |

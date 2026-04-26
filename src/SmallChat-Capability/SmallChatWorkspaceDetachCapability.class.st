@@ -17,6 +17,14 @@ SmallChatWorkspaceDetachCapability class >> description [ ^ 'Detach a TS workspa
 SmallChatWorkspaceDetachCapability class >> errorResult: aString [ ^ SmallChatCapabilityResult error: aString
 ]
 
+{ #category : 'metadata' }
+SmallChatWorkspaceDetachCapability class >> isLmFacing [
+	"Workspace mount/list/detach are transport-facing only -- the in-image
+	 agent cannot change its bound workspace mid-session, so exposing these
+	 to the LM only invites confused calls. MCP still sees them."
+	^ false
+]
+
 { #category : 'execution' }
 SmallChatWorkspaceDetachCapability class >> run: aCapabilityCall [
 	| name registry ws |

@@ -34,13 +34,15 @@ SmallChatLMCapabilityCatalog class >> reset [
 { #category : 'accessing' }
 SmallChatLMCapabilityCatalog >> toolSchemas [
 	"One OpenAI-function schema per registered production capability whose
-	 supportedWorkspaces lists this catalog's workspace kind. Test fixtures
-	 (#isTestFixture true) are filtered out so they never reach the LM.
-	 Returned as Array (STONJSON requires Array, not OrderedCollection)."
+	 supportedWorkspaces lists this catalog's workspace kind AND whose
+	 isLmFacing returns true. Test fixtures (#isTestFixture true) and
+	 transport-only capabilities (workspace.list / attach-ts / detach) are
+	 filtered out so they never reach the LM. Returned as Array (STONJSON
+	 requires Array, not OrderedCollection)."
 	| kind |
 	kind := workspace kind.
 	^ (((SmallChatCapabilityRegistry default allCapabilities
-		reject: [ :cap | cap isTestFixture ])
+		reject: [ :cap | cap isTestFixture or: [ cap isLmFacing not ] ])
 		select: [ :cap | cap supportedWorkspaces includes: kind ])
 		collect: [ :cap |
 			cap schema

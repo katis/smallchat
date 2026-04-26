@@ -27,6 +27,16 @@ SmallChatCapability class >> isAbstract [
 ]
 
 { #category : 'metadata' }
+SmallChatCapability class >> isLmFacing [
+	"True when this capability should appear in the LM tool catalog.
+	 Default true. Override to false on transport-facing-only capabilities
+	 (e.g. workspace mounting/listing) -- the in-image agent is bound to one
+	 workspace at session creation and cannot switch, so those tools are
+	 dead weight for the LM but legitimate for MCP."
+	^ true
+]
+
+{ #category : 'metadata' }
 SmallChatCapability class >> isTestFixture [
 	"Override to true on test-only subclasses so transports can filter them
 	 out of agent-facing surfaces (tools/list, LM tool catalog). Production

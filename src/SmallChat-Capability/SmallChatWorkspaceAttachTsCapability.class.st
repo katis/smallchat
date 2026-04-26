@@ -18,6 +18,14 @@ SmallChatWorkspaceAttachTsCapability class >> errorResult: aString [
 	^ SmallChatCapabilityResult error: aString
 ]
 
+{ #category : 'metadata' }
+SmallChatWorkspaceAttachTsCapability class >> isLmFacing [
+	"Workspace mount/list/detach are transport-facing only -- the in-image
+	 agent cannot change its bound workspace mid-session, so exposing these
+	 to the LM only invites confused calls. MCP still sees them."
+	^ false
+]
+
 { #category : 'execution' }
 SmallChatWorkspaceAttachTsCapability class >> run: aCapabilityCall [
 	"Validate args, canonicalise path, refuse relative; idempotent on path;

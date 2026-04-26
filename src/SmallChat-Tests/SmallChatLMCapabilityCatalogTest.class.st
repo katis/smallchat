@@ -8,23 +8,27 @@ Class {
 { #category : 'tests' }
 SmallChatLMCapabilityCatalogTest >> testToolSchemasFilteredByWorkspaceKind [
 	"A catalog parameterised with a TS workspace must only include capabilities
-	 whose supportedWorkspaces lists #ts. eval.smalltalk works against the live
-	 image regardless of the bound workspace -- the agent uses it to drive
-	 SmallChatNav (Pharo) or SmallChatTsNav (TS). debug.* and vcs.status remain
-	 Pharo-only."
+	 whose supportedWorkspaces lists #ts AND whose isLmFacing returns true.
+	 The session is bound to one workspace at construction, so workspace.* tools
+	 (list/attach-ts/detach) are dead weight in the LM catalog -- they are
+	 transport-facing only (MCP) and filtered out for both Pharo and TS chats."
 	| tsCatalog pharoCatalog tsNames pharoNames |
 	tsCatalog := SmallChatLMCapabilityCatalog forWorkspace: SmallChatTsWorkspace new.
 	pharoCatalog := SmallChatLMCapabilityCatalog forWorkspace: SmallChatPharoWorkspace default.
 	tsNames := (tsCatalog toolSchemas collect: [ :s | (s at: 'function') at: 'name' ]) asArray.
 	pharoNames := (pharoCatalog toolSchemas collect: [ :s | (s at: 'function') at: 'name' ]) asArray.
-	self assert: (tsNames includes: 'workspace.list').
 	self assert: (tsNames includes: 'eval.smalltalk').
 	self deny: (tsNames includes: 'debug.sessions').
 	self deny: (tsNames includes: 'vcs.status').
+	self deny: (tsNames includes: 'workspace.list').
+	self deny: (tsNames includes: 'workspace.attach-ts').
+	self deny: (tsNames includes: 'workspace.detach').
 	self assert: (pharoNames includes: 'eval.smalltalk').
 	self assert: (pharoNames includes: 'debug.sessions').
 	self assert: (pharoNames includes: 'vcs.status').
-	self assert: (pharoNames includes: 'workspace.list')
+	self deny: (pharoNames includes: 'workspace.list').
+	self deny: (pharoNames includes: 'workspace.attach-ts').
+	self deny: (pharoNames includes: 'workspace.detach')
 ]
 
 { #category : 'tests' }
